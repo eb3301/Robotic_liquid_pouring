@@ -1,0 +1,6 @@
+bool estimate_volume        # true => stima anche il volume
+---
+float32[3] centroid         # [X,Y,Z] in metri
+float32 volume              # ml o unità del tuo modello; 0.0 se non richiesto
+bool success
+string message

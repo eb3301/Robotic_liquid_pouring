@@ -5,3 +5,11 @@ LiquidGenesis/vol_est/plots/
 LiquidGenesis/Video/
 LiquidGenesis/cont_pos/data/
 LiquidGenesis/urdf/urdf_files_dataset/
+old/
+ws_thesis/build
+ws_thesis/log
+ws_thesis/install
+*.pth
+*.torch
+*.mp4
+*.ply

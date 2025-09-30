@@ -1,0 +1,12 @@
+float64[3] pos_init_cont
+float64[7] pos_init_ee
+float64[3] pos_cont_goal
+float64[3] offset
+float64 theta_f
+int64 num_wp
+float64 init_vol
+float64 target_vol
+
+---
+float64[] time
+float64[] best_path
