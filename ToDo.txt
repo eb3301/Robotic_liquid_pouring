@@ -1,0 +1,39 @@
+ToDo:
+
+# VISION
+-fine tuning se non funziona --> aggiunta volume contenitore
+
+# SIMULAZIONE
+- testare se logica tilting funziona (bisogno GPU)
+- definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
+- tuning rewards e penalties (durante test)
+
+# INTEGRAZIONE
+- crea ws in genesis env per path planner srv e testa sim_plan (altrimenti funzioni gs non funzionano)
+- testare singoli componenti bt (mancano solo quelli di ur e gripper)
+- testare singole parti bt
+- quando tutto ok crea launch file
+
+testare ros2 con VM
+muovere file su vm e far partire training
+
+
+######################
+FILE MODIFICATI:
+scene
+rigid solver decomp
+constraint solver decomp
+rigid entity
+rigid equality
+path planner
+
+########################## ROS2 run
+VISION:
+source ros2_venv/bin/activate
+python -m vision_service.vis_service
+PLANNER:
+attiva venv su vm e poi
+python -m sim_plan.path_planner_service
+# altri servizi:
+ros2 run nome_pacchetto nome_nodo
+
