@@ -1,0 +1,124 @@
+import depthai as dai
+import cv2
+import numpy as np
+import open3d as o3d
+import matplotlib.pyplot as plt
+
+# STEP 1 – Configura DepthAI (OAK-D Pro) per RGB + Depth
+# Crea la pipeline DepthAI
+pipeline = dai.Pipeline()
+
+# Configura la camera RGB
+cam_rgb = pipeline.create(dai.node.ColorCamera)
+px=1280
+py=800
+cam_rgb.setPreviewSize(px,py)
+cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+cam_rgb.setInterleaved(False)
+
+# Configura le camere monocromatiche per la profondità
+mono_left = pipeline.create(dai.node.MonoCamera)
+mono_right = pipeline.create(dai.node.MonoCamera)
+mono_left.setBoardSocket(dai.CameraBoardSocket.CAM_B)
+mono_right.setBoardSocket(dai.CameraBoardSocket.CAM_C)
+mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
+mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_800_P)
+
+# Crea il nodo StereoDepth per la stima della profondità
+stereo = pipeline.create(dai.node.StereoDepth)
+stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+stereo.setLeftRightCheck(True)
+#stereo.setExtendedDisparity(True)
+stereo.setSubpixel(True)
+mono_left.out.link(stereo.left)
+mono_right.out.link(stereo.right)
+
+
+# Crea gli output per RGB e Depth
+xout_rgb = pipeline.create(dai.node.XLinkOut)
+xout_depth = pipeline.create(dai.node.XLinkOut)
+xout_rgb.setStreamName("rgb")
+xout_depth.setStreamName("depth")
+cam_rgb.preview.link(xout_rgb.input)
+stereo.depth.link(xout_depth.input)
+
+# STEP 2 – Acquisisci una singola immagine RGB + Depth
+with dai.Device(pipeline) as device:
+    rgb_q = device.getOutputQueue("rgb", 1, False)
+    depth_q = device.getOutputQueue("depth", 1, False)
+    print("📷 Acquisizione dati...")
+    rgb = rgb_q.get().getCvFrame()  # Immagine RGB
+    depth = depth_q.get().getFrame()  # Mappa di profondità
+
+# STEP 3 – Crea la point cloud con Open3D
+# Converte le immagini in formato Open3D
+rgb_o3d = o3d.geometry.Image(cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB))
+depth_o3d = o3d.geometry.Image(depth)
+
+# Parametri intrinseci della camera OAK-D Pro (modificare se necessario)
+fx, fy = 457.91, 457.91
+cx, cy = 320, 240
+intrinsics = o3d.camera.PinholeCameraIntrinsic(px, py, fx, fy, cx, cy)
+
+cv2.imshow("Depth", depth)
+cv2.waitKey(0)
+
+
+# Crea l'immagine RGBD per la point cloud
+rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
+    rgb_o3d, depth_o3d,
+    depth_scale=1000.0,  # Scala della profondità (da mm a m)
+    depth_trunc=2.0,     # Troncamento a 2 metri
+    convert_rgb_to_intensity=False
+)
+
+# Genera la point cloud dalla RGBD image
+pcd = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, intrinsics)
+
+# STEP 4 – Rimuovi punti oltre 1 metro
+# Filtra i punti che si trovano a meno di 1 metro dalla camera
+points = np.asarray(pcd.points)
+close_indices = np.where(points[:, 2] < 1.0)[0]
+pcd = pcd.select_by_index(close_indices)
+print(f"✅ Punti entro 1 metro: {len(pcd.points)}")
+
+# STEP 5 – Segmenta il piano (es. tavolo)
+# Segmenta il piano principale (ad esempio il tavolo) usando RANSAC
+plane_model, inliers = pcd.segment_plane(distance_threshold=0.01, ransac_n=3, num_iterations=1000)
+# Seleziona i punti che NON appartengono al piano (gli oggetti sopra il tavolo)
+objects = pcd.select_by_index(inliers, invert=True)
+
+# STEP 6 – Clustering: separa i becher
+# Applica DBSCAN per separare i diversi oggetti (becher)
+labels = np.array(objects.cluster_dbscan(eps=0.02, min_points=30, print_progress=False))
+if labels.size == 0:    
+    print("❌ Nessun oggetto rilevato nella point cloud.")
+    exit()
+max_label = labels.max()
+# Assegna un colore diverso a ciascun cluster
+colors = plt.get_cmap("tab20")(labels / (max_label + 1 if max_label > 0 else 1))
+colors[labels < 0] = 0  # Colore nero per i punti non assegnati
+objects.colors = o3d.utility.Vector3dVector(colors[:, :3])
+
+# STEP 7 – Coordinate dei becher e stima livello liquido
+print(f"\n🧪 Becher rilevati: {max_label + 1}\n")
+for i in range(max_label + 1):
+    # Seleziona il cluster corrente (becher)
+    cluster = objects.select_by_index(np.where(labels == i)[0])
+    bbox = cluster.get_axis_aligned_bounding_box()
+    center = bbox.get_center()
+    print(f"🔹 Becher {i}: centro 3D = {np.round(center, 3)} m")
+
+    # Stima il livello del liquido: considera i punti più in alto nel becher
+    z_vals = np.asarray(cluster.points)[:, 2]
+    liquid_top = cluster.select_by_index(np.where(z_vals > z_vals.min() + 0.02)[0])
+
+    if len(liquid_top.points) > 0:
+        liquid_level = np.mean(np.asarray(liquid_top.points)[:, 2])
+        print(f"   Livello stimato del liquido (Z): {liquid_level:.3f} m")
+    else:
+        print("   ❌ Livello liquido non visibile")
+
+# STEP 8 – Visualizzazione
+# Visualizza i becher segmentati con Open3D
+o3d.visualization.draw_geometries([objects], window_name="📦 Becher Segmentati")
