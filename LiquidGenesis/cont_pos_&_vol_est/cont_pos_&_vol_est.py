@@ -410,10 +410,10 @@ def main():
     # Variabili
     salva=True
     show=False
-    idx="50"
+    idx="51"
     path="/home/edo/thesis/LiquidGenesis/cont_pos/data/"+idx
-    vol=80
-    vol_ves=100
+    vol=0
+    vol_ves=0
     DIR = "/home/edo/thesis/LiquidGenesis/vol_est"
     MODEL_PATH = DIR + "/checkpoints/best_model_ResNet_1.pth"
     ########################### Cont pos #######################################

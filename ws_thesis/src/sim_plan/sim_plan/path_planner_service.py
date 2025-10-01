@@ -203,7 +203,6 @@ class PathPlannerService(Node):
 
         n_points = len(best_path)
         time = np.linspace(0, (n_points - 1) * dt, n_points)
-        best_path = best_path.tolist()
 
         try:
             with open("/tmp/best_path.yaml", "w") as f:
@@ -219,6 +218,7 @@ class PathPlannerService(Node):
             response.success = False
             return response
 
+        best_path = best_path.tolist()
         response.best_path = best_path
         response.time = time
         return response
