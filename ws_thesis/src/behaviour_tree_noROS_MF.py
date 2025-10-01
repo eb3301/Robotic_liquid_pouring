@@ -179,6 +179,8 @@ class MoveToPose1(RosLeaf):
             pose_msg.orientation.w,
         ]
 
+
+# Cambia con lib prof
 from rclpy.action import ActionClient
 from moveit_msgs.action import MoveGroup
 from moveit_msgs.msg import Constraints, PositionConstraint, OrientationConstraint
@@ -399,11 +401,12 @@ class CallVisionService(RosLeaf):
 
             # Salva nel blackboard
             self.bb.set(self.out_centroid_key, list(resp.centroid))
-
+            self.node.get_logger().info(self.out_centroid_key)
             if self.estimate_volume:
                 self.bb.set(self.out_pos_key, list(resp.centroid))  # qui ipotizziamo centroid ≈ pos_init_cont
                 self.bb.set(self.out_vol_key, resp.volume)
 
+            self.node.get_logger().info(f"Risposta ricevuta {resp.centroid}")
             return py_trees.common.Status.SUCCESS
 
         except Exception as e:
@@ -830,10 +833,11 @@ def create_tree(node: Node):
     #     execp,
     #     ])
     
-    vision_test = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
+   
     test = py_trees.composites.Sequence("FullCycle", memory=False)
     test.add_children([
-        vision_test
+        params,
+        send,
         ])
     return test
 
@@ -844,7 +848,7 @@ def main():
     # Tick ~10 Hz (a piacere)
     try:
         while rclpy.ok():
-            rclpy.spin_once(node, timeout_sec=0.01)
+            rclpy.spin_once(node, timeout_sec=None)
             tree.tick()
     finally:
         node.destroy_node()

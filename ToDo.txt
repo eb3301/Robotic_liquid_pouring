@@ -10,7 +10,8 @@ ToDo:
 - tuning rewards e penalties (durante test)
 
 # INTEGRAZIONE
-- crea ws in genesis env per path planner srv e testa sim_plan (altrimenti funzioni gs non funzionano)
+- testa sim_plan su vm
+- aggiungere tf a vision srv (moveit calibration toolbox o qualcosa del genere)
 - testare singoli componenti bt (mancano solo quelli di ur e gripper)
 - testare singole parti bt
 - quando tutto ok crea launch file
@@ -19,6 +20,7 @@ testare ros2 con VM
 muovere file su vm e far partire training
 
 test con reward fittizio (pos CoR risp a pt fix)
+
 ######################
 FILE MODIFICATI:
 scene

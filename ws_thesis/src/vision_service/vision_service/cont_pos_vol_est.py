@@ -178,11 +178,10 @@ def filter_and_scale_points(frame, color, Prd, threshold=0.95):
     frame.resize(h*w,3)
     color.resize(h*w,3)
 
+    
     if points.size == 0:
-        cv2.imshow("mask", mask)
-        cv2.waitKey(0)  
-        cv2.destroyAllWindows()
-        raise RuntimeError("La point cloud filtrata è vuota")
+        points = np.array([[0.0, 0.0, 0.0]])
+        colors = np.array([[0, 0, 0]])
 
     return points, colors
 

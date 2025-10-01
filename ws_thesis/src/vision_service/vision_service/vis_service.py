@@ -17,7 +17,7 @@ from vision_service.cont_pos_vol_est import (
 class PerceptionService(Node):
     def __init__(self):
         super().__init__('perception_service')
-
+        self.get_logger().info("Vision service starting")
         # Parametri per percorsi modello (override da CLI/params se vuoi)
         self.declare_parameter('vol_model_path', '/home/edo/thesis/LiquidGenesis/vol_est/checkpoints/best_model_ResNet_1.pth')
         self.declare_parameter('target_size_h', 256)
@@ -38,13 +38,18 @@ class PerceptionService(Node):
         try:
             # Cattura img
             rgb_frame, ptcd_points, ptcd_colors = oak_capture()
-
+            print("Acquisizione Completata")
             # Segmentazione (classe 'Vessel' per isolare il contenitore)
             prd = CNN_predict(rgb_frame, target_class='Vessel')
 
             # Point cloud filtrata + centroide
             filt_pts, _ = filter_and_scale_points(ptcd_points, ptcd_colors, prd)
-            centroid = np.mean(filt_pts, axis=0).astype(float)
+            #print(f"punti filt:{filt_pts}")
+            if filt_pts is None or len(filt_pts) == 0:
+                centroid=np.array([0.0,0.0,0.0])
+            else:
+                centroid = np.mean(filt_pts, axis=0).astype(float)
+            #print(f"centroid {centroid}")
             response.centroid = [centroid[0], centroid[1], centroid[2]]
 
             # Volume (opzionale)
