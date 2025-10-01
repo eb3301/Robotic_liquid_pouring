@@ -701,12 +701,12 @@ def create_tree(node: Node):
 
     off     = ComputeOffset(node, "pos_init_ee", "pos_init_cont")
     grip    = Retry(Timeout(CloseGripper(node), 5.0), 2) # CloseGripper o CloseGripper1
-    params  = SetPlanParams(node, theta_f=0.6, num_wp=50, target_vol=100.0)
     par_util = py_trees.composites.Parallel(
         "UtilitiesParallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll()
     )
-    par_util.add_children([off, grip, params])
+    par_util.add_children([off, grip])
+    params  = SetPlanParams(node, theta_f=0.6, num_wp=50, target_vol=100.0)
 
     plan    = Retry(Timeout(CallPlannerSrv(node), 10.0), 2)
     execp   = Retry(Timeout(ExecutePathPublisher(node), 60.0), 1) # ExecutePathPublisher o ExecutePathAction
@@ -717,7 +717,7 @@ def create_tree(node: Node):
         move_t1, wait_t1, vision_1,
         move_t2, wait_t2, vision_2, 
         move_c, wait_c, 
-        par_util,
+        par_util, params,
         plan, execp,
         reward, update
         ])

@@ -4,6 +4,7 @@ ToDo:
 -fine tuning se non funziona --> aggiunta volume contenitore
 
 # SIMULAZIONE
+- aggiungere correzione anti-sloshing
 - testare se logica tilting funziona (bisogno GPU)
 - definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
 - tuning rewards e penalties (durante test)
@@ -17,7 +18,7 @@ ToDo:
 testare ros2 con VM
 muovere file su vm e far partire training
 
-
+test con reward fittizio (pos CoR risp a pt fix)
 ######################
 FILE MODIFICATI:
 scene
@@ -36,4 +37,32 @@ attiva venv su vm e poi
 python -m sim_plan.path_planner_service
 # altri servizi:
 ros2 run nome_pacchetto nome_nodo
+
+
+3 pagine intro ()
+thesis structure
+stato arte 10-15 pag (planning + ML )
+Modellazione
+- Liquid modelling (diversi tipi di modello - perchè sim + spiegare sph pressure solver)
+- Modellazione fisica robot (per poter manipolare liq: dinamica robot + liquido) --> tabella sim fisici (liquidi - deformable - rigid (sì-no)) --> giustifica scelta
+Planning/Reinf. learning
+planning approach (RRT + robusta incertezza)
+RL approach
+Sim2Real
+Vision (ML per vision)
+
+Preliminaries/ background:
+ML per vision (NN e CNN)
+Planning alg. (RRT + chanche constr.)
+
+Methodologies:
+planning+sim2real (action) --> astrarre ad uso generale plan con incertezza
+perception
+
+Experiments
+Simulazione e realtà
+
+Conclusions:
+
+
 
