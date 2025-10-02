@@ -70,8 +70,8 @@ class PathPlannerService(Node):
         N = 20                    # Numero di modelli simulati (iniziale)
         M = 5                     # Numero di traiettorie
         delta = 0.7            # Threshold di successo
-        view=True
-        liq=True
+        view=False
+        liq=False
         record=False
         debug=False
 
@@ -131,6 +131,8 @@ class PathPlannerService(Node):
             "num_wp": ("rel", 0.5, 0.5),    # ±50%
         }
         parameters_range=self._make_parameters_range(req_parameters,tolerances)
+
+        init_sim()
 
         parameters_set=[]
         for _ in range(N):

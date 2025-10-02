@@ -193,7 +193,7 @@ def init_sim():
 
 def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
     ########################## create a scene ##########################
-    DIR="/home/edo/thesis"
+    DIR="/home/barutta/Robotic_liquid_pouring"
     dt=1e-2
     global scene
     scene = gs.Scene(
@@ -339,7 +339,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 decimate=False,
                 convexify=False,
                 decompose_object_error_threshold=float("inf"),
-                decompose_nonconvex=False,
+                #decompose_nonconvex=False,
                 # contype=0b011,
                 # conaffinity=0b011,
                 coacd_options=gs.options.CoacdOptions(),
@@ -1458,7 +1458,7 @@ def main():
     delta = 0.7*M             # Threshold di successo 
     MAX_ITERS = 1#10            # Numero massimo di iterazioni
     view=True
-    liq=True
+    liq=False
     record=False
     debug=False
 
