@@ -14,6 +14,7 @@ from control_msgs.action import FollowJointTrajectory
 from control_msgs.action import GripperCommand
 from std_msgs.msg import Float32
 from builtin_interfaces.msg import Duration
+#from drims2_motion_server.motion_client import MotionClient
 import yaml
 import os
 import paramiko
@@ -63,7 +64,7 @@ class RosLeaf(py_trees.behaviour.Behaviour):
         self.bb = Blackboard()
 
 # ---------- Movimento ----------
-class MoveToPose1(RosLeaf):
+class MoveToPose(RosLeaf):
     def __init__(self, node, pose_list=None, pose_from_bb=None, name="MoveToPose"):
         """
         :param pose_list: lista [x, y, z, qx, qy, qz, qw]
@@ -85,9 +86,11 @@ class MoveToPose1(RosLeaf):
             10,
         )
 
-        # Inizializza MoveIt
+        # Inizializza MoveIt Client
+        #motion_client = MotionClient()
         self.moveit = MoveItPy(node_name="moveit")
         self.planner = self.moveit.get_planning_component("ur_manipulator") 
+        self.node.get_logger().info("Move to pose started")
 
     def _joint_state_cb(self, msg: JointState):
         self._last_joint_state = msg
@@ -190,7 +193,7 @@ import numpy as np
 import py_trees
 from sensor_msgs.msg import JointState
 
-class MoveToPose(RosLeaf):
+class MoveToPose1(RosLeaf):
     def __init__(self, node, pose_list=None, pose_from_bb=None, name="MoveToPose1"):
         """
         :param pose_list: lista [x, y, z, qx, qy, qz, qw]
@@ -513,12 +516,22 @@ class SetPlanParams(RosLeaf):
     def __init__(self, node, theta_f, num_wp, target_vol, name="SetPlanParams"):
         super().__init__(name, node)
         self.theta_f = theta_f; self.num_wp = num_wp; self.target_vol = target_vol
-        self.node.get_logger().info("Banana")
     def update(self):
         self.bb.set("theta_f", self.theta_f)
         self.bb.set("num_wp", self.num_wp)
         self.bb.set("target_vol", self.target_vol)
-        self.node.get_logger().info("Banana")
+
+        # Debug purposes:
+        self.bb.set("pos_init_cont", [0.0, 0.0, 0.0]),
+        self.bb.set("pos_init_ee",[0.0]*7),
+        self.bb.set("pos_cont_goal", [0.0, 0.0, 0.0]),
+        self.bb.set("offset", [0.0, 0.0, 0.0]),
+        self.bb.set("init_vol", 0.0),
+        self.bb.set("densità", 998.0),
+        self.bb.set("viscosità", 0.001),
+        self.bb.set( "tens_sup", 0.072),
+        self.bb.set("err_target", 5e-6),
+                
         try:
             init_parameters = {
                 "pos_init_cont": list(self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]),
@@ -534,9 +547,7 @@ class SetPlanParams(RosLeaf):
                 "theta_f": float(self.bb.get("theta_f") or 90.0),
                 "num_wp": int(self.bb.get("num_wp") or 1000),
             }
-            self.node.get_logger().info("Banana")
             self.bb.set("init_parameters", init_parameters)
-            self.node.get_logger().info("Banana")
             with open("/tmp/init_parameters.yaml", "w") as f:
                 yaml.safe_dump({"parameters": init_parameters}, f, sort_keys=False)
             self.node.get_logger().info("File initial parameters creates")
@@ -544,6 +555,7 @@ class SetPlanParams(RosLeaf):
         except Exception as e:
             self.node.get_logger().error(f"File creation failed: {str(e)}")
             return py_trees.common.Status.FAILURE
+        
 class SendYamlToVM(RosLeaf):
     def __init__(self, node, name="SendYamlToVM"):
         super().__init__(name, node)
@@ -552,9 +564,9 @@ class SendYamlToVM(RosLeaf):
         local_path = "/tmp/init_parameters.yaml"
         remote_path = "/tmp/init_parameters.yaml"
 
-        host = "100.93.166.22"
-        user = "barutta"
-        key_file = "/home/edo/.ssh/id_rsa"
+        host = "100.110.226.44"
+        user = "edo"
+        key_file = "/home/edo/.ssh/id_barutta"
 
         # Controllo chiave
         if not os.path.exists(key_file):
@@ -584,9 +596,11 @@ class WaitForBestPath(RosLeaf):
         self.file_path = file_path
         self.check_interval = check_interval
         self._last_check = None
+        
 
     def initialise(self):
         self._last_check = time.time()
+        self.node.get_logger().info(f"Waiting for path file")
 
     def update(self):
         now = time.time()
@@ -601,18 +615,19 @@ class WaitForBestPath(RosLeaf):
                     time_arr = data.get("time")
                     path = data.get("best_path")
                     if time_arr is None or path is None:
-                        self.feedback_message = "File trovato ma campi mancanti"
+                        self.node.get_logger().info("File trovato ma campi mancanti")
                         return py_trees.common.Status.FAILURE
                     # scrive su blackboard
                     self.bb.set("time", list(time_arr))
                     self.bb.set("best_path", [list(p) for p in path])
                     return py_trees.common.Status.SUCCESS
                 except Exception as e:
-                    self.feedback_message = f"Errore parsing yaml: {str(e)}"
+                    self.node.get_logger().info(f"Errore parsing yaml: {str(e)}")
                     return py_trees.common.Status.FAILURE
 
         return py_trees.common.Status.RUNNING
 
+# To be tested
 class ExecutePathPublisher(RosLeaf):
     def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0):
         super().__init__(name, node)
@@ -806,7 +821,7 @@ def create_tree(node: Node):
         "target_2": [0.5, -0.2, 0.35, 0, 0, 0, 1],
     }
 
-    # move_t1 = Retry(Timeout(MoveToPose(node, pose_list=poses["target_1"]), 30.0), 2)
+    move_t1 = MoveToPose(node, pose_list=poses["target_1"])
     # wait_t1 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
     # vision_1 = Retry(Timeout(CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal"), 15.0), 2)
 
@@ -826,8 +841,8 @@ def create_tree(node: Node):
     # par_util.add_children([off, grip])
     params  = SetPlanParams(node, theta_f=0.6, num_wp=50, target_vol=100.0)
 
-    send = Retry(SendYamlToVM(node),2)
-    # wait_path = Retry(Timeout(WaitForBestPath(node), 300.0), 1)
+    send = SendYamlToVM(node)
+    wait_path = WaitForBestPath(node)
     # execp   = Retry(Timeout(ExecutePathPublisher(node), 60.0), 1) # ExecutePathPublisher o ExecutePathAction
    
     # seq = py_trees.composites.Sequence("FullCycle",memory=False)
@@ -842,10 +857,9 @@ def create_tree(node: Node):
     #     ])
     
    
-    test = py_trees.composites.Sequence("FullCycle", memory=False)
+    test = py_trees.composites.Sequence("FullCycle", memory=True)
     test.add_children([
-        params,
-        send,
+            move_t1
         ])
     return test
 
@@ -856,7 +870,7 @@ def main():
     # Tick ~10 Hz (a piacere)
     try:
         while rclpy.ok():
-            rclpy.spin_once(node, timeout_sec=None)
+            rclpy.spin_once(node, timeout_sec=0.01)
             tree.tick()
     finally:
         node.destroy_node()

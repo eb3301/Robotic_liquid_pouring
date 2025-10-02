@@ -21,6 +21,7 @@ setup(
     entry_points={
         'console_scripts': [
             'path_planner_service = sim_plan.path_planner_service:main',
+            'path_planner_client = sim_plan.path_planner_client:main',
         ],
     },
 )
