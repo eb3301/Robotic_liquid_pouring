@@ -513,30 +513,37 @@ class SetPlanParams(RosLeaf):
     def __init__(self, node, theta_f, num_wp, target_vol, name="SetPlanParams"):
         super().__init__(name, node)
         self.theta_f = theta_f; self.num_wp = num_wp; self.target_vol = target_vol
+        self.node.get_logger().info("Banana")
     def update(self):
         self.bb.set("theta_f", self.theta_f)
         self.bb.set("num_wp", self.num_wp)
         self.bb.set("target_vol", self.target_vol)
-
-        init_parameters = {
-            "pos_init_cont": list(self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]),
-            "pos_init_ee": list(self.bb.get("pos_init_ee") or [0.0]*7),
-            "pos_cont_goal": list(self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]),
-            "offset": list(self.bb.get("offset") or [0.0, 0.0, 0.0]),
-            "vol_init": float(self.bb.get("init_vol") or 0.0),
-            "densità": 998.0,
-            "viscosità": 0.001,
-            "tens_sup": 0.072,
-            "vol_target": float(self.bb.get("target_vol") or 0.0), #0.75e-5,
-            "err_target": 5e-6,
-            "theta_f": float(self.bb.get("theta_f") or 90.0),
-            "num_wp": int(self.bb.get("num_wp") or 1000),
-        }
-        self.bb.set("init_parameters", init_parameters)
-        with open("/tmp/init_parameters.yaml", "w") as f:
-            yaml.safe_dump({"parameters": init_parameters}, f, sort_keys=False)
-        return py_trees.common.Status.SUCCESS
-
+        self.node.get_logger().info("Banana")
+        try:
+            init_parameters = {
+                "pos_init_cont": list(self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]),
+                "pos_init_ee": list(self.bb.get("pos_init_ee") or [0.0]*7),
+                "pos_cont_goal": list(self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]),
+                "offset": list(self.bb.get("offset") or [0.0, 0.0, 0.0]),
+                "vol_init": float(self.bb.get("init_vol") or 0.0),
+                "densità": 998.0,
+                "viscosità": 0.001,
+                "tens_sup": 0.072,
+                "vol_target": float(self.bb.get("target_vol") or 0.0), #0.75e-5,
+                "err_target": 5e-6,
+                "theta_f": float(self.bb.get("theta_f") or 90.0),
+                "num_wp": int(self.bb.get("num_wp") or 1000),
+            }
+            self.node.get_logger().info("Banana")
+            self.bb.set("init_parameters", init_parameters)
+            self.node.get_logger().info("Banana")
+            with open("/tmp/init_parameters.yaml", "w") as f:
+                yaml.safe_dump({"parameters": init_parameters}, f, sort_keys=False)
+            self.node.get_logger().info("File initial parameters creates")
+            return py_trees.common.Status.SUCCESS
+        except Exception as e:
+            self.node.get_logger().error(f"File creation failed: {str(e)}")
+            return py_trees.common.Status.FAILURE
 class SendYamlToVM(RosLeaf):
     def __init__(self, node, name="SendYamlToVM"):
         super().__init__(name, node)
@@ -564,10 +571,11 @@ class SendYamlToVM(RosLeaf):
             sftp.close()
             client.close()
 
+            self.node.get_logger().info("File inviato con successo")
             return py_trees.common.Status.SUCCESS
 
         except Exception as e:
-            self.logger.error(f"File transfer failed: {str(e)}")
+            self.node.get_logger().error(f"File transfer failed: {str(e)}")
             return py_trees.common.Status.FAILURE
 
 class WaitForBestPath(RosLeaf):
@@ -798,29 +806,29 @@ def create_tree(node: Node):
         "target_2": [0.5, -0.2, 0.35, 0, 0, 0, 1],
     }
 
-    move_t1 = Retry(Timeout(MoveToPose(node, pose_list=poses["target_1"]), 30.0), 2)
-    wait_t1 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
-    vision_1 = Retry(Timeout(CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal"), 15.0), 2)
+    # move_t1 = Retry(Timeout(MoveToPose(node, pose_list=poses["target_1"]), 30.0), 2)
+    # wait_t1 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
+    # vision_1 = Retry(Timeout(CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal"), 15.0), 2)
 
-    move_t2 = Retry(Timeout(MoveToPose(node, pose_list=poses["target_2"]), 40.0), 2)
-    wait_t2 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
-    vision_2 = Retry(Timeout(CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol"), 20.0), 2)
+    # move_t2 = Retry(Timeout(MoveToPose(node, pose_list=poses["target_2"]), 40.0), 2)
+    # wait_t2 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
+    # vision_2 = Retry(Timeout(CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol"), 20.0), 2)
 
-    move_c  = Retry(Timeout(MoveToPose(node, pose_from_bb="pos_init_cont"), 40.0), 2)
-    wait_c = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
+    # move_c  = Retry(Timeout(MoveToPose(node, pose_from_bb="pos_init_cont"), 40.0), 2)
+    # wait_c = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
 
-    off     = ComputeOffset(node, "pos_init_ee", "pos_init_cont")
-    grip    = Retry(Timeout(CloseGripper(node), 5.0), 2) # CloseGripper o CloseGripper1
-    par_util = py_trees.composites.Parallel(
-        "UtilitiesParallel",
-        policy=py_trees.common.ParallelPolicy.SuccessOnAll()
-    )
-    par_util.add_children([off, grip])
+    # off     = ComputeOffset(node, "pos_init_ee", "pos_init_cont")
+    # grip    = Retry(Timeout(CloseGripper(node), 5.0), 2) # CloseGripper o CloseGripper1
+    # par_util = py_trees.composites.Parallel(
+    #     "UtilitiesParallel",
+    #     policy=py_trees.common.ParallelPolicy.SuccessOnAll()
+    # )
+    # par_util.add_children([off, grip])
     params  = SetPlanParams(node, theta_f=0.6, num_wp=50, target_vol=100.0)
 
     send = Retry(SendYamlToVM(node),2)
-    wait_path = Retry(Timeout(WaitForBestPath(node), 300.0), 1)
-    execp   = Retry(Timeout(ExecutePathPublisher(node), 60.0), 1) # ExecutePathPublisher o ExecutePathAction
+    # wait_path = Retry(Timeout(WaitForBestPath(node), 300.0), 1)
+    # execp   = Retry(Timeout(ExecutePathPublisher(node), 60.0), 1) # ExecutePathPublisher o ExecutePathAction
    
     # seq = py_trees.composites.Sequence("FullCycle",memory=False)
     # seq.add_children([
