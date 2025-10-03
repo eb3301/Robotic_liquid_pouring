@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'belief_updater_service = belief_updater.belief_updater_service:main',
+            'belief_updater_client = belief_updater.belief_updater_client:main',
         ],
     },
 )

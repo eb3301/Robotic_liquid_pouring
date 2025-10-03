@@ -35,6 +35,7 @@ python -m vision_service.vis_service
 PLANNER:
 attiva venv su vm e poi
 python -m sim_plan.path_planner_service
+ros2 run sim_plan path_planner_client
 # altri servizi:
 ros2 run nome_pacchetto nome_nodo
 
