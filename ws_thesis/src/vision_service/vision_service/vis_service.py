@@ -1,9 +1,13 @@
 #!/home/edo/ros2_venv/bin/python
 
 import rclpy
+import rclpy.time
 from rclpy.node import Node
 import numpy as np
 import torch
+from tf2_ros import Buffer, TransformListener
+import tf2_geometry_msgs
+from geometry_msgs.msg import PointStamped, Point
 from interfaces.srv import Perception
 from vision_service.cont_pos_vol_est import (
     oak_capture,
@@ -31,6 +35,9 @@ class PerceptionService(Node):
         self.model.load_state_dict(ckpt['model_state_dict'])
         self.model.eval()
 
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self, spin_thread = True)
+
         self.srv = self.create_service(Perception, 'estimate_perception', self.callback)
         self.get_logger().info("Vision service ready")
 
@@ -50,7 +57,40 @@ class PerceptionService(Node):
             else:
                 centroid = np.mean(filt_pts, axis=0).astype(float)
             #print(f"centroid {centroid}")
-            response.centroid = [centroid[0], centroid[1], centroid[2]]
+
+
+            point_msg = PointStamped()
+            point_msg.header.stamp = self.get_clock().now().to_msg()   # timestamp
+            point_msg.header.frame_id = "camera_frame"                 # frame di riferimento
+
+            point_msg.point = Point(x=float(centroid[0]),
+                                    y=float(centroid[1]),
+                                    z=float(centroid[2]))
+
+            # Trasformazione da camera_frame a world:
+            to_frame_rel = 'world'
+            from_frame_rel = 'camera_frame'
+            time=rclpy.time.Time() 
+            # Wait for the transform asynchronously
+            tf_future = self.buffer.wait_for_transform_async(
+            target_frame=to_frame_rel,
+            source_frame=from_frame_rel,
+            time=time
+            )
+            rclpy.spin_until_future_complete(self, tf_future, timeout_sec=1)
+
+            # Lookup tansform
+            try:
+                t = self.buffer.lookup_transform(to_frame_rel,
+                                                from_frame_rel,
+                                                time)
+                # Do the transform
+                transformed_point_msg = tf2_geometry_msgs.do_transform_point(point_msg, t)
+            except Exception as e:
+                self.get_logger().info(f"No transform found: {str(e)}")
+                return
+
+            response.centroid = [transformed_point_msg.point.x, transformed_point_msg.point.y, transformed_point_msg.point.z]
 
             # Volume (opzionale)
             volume = 0.0

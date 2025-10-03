@@ -4,20 +4,18 @@ ToDo:
 -fine tuning se non funziona --> aggiunta volume contenitore
 
 # SIMULAZIONE
-- aggiungere correzione anti-sloshing
+- (P) aggiungere correzione anti-sloshing
 - testare se logica tilting funziona (bisogno GPU)
 - definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
 - tuning rewards e penalties (durante test)
 
 # INTEGRAZIONE
-- testa sim_plan su vm
-- aggiungere tf a vision srv (moveit calibration toolbox o qualcosa del genere)
+- testa sim_plan su vm (serve motion control)
+- (P) creare tf da camera frame a tool0 (moveit calibration toolbox o qualcosa del genere)
 - testare singoli componenti bt (mancano solo quelli di ur e gripper)
 - testare singole parti bt
 - quando tutto ok crea launch file
 
-testare ros2 con VM
-test con reward fittizio (pos CoR risp a pt fix)
 
 ######################
 FILE MODIFICATI:
