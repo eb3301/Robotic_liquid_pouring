@@ -125,7 +125,7 @@
     <visual>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/visual/base.dae"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/visual/base.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
@@ -134,7 +134,7 @@
     <collision>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/collision/base.stl"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/collision/base.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -147,7 +147,7 @@
     <visual>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/visual/shoulder.dae"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/visual/shoulder.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
@@ -156,7 +156,7 @@
     <collision>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/collision/shoulder.stl"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/collision/shoulder.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -169,7 +169,7 @@
     <visual>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.138"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/visual/upperarm.dae"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/visual/upperarm.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
@@ -178,7 +178,7 @@
     <collision>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.138"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/collision/upperarm.stl"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/collision/upperarm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -191,7 +191,7 @@
     <visual>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.007"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/visual/forearm.dae"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/visual/forearm.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
@@ -200,7 +200,7 @@
     <collision>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.007"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/collision/forearm.stl"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/collision/forearm.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -214,7 +214,7 @@
       <!-- TODO: Move this to a parameter -->
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.127"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/visual/wrist1.dae"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/visual/wrist1.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
@@ -223,7 +223,7 @@
     <collision>
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.127"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/collision/wrist1.stl"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/collision/wrist1.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -236,7 +236,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 -0.0997"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/visual/wrist2.dae"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/visual/wrist2.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
@@ -245,7 +245,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 -0.0997"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/collision/wrist2.stl"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/collision/wrist2.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -258,7 +258,7 @@
     <visual>
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.0989"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/visual/wrist3.dae"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/visual/wrist3.dae"/>
       </geometry>
       <material name="LightGrey">
         <color rgba="0.7 0.7 0.7 1.0"/>
@@ -267,7 +267,7 @@
     <collision>
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.0989"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/ur5e/collision/wrist3.stl"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/ur5e/collision/wrist3.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -380,7 +380,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/robotiq/hande/hand-e.dae" scale="1.0 1.0 1.0"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/robotiq/hande/hand-e.dae" scale="1.0 1.0 1.0"/>
       </geometry>
       <material name="Dark">
         <color rgba=".1 0.1 0.1 1.0"/>
@@ -389,7 +389,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/robotiq/hande/hand-e-collision.dae" scale="1.0 1.0 1.0"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/robotiq/hande/hand-e-collision.dae" scale="1.0 1.0 1.0"/>
       </geometry>
     </collision>
   </link>
@@ -402,7 +402,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/robotiq/hande/finger_1.dae" scale="1.0 1.0 1.0"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/robotiq/hande/finger_1.dae" scale="1.0 1.0 1.0"/>
       </geometry>
       <material name="DarkGray">
         <color rgba=".4 0.4 0.4 1.0"/>
@@ -411,7 +411,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/robotiq/hande/finger_1-collision.dae" scale="1.0 1.0 1.0"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/robotiq/hande/finger_1-collision.dae" scale="1.0 1.0 1.0"/>
       </geometry>
     </collision>
   </link>
@@ -424,7 +424,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/robotiq/hande/finger_2.dae" scale="1.0 1.0 1.0"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/robotiq/hande/finger_2.dae" scale="1.0 1.0 1.0"/>
       </geometry>
       <material name="DarkGray">
         <color rgba=".4 0.4 0.4 1.0"/>
@@ -433,7 +433,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/robotiq/hande/finger_2-collision.dae" scale="1.0 1.0 1.0"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/robotiq/hande/finger_2-collision.dae" scale="1.0 1.0 1.0"/>
       </geometry>
     </collision>
   </link>
@@ -522,7 +522,7 @@
     <visual>
       <origin rpy="0 0 1.570796327" xyz="0.56 0.0 -0.9165"/>
       <geometry>
-        <mesh filename="/home/edo/thesis/ur5e_urdf/meshes/extra/visual/table_simplified.dae" scale="0.001 0.001 0.001"/>
+        <mesh filename="/home/barutta/Robotic_liquid_pouring/ur5e_urdf/meshes/extra/visual/table_simplified.dae" scale="0.001 0.001 0.001"/>
       </geometry>
     </visual>
   </link>

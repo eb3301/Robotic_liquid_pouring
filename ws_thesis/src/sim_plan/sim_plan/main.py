@@ -11,9 +11,6 @@ import numpy as np
 import trimesh
 import random 
 import torch
-from ompl import util as ou
-from ompl import base as ob
-from ompl import geometric as og
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 
@@ -193,7 +190,7 @@ def init_sim():
 
 def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
     ########################## create a scene ##########################
-    DIR="/home/edo/thesis"
+    DIR="/home/barutta/Robotic_liquid_pouring"
     dt=1e-2
     global scene
     scene = gs.Scene(
@@ -339,7 +336,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 decimate=False,
                 convexify=False,
                 decompose_object_error_threshold=float("inf"),
-                decompose_nonconvex=False,
+                #decompose_nonconvex=False,
                 # contype=0b011,
                 # conaffinity=0b011,
                 coacd_options=gs.options.CoacdOptions(),
@@ -1457,8 +1454,8 @@ def main():
     M = 1#5                     # Numero di traiettorie
     delta = 0.7*M             # Threshold di successo 
     MAX_ITERS = 1#10            # Numero massimo di iterazioni
-    view=True
-    liq=True
+    view=False
+    liq=False
     record=False
     debug=False
 

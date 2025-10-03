@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 import yaml
 import random
-from interfaces.srv import UpdateBelief  # dallo STEP 1
+from interfaces.srv import UpdateBelief  
 
 PARAMS_FILE = "/tmp/parameters_set.yaml"
 SCORES_FILE = "/tmp/score_best_path.yaml"
