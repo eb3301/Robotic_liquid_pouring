@@ -193,6 +193,7 @@ import numpy as np
 import py_trees
 from sensor_msgs.msg import JointState
 
+# To be tested:
 class MoveToPose1(RosLeaf):
     def __init__(self, node, pose_list=None, pose_from_bb=None, name="MoveToPose1"):
         """
@@ -433,7 +434,7 @@ class ComputeOffset(RosLeaf):
         self.bb.set(self.out_key, offset)
         return py_trees.common.Status.SUCCESS
 
-# Decidere quale close gripper usare in base a come è configurato il nodo
+# Decidere quale close gripper usare in base a come è configurato il nodo +test
 class CloseGripper(RosLeaf):
     def __init__(self, node, name="CloseGripper"):
         super().__init__(name, node)

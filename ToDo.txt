@@ -17,8 +17,6 @@ ToDo:
 - quando tutto ok crea launch file
 
 testare ros2 con VM
-muovere file su vm e far partire training
-
 test con reward fittizio (pos CoR risp a pt fix)
 
 ######################
