@@ -13,3 +13,4 @@ ws_thesis/install
 *.torch
 *.mp4
 *.ply
+*.vscode
