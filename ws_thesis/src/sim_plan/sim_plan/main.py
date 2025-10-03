@@ -11,9 +11,6 @@ import numpy as np
 import trimesh
 import random 
 import torch
-from ompl import util as ou
-from ompl import base as ob
-from ompl import geometric as og
 from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 
