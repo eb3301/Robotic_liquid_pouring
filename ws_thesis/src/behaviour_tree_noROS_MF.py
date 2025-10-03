@@ -540,11 +540,11 @@ class SetPlanParams(RosLeaf):
                 "pos_cont_goal": list(self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]),
                 "offset": list(self.bb.get("offset") or [0.0, 0.0, 0.0]),
                 "vol_init": float(self.bb.get("init_vol") or 0.0),
-                "densità": 998.0,
-                "viscosità": 0.001,
-                "tens_sup": 0.072,
+                "densità": 998.0, # not used in serv but same val
+                "viscosità": 0.001, # not used in serv but same val
+                "tens_sup": 0.072, # not used in serv but same val
                 "vol_target": float(self.bb.get("target_vol") or 0.0), #0.75e-5,
-                "err_target": 5e-6,
+                "err_target": 5e-6, # not used in serv but same val
                 "theta_f": float(self.bb.get("theta_f") or 90.0),
                 "num_wp": int(self.bb.get("num_wp") or 1000),
             }
@@ -840,7 +840,7 @@ def create_tree(node: Node):
     #     policy=py_trees.common.ParallelPolicy.SuccessOnAll()
     # )
     # par_util.add_children([off, grip])
-    params  = SetPlanParams(node, theta_f=0.6, num_wp=50, target_vol=100.0)
+    params  = SetPlanParams(node, theta_f=90, num_wp=1000, target_vol=20.0)
 
     send = SendYamlToVM(node)
     wait_path = WaitForBestPath(node)

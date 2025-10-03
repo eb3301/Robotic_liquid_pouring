@@ -1085,6 +1085,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         vol=num_particles_in_target*liquid.particle_size
         if abs(vol-target_vol)<err:
             score+=1 # to be tuned
+    else:
+        score=int(parameters["num_wp"])/1500
 
     tf=scene.get_state().scene.t
     Dt=tf-t0
@@ -1299,34 +1301,34 @@ class PathPlannerService(Node):
         best_parameters = None
         score_best_path=[]
         
-        if liq:
-            for paths in candidate_paths:
-                total_score = 0
-                local_best_score = -1e30
-                local_best_parameters = None
-                local_scores = []
-                
-                for parameters in parameters_set:
-                    score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
-                    total_score += score
-                    local_scores.append((parameters, score))
-                    if score > local_best_score:
-                        local_best_score = score
-                        local_best_parameters = parameters
-
-                if total_score > best_score:
-                    best_score = total_score
-                    best_path = paths
-                    best_parameters = local_best_parameters
-                    score_best_path = local_scores
+        
+        for paths in candidate_paths:
+            total_score = 0
+            local_best_score = -1e30
+            local_best_parameters = None
+            local_scores = []
             
-            best_score/=N
-            if best_score < delta:
-                self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
-                response.success=False
-                return response
-            else:
-                print("Esiste traj che soddisfa req succ")
+            for parameters in parameters_set:
+                score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
+                total_score += score
+                local_scores.append((parameters, score))
+                if score > local_best_score:
+                    local_best_score = score
+                    local_best_parameters = parameters
+
+            if total_score > best_score:
+                best_score = total_score
+                best_path = paths
+                best_parameters = local_best_parameters
+                score_best_path = local_scores
+        
+        best_score/=N
+        if best_score < delta:
+            self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
+            response.success=False
+            return response
+        else:
+            print("Esiste traj che soddisfa req succ")
 
         if best_parameters is None or best_path is None: 
             self.get_logger().info("Nessuna traiettoria o no best params")
