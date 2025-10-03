@@ -36,6 +36,10 @@ PLANNER:
 attiva venv su vm e poi
 python -m sim_plan.path_planner_service
 ros2 run sim_plan path_planner_client
+UPDATE BELIEF:
+ros2 topic pub /reward std_msgs/msg/Float32 "{data: 1}" --once
+ros2 run belief_updater belief_updater_service
+ros2 run belief_updater belief_updater_service
 # altri servizi:
 ros2 run nome_pacchetto nome_nodo
 
