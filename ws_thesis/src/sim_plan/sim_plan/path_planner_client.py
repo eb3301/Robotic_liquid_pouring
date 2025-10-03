@@ -1,4 +1,7 @@
 import os
+clear = lambda: os.system('clear')
+clear()
+import os
 import time
 import yaml
 import rclpy
