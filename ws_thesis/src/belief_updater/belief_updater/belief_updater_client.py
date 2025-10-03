@@ -25,6 +25,7 @@ class RewardClient(Node):
             self.get_logger().info('Servizio update_belief non disponibile, retry...')
 
         self.future = None
+        self.get_logger().info("Attendo reward")
 
     def reward_callback(self, msg):
         self.get_logger().info(f"Ricevuto reward: {msg.data}")
@@ -44,7 +45,7 @@ class RewardClient(Node):
                 if result is None:
                     self.get_logger().error("Chiamata fallita")
                 else:
-                    self.get_logger().info(f"Risultato: success={result.success}")
+                    self.get_logger().info(f"Service call success={result.success}")
                 break
 
 
