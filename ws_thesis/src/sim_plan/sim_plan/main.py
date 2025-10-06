@@ -183,7 +183,7 @@ def init_sim():
         debug               = False,
         eps                 = 1e-12,
         logging_level       = None,
-        backend             = gs.cpu,
+        backend             = gs.gpu,
         theme               = 'dark',
         logger_verbose_time = 'warning',
     )
@@ -821,6 +821,7 @@ def plan_path(
     )
     if not valid:  
         raise RuntimeError(f"path di trasporto è invalido")
+    path3 = path3.cpu().numpy()
     path = np.concatenate((path, path3))
     #################################
     # q4 (pre vers)
@@ -897,6 +898,7 @@ def plan_path(
         ur5e.set_qpos(q5)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = path5.cpu().numpy()
         path = np.concatenate((path, path5))    
 
         #################################
@@ -924,6 +926,7 @@ def plan_path(
         if debug:
             print(f"Collisioni 6: {collisions6}")
 
+        path6 = path6.cpu().numpy()
         path = np.concatenate((path, path6))
 
     else:
@@ -968,6 +971,7 @@ def plan_path(
         ur5e.set_qpos(q5)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = path5.cpu().numpy()
         path = np.concatenate((path, path5))
 
         ###########################################
@@ -997,6 +1001,7 @@ def plan_path(
         collisions6 = ur5e.detect_collision()
         if debug: print(f"Collisioni 6: {collisions6}")
 
+        path6 = path6.cpu().numpy()
         path = np.concatenate((path, path6))
 
     #################################
