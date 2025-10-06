@@ -243,12 +243,12 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             GUI    = False
         )
     ########################## entities ##########################
-    mat_rigid = gs.materials.Rigid(coup_friction=0.1,
-                                   coup_softness=0.0001,
-                                   coup_restitution=0.001,
-                                   sdf_cell_size=0.0001,
-                                   sdf_min_res=32,
-                                   sdf_max_res=512)
+    # mat_rigid = gs.materials.Rigid(coup_friction=0.1,
+    #                                coup_softness=0.0001,
+    #                                coup_restitution=0.001,
+    #                                sdf_cell_size=0.0001,
+    #                                sdf_min_res=32,
+    #                                sdf_max_res=512)
     
     plane = scene.add_entity(gs.morphs.Plane())
 
@@ -898,6 +898,7 @@ def plan_path(
         ur5e.set_qpos(q5)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = np.array(path5)
         path5 = path5.cpu().numpy()
         path = np.concatenate((path, path5))    
 
@@ -925,7 +926,7 @@ def plan_path(
         collisions6 = ur5e.detect_collision()
         if debug:
             print(f"Collisioni 6: {collisions6}")
-
+        path6 = np.array(path6)
         path6 = path6.cpu().numpy()
         path = np.concatenate((path, path6))
 
@@ -971,6 +972,7 @@ def plan_path(
         ur5e.set_qpos(q5)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = np.array(path5)
         path5 = path5.cpu().numpy()
         path = np.concatenate((path, path5))
 
@@ -1000,7 +1002,7 @@ def plan_path(
         ur5e.set_qpos(q6)
         collisions6 = ur5e.detect_collision()
         if debug: print(f"Collisioni 6: {collisions6}")
-
+        path6 = np.array(path6)
         path6 = path6.cpu().numpy()
         path = np.concatenate((path, path6))
 
