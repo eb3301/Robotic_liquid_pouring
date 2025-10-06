@@ -972,8 +972,7 @@ def plan_path(
         ur5e.set_qpos(q5)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
-        path5 = np.array(path5)
-        path5 = path5.cpu().numpy()
+        path5 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path5])
         path = np.concatenate((path, path5))
 
         ###########################################
@@ -1002,8 +1001,7 @@ def plan_path(
         ur5e.set_qpos(q6)
         collisions6 = ur5e.detect_collision()
         if debug: print(f"Collisioni 6: {collisions6}")
-        path6 = np.array(path6)
-        path6 = path6.cpu().numpy()
+        path6 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path6])
         path = np.concatenate((path, path6))
 
     #################################
