@@ -4,20 +4,20 @@ from rclpy.node import Node
 import py_trees
 from py_trees.blackboard import Blackboard
 import numpy as np
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 from sensor_msgs.msg import JointState
 from moveit.planning import MoveItPy
-from interfaces.srv import Simplan, UpdateBelief
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from rclpy.action import ActionClient
 from control_msgs.action import FollowJointTrajectory
 from control_msgs.action import GripperCommand
 from std_msgs.msg import Float32
 from builtin_interfaces.msg import Duration
-#from drims2_motion_server.motion_client import MotionClient
+from drims2_motion_server.motion_client import MotionClient
 import yaml
 import os
 import paramiko
+
 
 
 class Timeout(py_trees.decorators.Decorator):
@@ -64,21 +64,21 @@ class RosLeaf(py_trees.behaviour.Behaviour):
         self.bb = Blackboard()
 
 # ---------- Movimento ----------
+
 class MoveToPose(RosLeaf):
-    def __init__(self, node, pose_list=None, pose_from_bb=None, name="MoveToPose"):
+    def __init__(self, node, pose_list=None, pose_bb=None, name="MoveToPose"):
         """
         :param pose_list: lista [x, y, z, qx, qy, qz, qw]
-        :param pose_from_bb: chiave sul blackboard da cui leggere la pose
+        :param pose_bb: chiave sul blackboard su cui salvare pose
         """
         super().__init__(name, node)
         self.pose_list = pose_list
-        self.pose_from_bb = pose_from_bb
+        self.pose_bb = pose_bb
         self._sent = False
-        self._executing = False
-        self._traj = None
+        self._goal_future = None
+        self._result_future = None
         self._last_joint_state = None
 
-        # Subscriber a /joint_states
         self.sub = self.node.create_subscription(
             JointState,
             "/joint_states",
@@ -86,286 +86,55 @@ class MoveToPose(RosLeaf):
             10,
         )
 
-        # Inizializza MoveIt Client
-        #motion_client = MotionClient()
-        self.moveit = MoveItPy(node_name="moveit")
-        self.planner = self.moveit.get_planning_component("ur_manipulator") 
-        self.node.get_logger().info("Move to pose started")
+        self.motion_client = MotionClient()
+        self.node.get_logger().info("MoveToPose ready")
 
     def _joint_state_cb(self, msg: JointState):
         self._last_joint_state = msg
 
     def initialise(self):
         self._sent = False
-        self._executing = False
-        self._traj = None
-        self.bb.set("final_traj_joints", None)
-        self.bb.set("final_traj_names", None)
-
-    def update(self):
-        if not self._sent:
-            # Scegli la pose
-            if self.pose_from_bb:
-                pose_list = self.bb.get(self.pose_from_bb)
-            else:
-                pose_list = self.pose_list
-
-            if pose_list is None or len(pose_list) != 7:
-                self.feedback_message = "Pose non valida"
-                return py_trees.common.Status.FAILURE
-
-            # Converti in geometry_msgs/Pose
-            pose = Pose()
-            pose.position.x, pose.position.y, pose.position.z = pose_list[:3]
-            pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w = pose_list[3:]
-
-            # Pianificazione
-            self.planner.set_start_state_to_current_state()
-            self.planner.set_pose_target(pose)
-            plan_result = self.planner.plan()
-
-            if not plan_result or plan_result.joint_trajectory is None:
-                self.feedback_message = "Pianificazione fallita"
-                return py_trees.common.Status.FAILURE
-
-            # Esecuzione
-            self._traj = plan_result.joint_trajectory
-            if self._traj.points:
-                self.bb.set("final_traj_joints", list(self._traj.points[-1].positions))
-                self.bb.set("final_traj_names", list(self._traj.joint_names))
-            self.planner.execute(self._traj)
-            self._sent = True
-            self._executing = True
-            return py_trees.common.Status.RUNNING
-
-        # Controllo stato
-        if self._executing:
-            if self._check_motion_done():
-                self._executing = False
-                # Salva la pose corrente dell’end-effector se serve
-                if self.pose_list is not None:
-                    ee_pose = self._get_ee_pose()
-                    self.bb.set("pos_init_ee", ee_pose)
-                return py_trees.common.Status.SUCCESS
-            else:
-                return py_trees.common.Status.RUNNING
-
-        return py_trees.common.Status.SUCCESS
-
-    def _check_motion_done(self, tol=0.05):
-        if self._traj is None or self._last_joint_state is None:
-            return False
-
-        goal_pos = np.array(self._traj.points[-1].positions)
-        current_pos = []
-
-        name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
-        for j in self._traj.joint_names:
-            if j not in name_to_idx:
-                return False
-            idx = name_to_idx[j]
-            current_pos.append(self._last_joint_state.position[idx])
-
-        current_pos = np.array(current_pos)
-        err = np.linalg.norm(goal_pos - current_pos, ord=np.inf)
-        return err < tol
-
-    def _get_ee_pose(self):
-        pose_msg = self.planner.get_current_pose()
-        return [
-            pose_msg.position.x,
-            pose_msg.position.y,
-            pose_msg.position.z,
-            pose_msg.orientation.x,
-            pose_msg.orientation.y,
-            pose_msg.orientation.z,
-            pose_msg.orientation.w,
-        ]
-
-
-# Cambia con lib prof
-from rclpy.action import ActionClient
-from moveit_msgs.action import MoveGroup
-from moveit_msgs.msg import Constraints, PositionConstraint, OrientationConstraint
-from geometry_msgs.msg import PoseStamped
-from shape_msgs.msg import SolidPrimitive
-import numpy as np
-import py_trees
-from sensor_msgs.msg import JointState
-
-# To be tested:
-class MoveToPose1(RosLeaf):
-    def __init__(self, node, pose_list=None, pose_from_bb=None, name="MoveToPose1"):
-        """
-        :param pose_list: lista [x, y, z, qx, qy, qz, qw]
-        :param pose_from_bb: chiave sul blackboard da cui leggere la pose
-        """
-        super().__init__(name, node)
-        self.pose_list = pose_list
-        self.pose_from_bb = pose_from_bb
-        self.client = ActionClient(node, MoveGroup, '/move_action')
-
-        self._sent = False
+        self._goal_future = None
         self._result_future = None
-        self._last_joint_state = None
-
-        # subscriber a joint_states per controllare arrivo
-        self.sub = self.node.create_subscription(
-            JointState,
-            "/joint_states",
-            self._joint_state_cb,
-            10,
-        )
-
-    def _joint_state_cb(self, msg: JointState):
-        self._last_joint_state = msg
-
-    def initialise(self):
-        self._sent = False
-        self._result_future = None
-        self.bb.set("final_traj_joints", None)
-        self.bb.set("final_traj_names", None)
-
-    def update(self):
-        # Se goal già inviato → controlla risultato
-        if self._sent:
-            if self._result_future and self._result_future.done():
-                result = self._result_future.result().result
-                if result.error_code == 1:  # SUCCESS
-                    # salva posizione EE (se disponibile via tf/joint_states)
-                    ee_pose = self._get_ee_pose_from_state()
-                    if ee_pose:
-                        self.bb.set("pos_init_ee", ee_pose)
-                    return py_trees.common.Status.SUCCESS
-                else:
-                    self.feedback_message = f"Esecuzione fallita: code={result.error_code}"
-                    return py_trees.common.Status.FAILURE
-
-            if self._result_future is None:
-                self.feedback_message = "Goal non accettato"
-                return py_trees.common.Status.FAILURE
-
-            return py_trees.common.Status.RUNNING
-
-        # Primo invio goal
-        pose_list = self.bb.get(self.pose_from_bb) if self.pose_from_bb else self.pose_list
-        if pose_list is None or len(pose_list) != 7:
-            self.feedback_message = "Pose non valida"
-            return py_trees.common.Status.FAILURE
-
-        pose = PoseStamped()
-        pose.header.frame_id = "base_link"
-        pose.pose.position.x, pose.pose.position.y, pose.pose.position.z = pose_list[:3]
-        pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w = pose_list[3:]
-
-        # Costruisci constraints
-        pos_c = PositionConstraint()
-        pos_c.header.frame_id = "base_link"
-        pos_c.link_name = "tool0"
-        box = SolidPrimitive()
-        box.type = SolidPrimitive.BOX
-        box.dimensions = [0.001, 0.001, 0.001]  # tolleranza 1mm
-        pos_c.constraint_region.primitives.append(box)
-        pos_c.constraint_region.primitive_poses.append(pose.pose)
-
-        ori_c = OrientationConstraint()
-        ori_c.header.frame_id = "base_link"
-        ori_c.link_name = "tool0"
-        ori_c.orientation = pose.pose.orientation
-        ori_c.absolute_x_axis_tolerance = 0.01
-        ori_c.absolute_y_axis_tolerance = 0.01
-        ori_c.absolute_z_axis_tolerance = 0.01
-        ori_c.weight = 1.0
-
-        constraints = Constraints()
-        constraints.position_constraints.append(pos_c)
-        constraints.orientation_constraints.append(ori_c)
-
-        goal = MoveGroup.Goal()
-        goal.request.group_name = "ur_manipulator"
-        goal.request.goal_constraints.append(constraints)
-
-        if not self.client.wait_for_server(timeout_sec=1.0):
-            self.feedback_message = "MoveGroup server non disponibile"
-            return py_trees.common.Status.FAILURE
-
-        send_future = self.client.send_goal_async(goal)
-        send_future.add_done_callback(self._goal_response_cb)
-
-        self._sent = True
-        return py_trees.common.Status.RUNNING
 
     def _goal_response_cb(self, future):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.feedback_message = "Goal rifiutato"
+            self.feedback_message = "Goal rifiutato da MotionClient"
             self._result_future = None
             return
         self._result_future = goal_handle.get_result_async()
 
-    def _get_ee_pose_from_state(self):
-        """
-        Ritorna la posa stimata di tool0 leggendo tf o joint_states.
-        Qui come placeholder ritorna None, puoi sostituire con tf2 per ottenere la vera pose.
-        """
-        return None
-
-class WaitRobotArrived(RosLeaf):
-    def __init__(self, node, target_key="final_traj_joints", timeout_s=20, tol=0.01, name="WaitRobotArrived"):
-        super().__init__(name, node)
-        self.target_key = target_key    
-        self.timeout_s = timeout_s
-        self.tol = tol
-        self._last_joint_state = None
-
-        self.sub = self.node.create_subscription(
-            JointState,
-            "/joint_states",
-            self._joint_state_cb,
-            10,
-        )
-
-    def _joint_state_cb(self, msg: JointState):
-        self._last_joint_state = msg
-
-    def initialise(self):
-        self.t0 = self.node.get_clock().now()
-
     def update(self):
-        if self._last_joint_state is None:
+        if not self._sent:
+            pose_list = self.pose_list
+            if pose_list is None or len(pose_list) != 7:
+                self.feedback_message = "Pose non valida"
+                return py_trees.common.Status.FAILURE
+
+            pose_msg = PoseStamped()
+            pose_msg.header.frame_id = "base_link"
+            pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = pose_list[:3]
+            pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w = pose_list[3:]
+
+            self._goal_future = self.motion_client.move_to_pose_async(pose_msg)
+            self._goal_future.add_done_callback(self._goal_response_cb)
+            self._sent = True
             return py_trees.common.Status.RUNNING
 
-        target = self.bb.get(self.target_key)
-        names  = self.bb.get("final_traj_names")
-        if target is None or names is None:
-            self.feedback_message = "Target non disponibile"
-            return py_trees.common.Status.FAILURE
-
-        name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
-        current_pos = []
-        for jn in names:
-            if jn not in name_to_idx:
-                self.feedback_message = f"Giunto {jn} non presente in /joint_states"
+        if self._result_future and self._result_future.done():
+            result = self._result_future.result().result
+            if result.success:
+                if self.pose_bb is not None:
+                    self.bb.set(self.pose_bb, self.pose_list)
+                return py_trees.common.Status.SUCCESS
+            else:
+                self.feedback_message = "Movimento fallito"
                 return py_trees.common.Status.FAILURE
-            current_pos.append(self._last_joint_state.position[name_to_idx[jn]])
-
-        if len(current_pos) != len(target):
-            self.feedback_message = "Mismatch numero giunti"
-            return py_trees.common.Status.FAILURE
-
-        current_pos = np.array(current_pos)
-        goal_pos = np.array(target)
-        err = np.linalg.norm(goal_pos - current_pos, ord=np.inf)
-
-        if err < self.tol:
-            return py_trees.common.Status.SUCCESS
-
-        elapsed = (self.node.get_clock().now() - self.t0).nanoseconds / 1e9
-        if elapsed > self.timeout_s:
-            self.feedback_message = "Timeout"
-            return py_trees.common.Status.FAILURE
 
         return py_trees.common.Status.RUNNING
+
+
 
 # ---------- Percezione ----------
 class CallVisionService(RosLeaf):
@@ -434,76 +203,8 @@ class ComputeOffset(RosLeaf):
         self.bb.set(self.out_key, offset)
         return py_trees.common.Status.SUCCESS
 
-# Decidere quale close gripper usare in base a come è configurato il nodo +test
-class CloseGripper(RosLeaf):
-    def __init__(self, node, name="CloseGripper"):
-        super().__init__(name, node)
-        self.pub = self.node.create_publisher(
-            JointTrajectory,
-            "/robotiq_hande_controller/joint_trajectory",  # controlla nome esatto
-            10
-        )
-        self._sent = False
 
-    def initialise(self):
-        self._sent = False
 
-    def update(self):
-        if not self._sent:
-            traj = JointTrajectory()
-            traj.joint_names = ["hande_left_finger_joint", "hande_right_finger_joint"]
-
-            pt = JointTrajectoryPoint()
-            pt.positions = [0.0, 0.0]   # chiuso; per aprire ~0.025
-            pt.time_from_start = Duration(sec=1)
-
-            traj.points.append(pt)
-            self.pub.publish(traj)
-
-            self._sent = True
-            return py_trees.common.Status.RUNNING
-
-        return py_trees.common.Status.SUCCESS
-
-class CloseGripper1(RosLeaf):
-    def __init__(self, node, name="CloseGripper1"):
-        super().__init__(name, node)
-        self.client = ActionClient(
-            self.node,
-            GripperCommand,
-            "/robotiq_hande_controller/gripper_cmd"
-        )
-        self._sent = False
-        self._result_future = None
-
-    def initialise(self):
-        self._sent = False
-        self._result_future = None
-
-    def update(self):
-        if not self._sent:
-            if not self.client.wait_for_server(timeout_sec=1.0):
-                self.feedback_message = "Gripper server non disponibile"
-                return py_trees.common.Status.FAILURE
-
-            goal = GripperCommand.Goal()
-            goal.command.position = 0.0   # chiuso
-            goal.command.max_effort = 40.0
-
-            self._goal_future = self.client.send_goal_async(goal)
-            self._goal_future.add_done_callback(self._goal_response_cb)
-            self._sent = True
-            return py_trees.common.Status.RUNNING
-
-        if self._result_future and self._result_future.done():
-            result = self._result_future.result().result
-            if result.reached_goal:
-                return py_trees.common.Status.SUCCESS
-            else:
-                self.feedback_message = "Gripper non ha raggiunto il goal"
-                return py_trees.common.Status.FAILURE
-
-        return py_trees.common.Status.RUNNING
 
     def _goal_response_cb(self, future):
         goal_handle = future.result()
@@ -512,6 +213,54 @@ class CloseGripper1(RosLeaf):
             self._result_future = None
             return
         self._result_future = goal_handle.get_result_async()
+
+class CloseGripper(RosLeaf):
+    def __init__(self, node, name="CloseGripper"):
+        super().__init__(name, node)
+        self.client = ActionClient(
+            self.node,
+            GripperCommand,
+            "/gripper_action_controller/gripper_cmd"
+        )
+        self._sent = False
+        self._result_future = None
+
+    def initialise(self):
+        self._sent = False
+        self._result_future = None
+
+    def _goal_response_cb(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.feedback_message = "Goal rifiutato dal gripper"
+            self._result_future = None
+            return
+        self._result_future = goal_handle.get_result_async()
+
+    def update(self):
+        if not self._sent:
+            if not self.client.wait_for_server(timeout_sec=1.0):
+                self.feedback_message = "Server gripper non disponibile"
+                return py_trees.common.Status.FAILURE
+
+            goal = GripperCommand.Goal()
+            goal.command.position = 0.0    # chiuso
+            goal.command.max_effort = 0.0  # come da comando corretto
+
+            self._goal_future = self.client.send_goal_async(goal)
+            self._goal_future.add_done_callback(self._goal_response_cb)
+            self._sent = True
+            return py_trees.common.Status.RUNNING
+
+        if self._result_future and self._result_future.done():
+            result = self._result_future.result().result
+            if getattr(result, "reached_goal", True):
+                return py_trees.common.Status.SUCCESS
+            else:
+                self.feedback_message = "Gripper non ha raggiunto il goal"
+                return py_trees.common.Status.FAILURE
+
+        return py_trees.common.Status.RUNNING
 
 class SetPlanParams(RosLeaf):
     def __init__(self, node, theta_f, num_wp, target_vol, name="SetPlanParams"):
@@ -830,7 +579,7 @@ def create_tree(node: Node):
     # wait_t2 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
     # vision_2 = Retry(Timeout(CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol"), 20.0), 2)
 
-    # move_c  = Retry(Timeout(MoveToPose(node, pose_from_bb="pos_init_cont"), 40.0), 2)
+    # move_c  = Retry(Timeout(MoveToPose(node, pose_bb="pos_init_cont"), 40.0), 2)
     # wait_c = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
 
     # off     = ComputeOffset(node, "pos_init_ee", "pos_init_cont")
