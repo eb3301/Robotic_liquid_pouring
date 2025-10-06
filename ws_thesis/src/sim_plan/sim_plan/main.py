@@ -36,7 +36,6 @@ def to_numpy_cpu(x):
         return x.detach().cpu().numpy()
     return np.array(x, dtype=np.float32)
 
-
 def euler_to_quaternion(euler_angles):
     """
     Convert Euler angles (in radians) to quaternion using ZYX convention.
@@ -217,7 +216,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 10000*dt,  # Increased substeps for better stability
+            substeps= 100, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -1485,8 +1484,8 @@ def main():
     M = 1#5                     # Numero di traiettorie
     delta = 0.7*M             # Threshold di successo 
     MAX_ITERS = 1#10            # Numero massimo di iterazioni
-    view=False
-    liq=False
+    view=True
+    liq=True
     record=False
     debug=False
 
