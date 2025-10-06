@@ -16,6 +16,27 @@ import matplotlib.pyplot as plt
 
  
 ####################### functions #######################
+def to_device_tensor(x):
+    """Converte in torch.Tensor solo se Genesis usa GPU."""
+    if gs.backend == gs.gpu:
+        if isinstance(x, np.ndarray):
+            return torch.as_tensor(x, dtype=torch.float32, device="cuda")
+        elif isinstance(x, torch.Tensor):
+            return x.to("cuda", dtype=torch.float32)
+    else:
+        if isinstance(x, np.ndarray):
+            return torch.as_tensor(x, dtype=torch.float32)
+        elif isinstance(x, torch.Tensor):
+            return x.to("cpu", dtype=torch.float32)
+    return torch.tensor(x, dtype=torch.float32)
+
+def to_numpy_cpu(x):
+    """Converte tensor → numpy solo se è su GPU."""
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    return np.array(x, dtype=np.float32)
+
+
 def euler_to_quaternion(euler_angles):
     """
     Convert Euler angles (in radians) to quaternion using ZYX convention.
@@ -634,10 +655,11 @@ def plan_path(
         debug=False,
         approach=False,
     ):
+
     old=False
     path=np.empty((0, 8))
     print(f"planning started")
-    # trasforma tutti i path in array numpy
+    
     #################################
     x_shift=0.13
     z_min=0.967
@@ -649,11 +671,13 @@ def plan_path(
         if debug: print(f"Collisioni 0: {collisions0}")
         pos0=np.array([parameters['pos_init_ee'][0], parameters['pos_init_ee'][1],parameters['pos_init_ee'][2]])
         quat0=np.array([parameters['pos_init_ee'][3], parameters['pos_init_ee'][4], parameters['pos_init_ee'][5], parameters['pos_init_ee'][6]])
+
         q0_test = ur5e.inverse_kinematics(
                     link=ur5e.get_link("tool0"),
                     pos=pos0,
                     quat=quat0,
             )
+        
         links_p0, _ = ur5e.forward_kinematics(q0)      
         p0 = links_p0[-1]
         links_p0_test, _ = ur5e.forward_kinematics(q0_test)
@@ -1209,6 +1233,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     path2=paths["lift"]
     for qpos in path2:
         qpos[-2:]=0.005
+        qpos=to_device_tensor(qpos)
         if approach:
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
             ur5e.control_dofs_force(closing_force, fingers_dof)
@@ -1226,10 +1251,11 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     # Trasporto:
     path3=paths["transport"]
     for wp in path3: 
+        wp=to_device_tensor(wp)
         if liq:
             pos_wp, _ = ur5e.forward_kinematics(wp)
             particles = np.squeeze(liquid.get_particles())
-            quat_wp = liq_ang(particles)
+            quat_wp = to_device_tensor(liq_ang(particles))
             try:
                 qpos = ur5e.inverse_kinematics(
                     link=ur5e.get_link("tool0"),
