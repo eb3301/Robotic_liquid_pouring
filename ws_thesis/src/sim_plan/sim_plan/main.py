@@ -417,8 +417,9 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     
     # Calculate liquid dimensions based on container size
     liquid_radius = min(container_size[0], container_size[1])/2*0.5
-    init_volume = parameters['vol_init']
+    init_volume = parameters['vol_init']*1e-6
     liquid_height = init_volume/(np.pi*liquid_radius**2)
+    print(f"Radius: {liquid_radius*10^3} mm, Height: {liquid_height*10^3} mm")
     #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
     #print(liquid_radius, liquid_height)
     # Position liquid relative to container center
@@ -1356,7 +1357,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
             pos_wp, quat_wp = ur5e.forward_kinematics(wp)
             particles = np.squeeze(liquid.get_particles())
             quat_np = to_numpy_cpu(quat_wp)
-            quat_new = liq_compensate(particles, quat_np)
+            quat_new = liq_ang(particles, quat_np)
 
             # filtro cambio e riconversione
             if quat_prev is None or np.linalg.norm(quat_new - quat_prev) < 0.1:
