@@ -230,7 +230,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             # position of the bounding box for the liquid
             lower_bound   = (-1.5, -1.5, 0.0), 
             upper_bound   = (1.5, 1.5, 2),
-            particle_size = 0.002, #0.002  
+            particle_size = 0.005, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
             res           = (640, 480),

@@ -64,7 +64,6 @@ class RosLeaf(py_trees.behaviour.Behaviour):
         self.bb = Blackboard()
 
 # ---------- Movimento ----------
-
 class MoveToPose(RosLeaf):
     def __init__(self, node, pose_list=None, pose_bb=None, name="MoveToPose"):
         """
@@ -72,19 +71,15 @@ class MoveToPose(RosLeaf):
         :param pose_bb: chiave sul blackboard su cui salvare pose
         """
         super().__init__(name, node)
-        self.pose_list = pose_list
+        if isinstance(pose_list, str):
+            self.pose_list = self.bb.get(pose_list)  
+        else:
+            self.pose_list = pose_list
         self.pose_bb = pose_bb
         self._sent = False
         self._goal_future = None
         self._result_future = None
         self._last_joint_state = None
-
-        self.sub = self.node.create_subscription(
-            JointState,
-            "/joint_states",
-            self._joint_state_cb,
-            10,
-        )
 
         self.motion_client = MotionClient()
         self.node.get_logger().info("MoveToPose ready")
@@ -98,14 +93,19 @@ class MoveToPose(RosLeaf):
         self._result_future = None
 
     def _goal_response_cb(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.feedback_message = "Goal rifiutato da MotionClient"
+        try:
+            goal_handle = future.result()
+            if not goal_handle.accepted:
+                self.feedback_message = "Goal rifiutato da MotionClient"
+                self._result_future = None
+                return
+            self._result_future = goal_handle.get_result_async()
+        except Exception as e:
+            self.feedback_message = f"Errore risposta goal: {e}"
             self._result_future = None
-            return
-        self._result_future = goal_handle.get_result_async()
 
     def update(self):
+        # Invio goal
         if not self._sent:
             pose_list = self.pose_list
             if pose_list is None or len(pose_list) != 7:
@@ -123,18 +123,22 @@ class MoveToPose(RosLeaf):
             return py_trees.common.Status.RUNNING
 
         if self._result_future and self._result_future.done():
-            result = self._result_future.result().result
-            if result.success:
-                if self.pose_bb is not None:
-                    self.bb.set(self.pose_bb, self.pose_list)
-                return py_trees.common.Status.SUCCESS
-            else:
-                self.feedback_message = "Movimento fallito"
+            try:
+                res = self._result_future.result()
+
+                if res.val == 1:
+                    if self.pose_bb is not None:
+                        self.bb.set(self.pose_bb, self.pose_list)
+                    return py_trees.common.Status.SUCCESS
+                else:
+                    self.feedback_message = "Movimento fallito"
+                    return py_trees.common.Status.FAILURE
+
+            except Exception as e:
+                self.feedback_message = f"Errore nel risultato: {e}"
                 return py_trees.common.Status.FAILURE
 
         return py_trees.common.Status.RUNNING
-
-
 
 # ---------- Percezione ----------
 class CallVisionService(RosLeaf):
@@ -386,6 +390,8 @@ class ExecutePathPublisher(RosLeaf):
             "/scaled_joint_trajectory_controller/joint_trajectory",
             10
         )
+        # Joint traj message (pochi punti --> interpolaz interna control)
+        # /stream ai giunti diretto
         self.sub = self.node.create_subscription(
             JointState,
             "/joint_states",
@@ -474,93 +480,6 @@ class ExecutePathPublisher(RosLeaf):
         err = np.linalg.norm(goal - current_pos, ord=np.inf)
         return err < self.tol
 
-class ExecutePathAction(RosLeaf):
-    def __init__(self, node, name="ExecutePathAction", grace_t=1.0):
-        super().__init__(name, node)
-        self.client = ActionClient(
-            self.node,
-            FollowJointTrajectory,
-            "/scaled_joint_trajectory_controller/follow_joint_trajectory"
-        )
-        self._goal_future = None
-        self._result_future = None
-        self._sent = False
-        self.grace_t = grace_t
-
-    def initialise(self):
-        self._goal_future = None
-        self._result_future = None
-        self._sent = False
-
-    def update(self):
-        time_arr = self.bb.get("time")
-        path = self.bb.get("best_path")
-
-        if time_arr is None or path is None:
-            self.feedback_message = "Traiettoria non disponibile"
-            return py_trees.common.Status.FAILURE
-
-        if not self._sent:
-            if not self.client.wait_for_server(timeout_sec=1.0):
-                self.feedback_message = "Action server non disponibile"
-                return py_trees.common.Status.FAILURE
-
-            goal_msg = FollowJointTrajectory.Goal()
-            goal_msg.trajectory.joint_names = [
-                "shoulder_pan_joint",
-                "shoulder_lift_joint",
-                "elbow_joint",
-                "wrist_1_joint",
-                "wrist_2_joint",
-                "wrist_3_joint"
-            ]
-
-            for t, q in zip(time_arr, path):
-                pt = JointTrajectoryPoint()
-                pt.positions = q[:6]
-                pt.time_from_start = Duration(
-                    sec=int(t),
-                    nanosec=int((t % 1.0) * 1e9)
-                )
-                goal_msg.trajectory.points.append(pt)
-
-            self._goal_future = self.client.send_goal_async(goal_msg)
-            self._goal_future.add_done_callback(self._goal_response_callback)
-            self._sent = True
-            self.bb.set("traj_duration", float(time_arr[-1]))
-            self.bb.set("traj_start_time", self.node.get_clock().now().nanoseconds / 1e9)
-            return py_trees.common.Status.RUNNING
-
-        if self._result_future is not None:
-            if self._result_future.done():
-                result = self._result_future.result().result
-                if result.error_code == 0:  # SUCCESSFUL
-                    return py_trees.common.Status.SUCCESS
-                else:
-                    self.feedback_message = f"Esecuzione fallita: {result.error_string}"
-                    return py_trees.common.Status.FAILURE
-            else:
-                # opzionale: timeout rispetto a traj_duration
-                elapsed = (self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time", 0.0)
-                duration = self.bb.get("traj_duration", 0.0)
-                if elapsed >= duration + self.grace_t:
-                    self.feedback_message = "Timeout esecuzione path"
-                    return py_trees.common.Status.FAILURE
-                return py_trees.common.Status.RUNNING
-
-        return py_trees.common.Status.RUNNING
-
-    def _goal_response_callback(self, future):
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.node.get_logger().error("Goal rifiutato dal controller")
-            self._result_future = None
-            # forza fallimento
-            self.feedback_message = "Goal rifiutato"
-            return
-        self._result_future = goal_handle.get_result_async()
-
-
 #==============================================================================================================
 # COSTRUZIONE ALBERO E AVVIO:
 
@@ -571,47 +490,39 @@ def create_tree(node: Node):
         "target_2": [0.5, -0.2, 0.35, 0, 0, 0, 1],
     }
 
-    move_t1 = MoveToPose(node, pose_list=poses["target_1"])
-    # wait_t1 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
-    # vision_1 = Retry(Timeout(CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal"), 15.0), 2)
+    move_t1 = MoveToPose(node, pose_list=poses["target_1"],pose_bb=None)
+    vision_1 = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
 
-    # move_t2 = Retry(Timeout(MoveToPose(node, pose_list=poses["target_2"]), 40.0), 2)
-    # wait_t2 = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
-    # vision_2 = Retry(Timeout(CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol"), 20.0), 2)
+    move_t2 = MoveToPose(node, pose_list=poses["target_2"],pose_bb="pos_init_ee")
+    vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
 
-    # move_c  = Retry(Timeout(MoveToPose(node, pose_bb="pos_init_cont"), 40.0), 2)
-    # wait_c = Timeout(WaitRobotArrived(node, target_key="final_traj_joints", timeout_s=20), 25.0)
+    move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
 
-    # off     = ComputeOffset(node, "pos_init_ee", "pos_init_cont")
-    # grip    = Retry(Timeout(CloseGripper(node), 5.0), 2) # CloseGripper o CloseGripper1
-    # par_util = py_trees.composites.Parallel(
-    #     "UtilitiesParallel",
-    #     policy=py_trees.common.ParallelPolicy.SuccessOnAll()
-    # )
-    # par_util.add_children([off, grip])
+    off = ComputeOffset(node, "pos_appr_ee", "pos_init_cont")
+    grip    = CloseGripper(node)
+    par_util = py_trees.composites.Parallel(
+        "UtilitiesParallel",
+        policy=py_trees.common.ParallelPolicy.SuccessOnAll()
+    )
+    par_util.add_children([off, grip])
     params  = SetPlanParams(node, theta_f=90, num_wp=1000, target_vol=20.0)
 
     send = SendYamlToVM(node)
     wait_path = WaitForBestPath(node)
     # execp   = Retry(Timeout(ExecutePathPublisher(node), 60.0), 1) # ExecutePathPublisher o ExecutePathAction
    
-    # seq = py_trees.composites.Sequence("FullCycle",memory=False)
-    # seq.add_children([
-    #     move_t1, wait_t1, vision_1,
-    #     move_t2, wait_t2, vision_2, 
-    #     move_c, wait_c, 
-    #     par_util, params,
-    #     send,
-    #     wait_path,
-    #     execp,
-    #     ])
-    
-   
-    test = py_trees.composites.Sequence("FullCycle", memory=True)
-    test.add_children([
-            move_t1
+    seq = py_trees.composites.Sequence("FullCycle",memory=False)
+    seq.add_children([
+        move_t1, vision_1,
+        move_t2, vision_2, 
+        move_c, par_util, params,
+        send,
+        wait_path,
+        #execp,
         ])
-    return test
+    
+  
+    return seq  
 
 def main():
     rclpy.init()

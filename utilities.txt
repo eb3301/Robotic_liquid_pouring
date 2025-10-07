@@ -20,7 +20,7 @@ ros2 topic pub /reward std_msgs/msg/Float32 "{data: 1}" --once
 ros2 run belief_updater belief_updater_service
 ros2 run belief_updater belief_updater_service
 ROBOT:
-	ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=true
+ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=true
 
 # altri servizi:
 ros2 run nome_pacchetto nome_nodo
