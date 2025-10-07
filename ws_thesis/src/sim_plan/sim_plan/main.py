@@ -216,7 +216,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 100, #10000*dt,  # Increased substeps for better stability
+            substeps= 200, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -230,7 +230,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             # position of the bounding box for the liquid
             lower_bound   = (-1.5, -1.5, 0.0), 
             upper_bound   = (1.5, 1.5, 2),
-            particle_size = 0.01, #0.002  
+            particle_size = 0.002, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
             res           = (640, 480),
@@ -600,15 +600,18 @@ def tensor_to_cpu(x):
 def tensor_to_array(x):
     return np.array(tensor_to_cpu(x))
 
-def liq_ang(particles, top_percent=10):
+def liq_ang(particles, quat_init, top_percent=10):
     """
     Dato l'array di particelle, stima la normale alla superficie 
     libera del liquido, poi calcola la rotazione dell'ee per 
     mantenere la superficie libera parallela al fondo del contenitore.
     """
+    quat_init=to_numpy_cpu(quat_init)
     z_vals = particles[:, 2]
     threshold = np.percentile(z_vals, 100 - top_percent) # solo part vicine a sup
     surface_particles = particles[z_vals >= threshold]
+    if surface_particles.shape[0] < 3:
+        return quat_init    
     centroid = surface_particles.mean(axis=0)
     X = surface_particles - centroid
     _, _, vh = np.linalg.svd(X) # PCA/SVD per stimare il piano
@@ -621,7 +624,13 @@ def liq_ang(particles, top_percent=10):
     roll = np.arctan2(n[1], n[2])
     # Costruisci rotazione solo attorno a X
     r_roll = R.from_euler('x', -roll)  # negativo se vogliamo compensare
-    quat = r_roll.as_quat()  # [x, y, z, w]
+    # quat = r_roll.as_quat()  # [x, y, z, w]
+    # quat_wxyz = np.roll(quat, 1) 
+
+    quat_init_xyzw = np.roll(quat_init, -1)
+    R0 = R.from_quat(quat_init_xyzw)
+    R_theta = r_roll * R0
+    quat = R_theta.as_quat()
     quat_wxyz = np.roll(quat, 1) 
 
     # z_axis_tool = estimate_liquid_normal(particles)
@@ -640,6 +649,97 @@ def liq_ang(particles, top_percent=10):
     # quat_wxyz = np.roll(quat_target, 1)  # porta l'ultimo elemento in prima posizione
 
     return quat_wxyz
+
+def surface_normal(points):
+    c = points.mean(axis=0)
+    X = points - c
+    _, _, vh = np.linalg.svd(X, full_matrices=False)
+    n = vh[-1]
+    if n[2] < 0: n = -n
+    return n / np.linalg.norm(n)
+
+def ransac_plane_normal(p, iters=50, tol=0.01):
+    # opzionale: robustezza
+    best_n, best_in = None, -1
+    N = p.shape[0]
+    if N < 3: return np.array([0,0,1.])
+    idx = np.arange(N)
+    for _ in range(iters):
+        J = np.random.choice(idx, 3, replace=False)
+        n = np.cross(p[J[1]]-p[J[0]], p[J[2]]-p[J[0]])
+        n_norm = np.linalg.norm(n)
+        if n_norm < 1e-9: continue
+        n = n / n_norm
+        d = -np.dot(n, p[J[0]])
+        dist = np.abs(p @ n + d)
+        inliers = (dist < tol).sum()
+        if inliers > best_in:
+            best_in, best_n = inliers, n
+    if best_n is None: return surface_normal(p)
+    if best_n[2] < 0: best_n = -best_n
+    return best_n / np.linalg.norm(best_n)
+
+class exp_filt_rot:
+    def __init__(self, alpha=0.2):
+        self.R = R.identity()
+        self.alpha = alpha
+        self.init = False
+    def update(self, R_new):
+        if not self.init:
+            self.R = R_new; self.init = True; return self.R
+        # log/exp smoothing
+        R_err = R_new * self.R.inv()
+        v = R_err.as_rotvec()
+        self.R = R.from_rotvec(self.alpha*v) * self.R
+        return self.R
+
+def liq_compensate(particles_world, quat_init_wxyz, top_percent=10,
+                   use_ransac=False, alpha=0.2, omega_max=0.8):
+    # Seleziona particelle sup
+    z = particles_world[:,2]
+    thr = np.percentile(z, 100 - top_percent)
+    surf = particles_world[z >= thr]
+    if surf.shape[0] < 3:
+        return quat_init_wxyz
+
+    # Trova normale piano
+    n = ransac_plane_normal(surf) if use_ransac else surface_normal(surf)
+    zhat = np.array([0.,0.,1.])
+
+    # Rotazione che porta n -> ẑ
+    cos = np.clip(np.dot(n, zhat), -1.0, 1.0)
+    angle = np.arccos(cos)
+    axis = np.cross(n, zhat)
+    s = np.linalg.norm(axis)
+    if s < 1e-9 or angle < 1e-6:
+        R_corr = R.identity()
+    else:
+        axis /= s
+        R_corr = R.from_rotvec(axis * angle)
+
+    # 4) filtra e limita velocità angolare
+    # filtro sul SO(3)
+    static_lpf = getattr(liq_compensate, "_lpf", None)
+    if static_lpf is None:
+        static_lpf = exp_filt_rot(alpha=alpha)
+        liq_compensate._lpf = static_lpf    
+    R_corr_f = static_lpf.update(R_corr)
+
+    # rate limit: tronca la rotazione istantanea
+    rotvec = R_corr_f.as_rotvec()
+    norm = np.linalg.norm(rotvec)
+    if norm > omega_max:  # massimo passo angolare per ciclo
+        rotvec = rotvec * (omega_max / norm)
+    R_step = R.from_rotvec(rotvec)
+
+    # Applica alla pose iniziale
+    q_xyzw = np.roll(quat_init_wxyz, -1)
+    R0 = R.from_quat(q_xyzw)
+    R_des = R_step * R0  
+
+    q_out_xyzw = R_des.as_quat()
+    q_out_wxyz = np.roll(q_out_xyzw, 1)
+    return q_out_wxyz
 
 def plan_path(
         ur5e,
@@ -1249,12 +1349,19 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     
     # Trasporto:
     path3=paths["transport"]
+    quat_prev=None
     for wp in path3: 
         wp=to_device_tensor(wp)
         if liq:
-            pos_wp, _ = ur5e.forward_kinematics(wp)
+            pos_wp, quat_wp = ur5e.forward_kinematics(wp)
             particles = np.squeeze(liquid.get_particles())
-            quat_wp = to_device_tensor(liq_ang(particles))
+            quat_np = to_numpy_cpu(quat_wp)
+            quat_new = liq_compensate(particles, quat_np)
+
+            # filtro cambio e riconversione
+            if quat_prev is None or np.linalg.norm(quat_new - quat_prev) < 0.1:
+                quat_prev = quat_new
+            quat_wp = to_device_tensor(quat_prev)
             try:
                 qpos = ur5e.inverse_kinematics(
                     link=ur5e.get_link("tool0"),
