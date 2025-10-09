@@ -216,15 +216,15 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 1000, #10000*dt,  # Increased substeps for better stability
+            substeps= 200, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
         enable_collision=True,
         enable_self_collision=True,
         enable_adjacent_collision=False,
-        constraint_timeconst=0.0001,
-        max_dynamic_constraints=10,
+        # constraint_timeconst=0.0001,
+        # max_dynamic_constraints=10,
         ),
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
@@ -417,9 +417,12 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     
     # Calculate liquid dimensions based on container size
     liquid_radius = min(container_size[0], container_size[1])/2*0.7
-    init_volume = parameters['vol_init']
+    init_volume = parameters['vol_init'] if parameters['vol_init']<1 else parameters['vol_init']*1e-6 
     liquid_height = init_volume/(np.pi*liquid_radius**2)
+    num_part=init_volume/(0.01**3*0.7) #vol/(part_size^3*efficiency)
+
     print(f"Radius: {liquid_radius*10**3} mm, Height: {liquid_height*10**3} mm")
+    print(f"Th. num of part: {num_part}")
     #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
     #print(liquid_radius, liquid_height)
     # Position liquid relative to container center
@@ -435,6 +438,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 exponent=7.0,
                 mu= parameters['viscosità'], # 0.001002       # viscosità dinamica dell'acqua a 20 °C [Pa·s]
                 gamma=parameters['tens_sup'], # 0.0728       # tensione superficiale dell'acqua a 20 °C [N/m]),
+                sampler='regular'
             ),
             morph=gs.morphs.Cylinder(
                 pos  = liqpos,

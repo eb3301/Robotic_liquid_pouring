@@ -38,7 +38,7 @@ scene = gs.Scene(
         # position of the bounding box for the liquid
         lower_bound   = (-1.5, -1.5, 0.0), 
         upper_bound   = (1.5, 1.5, 2),
-        particle_size = 0.005, #0.002  
+        particle_size = 0.01, #0.002  
     ),
     viewer_options = gs.options.ViewerOptions(
         res           = (640, 480),
@@ -90,6 +90,13 @@ becher = scene.add_entity(
     # vis_mode = "collision",
     visualize_contact=debug,
 )
+
+# bbox = mesh.bounding_box.extents
+#     center = mesh.bounding_box.centroid
+#     aabb = mesh.bounding_box
+#     aabb_min = aabb.bounds[0]  # Minimum (x, y, z) of the bounding box
+#     aabb_max = aabb.bounds[1]  # Maximum (x, y, z) of the bounding box
+
 container_mesh = trimesh.load(container_mesh_path)
 container_bounds = container_mesh.bounds
 global container_size
@@ -102,23 +109,24 @@ print(f"Radius: {liquid_radius*10**3} mm, Height: {liquid_height*10**3} mm")
 #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
 #print(liquid_radius, liquid_height)
 # Position liquid relative to container center
-liqpos = (0,0,liquid_height/2) 
+liqpos = (0,0,liquid_height/2+0.01) 
+
+
 liquid = scene.add_entity(
     # viscous liquid
     #material=gs.materials.SPH.Liquid(mu=0.02, gamma=0.02),
     material=gs.materials.SPH.Liquid( 
         rho= 1000.0,
-        stiffness=1000.0,
+        stiffness=5000.0,
         exponent=7.0,
         mu= 0.001002,       # viscosità dinamica dell'acqua a 20 °C [Pa·s]
-        gamma= 0.000728,       # tensione superficiale dell'acqua a 20 °C [N/m]),
+        gamma= 0.0728,  # tensione superficiale dell'acqua a 20 °C [N/m]),
+        sampler='regular',
     ),
     morph=gs.morphs.Cylinder(
         pos  = liqpos,
         radius = liquid_radius,
-        height = liquid_height,  
-        # contype=0b010,
-        # conaffinity=0b010,      
+        height = liquid_height,     
     ),
     surface=gs.surfaces.Default(
         color    = (0.4, 0.8, 1.0),
@@ -128,5 +136,10 @@ liquid = scene.add_entity(
 
 scene.build()
 
+# n_envs n_part pos3x
+#vel =[]
+
+
 for _ in range(1000):
+   # liquid.set_vel(0, vel)
     scene.step()

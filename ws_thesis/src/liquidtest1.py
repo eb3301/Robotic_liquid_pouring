@@ -11,7 +11,7 @@ gs.init(
     debug=True,
     eps=1e-12,
     logging_level='debug',
-    backend=gs.cpu,
+    backend=gs.gpu,
     theme='dark',
     logger_verbose_time='warning',
 )
@@ -62,7 +62,7 @@ scene = gs.Scene(
 )
 
 # --- File del contenitore ---
-DIR = "/home/edo/thesis"
+DIR = "/home/barutta/Robotic_liquid_pouring"
 container_mesh_path = DIR + '/becher/becher1.obj'
 
 # --- Piano d'appoggio ---
@@ -126,11 +126,11 @@ liquid = scene.add_entity(
 scene.build()
 
 # --- Settling senza gravità ---
-for _ in range(500):
+for _ in range(10):
     scene.step()
 
 # --- Rampa graduale di gravità ---
-n_ramp = 500
+n_ramp = 100
 for i in range(n_ramp):
     g = -9.81 * (i + 1) / n_ramp
     scene._sim.options.gravity = (0, 0, g)
