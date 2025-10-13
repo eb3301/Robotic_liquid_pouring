@@ -64,6 +64,44 @@ class RosLeaf(py_trees.behaviour.Behaviour):
         self.bb = Blackboard()
 
 # ---------- Movimento ----------
+class PrintPose(RosLeaf):
+    def __init__(self, node, target_frame="base_link", ee_frame="tip", name="PrintPose"):
+        super().__init__(name, node)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
+        self.target_frame = target_frame
+        self.ee_frame = ee_frame
+
+    def initialise(self):
+        pass
+
+    def update(self):
+        try:
+            t = self.tf_buffer.lookup_transform(
+                self.target_frame,        
+                self.ee_frame,           
+                rclpy.time.Time(),
+                timeout=Duration(seconds=0.5)
+            )
+            p = t.transform.translation
+            q = t.transform.rotation
+
+            pose = PoseStamped()
+            pose.header = t.header
+            pose.header.frame_id = self.target_frame
+            pose.pose.position.x = p.x; pose.pose.position.y = p.y; pose.pose.position.z = p.z
+            pose.pose.orientation = q
+
+            self.node.get_logger().info(
+                f"EE in {self.target_frame}: p=[{p.x:.3f}, {p.y:.3f}, {p.z:.3f}] "
+                f"q=[{q.x:.3f}, {q.y:.3f}, {q.z:.3f}, {q.w:.3f}]"
+            )
+            # stampa una volta → SUCCESS. Per stampa continua, ritorna RUNNING.
+            return py_trees.common.Status.SUCCESS
+        except Exception as e:
+            self.feedback_message = f"TF lookup failed: {e}"
+            return py_trees.common.Status.FAILURE
+
 class MoveToPose(RosLeaf):
     def __init__(self, node, pose_list=None, pose_bb=None, name="MoveToPose"):
         super().__init__(name, node)
@@ -523,48 +561,6 @@ class ExecutePathPublisher(RosLeaf):
         goal = np.array(goal)
         err = np.linalg.norm(goal - current_pos, ord=np.inf)
         return err < self.tol
-
-from rclpy.duration import Duration
-from geometry_msgs.msg import PoseStamped
-from tf2_ros import Buffer, TransformListener
-
-class PrintPose(RosLeaf):
-    def __init__(self, node, target_frame="base_link", ee_frame="tip", name="PrintPose"):
-        super().__init__(name, node)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
-        self.target_frame = target_frame
-        self.ee_frame = ee_frame
-
-    def initialise(self):
-        pass
-
-    def update(self):
-        try:
-            t = self.tf_buffer.lookup_transform(
-                self.target_frame,        
-                self.ee_frame,           
-                rclpy.time.Time(),
-                timeout=Duration(seconds=0.5)
-            )
-            p = t.transform.translation
-            q = t.transform.rotation
-
-            pose = PoseStamped()
-            pose.header = t.header
-            pose.header.frame_id = self.target_frame
-            pose.pose.position.x = p.x; pose.pose.position.y = p.y; pose.pose.position.z = p.z
-            pose.pose.orientation = q
-
-            self.node.get_logger().info(
-                f"EE in {self.target_frame}: p=[{p.x:.3f}, {p.y:.3f}, {p.z:.3f}] "
-                f"q=[{q.x:.3f}, {q.y:.3f}, {q.z:.3f}, {q.w:.3f}]"
-            )
-            # stampa una volta → SUCCESS. Per stampa continua, ritorna RUNNING.
-            return py_trees.common.Status.SUCCESS
-        except Exception as e:
-            self.feedback_message = f"TF lookup failed: {e}"
-            return py_trees.common.Status.FAILURE
 
 
 #==============================================================================================================
