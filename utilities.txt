@@ -8,9 +8,17 @@ rigid equality
 path planner
 
 ########################## ROS2 run
+MACCHINA FISICA:
 VISION:
 source ros2_venv/bin/activate
 python -m vision_service.vis_service
+ROBOT:
+SIM: ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=true
+REAL: switch to remote control on the robot: ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=false
+PLAY: ros2 service call /dashboard_client/play std_srvs/srv/Trigger {}
+
+
+MACCHINA VIRTUALE
 PLANNER:
 attiva venv su vm e poi
 python -m sim_plan.path_planner_service
@@ -19,15 +27,7 @@ UPDATE BELIEF:
 ros2 topic pub /reward std_msgs/msg/Float32 "{data: 1}" --once
 ros2 run belief_updater belief_updater_service
 ros2 run belief_updater belief_updater_service
-ROBOT:
-ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=true
 
-# altri servizi:
-ros2 run nome_pacchetto nome_nodo
-
-switch to remote control on the robot:
- ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=false
- ros2 service call /dashboard_client/play std_srvs/srv/Trigger {}
 
 ############# Calibrazione:
 ros2 run depthai_ros_driver camera_node 

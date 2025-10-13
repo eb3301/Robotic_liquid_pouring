@@ -180,7 +180,7 @@ class CallVisionService(RosLeaf):
                 self.bb.set(self.out_pos_key, list(resp.centroid))
                 self.bb.set(self.out_vol_key, resp.volume)
 
-            self.node.get_logger().info(f"Vision completata: {resp.centroid}")
+            self.node.get_logger().info(f"Vision completed: {resp.centroid}")
             return py_trees.common.Status.SUCCESS
 
         except Exception as e:
@@ -226,6 +226,7 @@ class CloseGripper(RosLeaf):
     def initialise(self):
         self._sent = False
         self._result_future = None
+        self.node.get_logger().info(f"Closing gripper")
 
     def _goal_response_cb(self, future):
         goal_handle = future.result()
@@ -259,7 +260,56 @@ class CloseGripper(RosLeaf):
                 return py_trees.common.Status.FAILURE
 
         return py_trees.common.Status.RUNNING
+    
+class OpenGripper(RosLeaf):
+    def __init__(self, node, name="OpenGripper"):
+        super().__init__(name, node)
+        self.client = ActionClient(
+            self.node,
+            GripperCommand,
+            "/gripper_action_controller/gripper_cmd"
+        )
+        self._sent = False
+        self._result_future = None
 
+    def initialise(self):
+        self._sent = False
+        self._result_future = None
+        self.node.get_logger().info(f"Opening gripper")
+
+    def _goal_response_cb(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.feedback_message = "Goal rifiutato dal gripper"
+            self._result_future = None
+            return
+        self._result_future = goal_handle.get_result_async()
+
+    def update(self):
+        if not self._sent:
+            if not self.client.wait_for_server(timeout_sec=1.0):
+                self.feedback_message = "Server gripper non disponibile"
+                return py_trees.common.Status.FAILURE
+
+            goal = GripperCommand.Goal()
+            goal.command.position = 0.025    # aperto
+            goal.command.max_effort = 0.1  # come da comando corretto
+
+            self._goal_future = self.client.send_goal_async(goal)
+            self._goal_future.add_done_callback(self._goal_response_cb)
+            self._sent = True
+            return py_trees.common.Status.RUNNING
+
+        if self._result_future and self._result_future.done():
+            result = self._result_future.result().result
+            if getattr(result, "reached_goal", True):
+                return py_trees.common.Status.SUCCESS
+            else:
+                self.feedback_message = "Gripper non ha raggiunto il goal"
+                return py_trees.common.Status.FAILURE
+
+        return py_trees.common.Status.RUNNING
+    
 class SetPlanParams(RosLeaf):
     def __init__(self, node, theta_f, num_wp, target_vol, name="SetPlanParams"):
         super().__init__(name, node)
@@ -298,7 +348,7 @@ class SetPlanParams(RosLeaf):
             self.bb.set("init_parameters", init_parameters)
             with open("/tmp/init_parameters.yaml", "w") as f:
                 yaml.safe_dump({"parameters": init_parameters}, f, sort_keys=False)
-            self.node.get_logger().info("File initial parameters creates")
+            self.node.get_logger().info("File initial parameters created")
             return py_trees.common.Status.SUCCESS
         except Exception as e:
             self.node.get_logger().error(f"File creation failed: {str(e)}")
@@ -312,8 +362,8 @@ class SendYamlToVM(RosLeaf):
         local_path = "/tmp/init_parameters.yaml"
         remote_path = "/tmp/init_parameters.yaml"
 
-        host = "100.110.226.44"
-        user = "edo"
+        host = "100.93.166.22"
+        user = "barutta"
         key_file = "/home/edo/.ssh/id_barutta"
 
         # Controllo chiave
@@ -521,20 +571,19 @@ class PrintPose(RosLeaf):
 # COSTRUZIONE ALBERO E AVVIO:
 
 def create_tree(node: Node):
-    # definizione target:
-    target_1 = [-0.462, 0.233, 0.128, -0.005, 0.707, 0.707, 0.005]
-    joint_1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
+    joint_v1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
+    joint_v2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
 
-    target_2 = [0.461, -0.035, 0.128, 0.005, 0.707, 0.707, -0.005]
-    joint_2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
-
-    move_t1 = MoveToPose(node, pose_list=joint_1,pose_bb=None)
+    open=OpenGripper(node)
+    move_t1 = MoveToPose(node, pose_list=joint_v1,pose_bb=None)
     vision_1 = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
 
-    move_t2 = MoveToPose(node, pose_list=joint_2,pose_bb="pos_init_ee")
+    move_t2 = MoveToPose(node, pose_list=joint_v2,pose_bb="pos_init_ee")
     vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
 
-    move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
+    pose_c=[0.331, 0.571, 0.066, -0.018, 0.721, 0.692, -0.027] # x,y,z,x,y,z,w
+    move_c = MoveToPose(node, pose_list=pose_c, pose_bb="pos_appr_ee")
+    #move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
 
     off = ComputeOffset(node, "pos_appr_ee", "pos_init_cont")
     grip = CloseGripper(node)
@@ -552,12 +601,13 @@ def create_tree(node: Node):
     pose=PrintPose(node)
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     seq.add_children([
-        pose,
+        #pose,
+        open,
         move_t1, vision_1,
         move_t2, vision_2, 
         move_c, par_util, params,
-        # send,
-        # wait_path,
+        send,
+        wait_path,
         #execp,
         ])
     
