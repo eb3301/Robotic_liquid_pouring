@@ -61,18 +61,18 @@ class PerceptionService(Node):
 
             point_msg = PointStamped()
             point_msg.header.stamp = self.get_clock().now().to_msg()   # timestamp
-            point_msg.header.frame_id = "camera_frame"                 # frame di riferimento
+            point_msg.header.frame_id = "base_link"                 # frame di riferimento
 
             point_msg.point = Point(x=float(centroid[0]),
                                     y=float(centroid[1]),
                                     z=float(centroid[2]))
 
             # Trasformazione da camera_frame a world:
-            to_frame_rel = 'world'
-            from_frame_rel = 'camera_frame'
+            to_frame_rel = 'base_link'
+            from_frame_rel = 'oak_rgb_camera_optical_frame'
             time=rclpy.time.Time() 
             # Wait for the transform asynchronously
-            tf_future = self.buffer.wait_for_transform_async(
+            tf_future = self.tf_buffer.wait_for_transform_async(
             target_frame=to_frame_rel,
             source_frame=from_frame_rel,
             time=time
@@ -81,7 +81,7 @@ class PerceptionService(Node):
 
             # Lookup tansform
             try:
-                t = self.buffer.lookup_transform(to_frame_rel,
+                t = self.tf_buffer.lookup_transform(to_frame_rel,
                                                 from_frame_rel,
                                                 time)
                 # Do the transform

@@ -27,6 +27,13 @@ ros2 run nome_pacchetto nome_nodo
 
 switch to remote control on the robot:
  ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=false
+ ros2 service call /dashboard_client/play std_srvs/srv/Trigger {}
+
+############# Calibrazione:
+ros2 run depthai_ros_driver camera_node 
+ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=false
+(stampa aruco)
+segui processo calib
  
  
  ros2 topic pub -r 500 /forward_veposition_controller/commands std_msgs/msg/Float64MultiArray \'layout:\^J\ \ dim:\ []\^J\ \ data_offset:\ 0\^Jdata:\ [0,1,0,0,0,0]\^J\'

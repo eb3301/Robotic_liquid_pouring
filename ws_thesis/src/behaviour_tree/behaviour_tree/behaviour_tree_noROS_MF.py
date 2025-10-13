@@ -66,79 +66,62 @@ class RosLeaf(py_trees.behaviour.Behaviour):
 # ---------- Movimento ----------
 class MoveToPose(RosLeaf):
     def __init__(self, node, pose_list=None, pose_bb=None, name="MoveToPose"):
-        """
-        :param pose_list: lista [x, y, z, qx, qy, qz, qw]
-        :param pose_bb: chiave sul blackboard su cui salvare pose
-        """
         super().__init__(name, node)
-        if isinstance(pose_list, str):
-            self.pose_list = self.bb.get(pose_list)  
-        else:
-            self.pose_list = pose_list
+        self.pose_list = pose_list
         self.pose_bb = pose_bb
-        self._sent = False
-        self._goal_future = None
-        self._result_future = None
-        self._last_joint_state = None
-
         self.motion_client = MotionClient()
-        self.node.get_logger().info("MoveToPose ready")
-
-    def _joint_state_cb(self, msg: JointState):
-        self._last_joint_state = msg
+        
 
     def initialise(self):
-        self._sent = False
-        self._goal_future = None
-        self._result_future = None
-
-    def _goal_response_cb(self, future):
-        try:
-            goal_handle = future.result()
-            if not goal_handle.accepted:
-                self.feedback_message = "Goal rifiutato da MotionClient"
-                self._result_future = None
-                return
-            self._result_future = goal_handle.get_result_async()
-        except Exception as e:
-            self.feedback_message = f"Errore risposta goal: {e}"
-            self._result_future = None
+        self.node.get_logger().info("MoveToPose started")
 
     def update(self):
-        # Invio goal
-        if not self._sent:
-            pose_list = self.pose_list
-            if pose_list is None or len(pose_list) != 7:
-                self.feedback_message = "Pose non valida"
-                return py_trees.common.Status.FAILURE
+        # se pose_list è chiave del blackboard, leggi una sola volta
+        if isinstance(self.pose_list, str):
+            val = self.bb.get(self.pose_list)
+            if val is not None:
+                self.pose_list = val
+            else:
+                self.feedback_message = f"Pose '{self.pose_list}' non ancora disponibile"
+                return py_trees.common.Status.RUNNING
 
+        # controlla validità
+        if self.pose_list is None or (len(self.pose_list) != 7 and len(self.pose_list) != 6):
+            self.feedback_message = "Pose non valida"
+            return py_trees.common.Status.FAILURE
+
+        if len(self.pose_list) == 7:
+        # crea messaggio pose
             pose_msg = PoseStamped()
             pose_msg.header.frame_id = "base_link"
-            pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = pose_list[:3]
-            pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w = pose_list[3:]
+            pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = map(float,self.pose_list[:3])
+            pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w = map(float,self.pose_list[3:])
 
-            self._goal_future = self.motion_client.move_to_pose_async(pose_msg)
-            self._goal_future.add_done_callback(self._goal_response_cb)
-            self._sent = True
-            return py_trees.common.Status.RUNNING
-
-        if self._result_future and self._result_future.done():
             try:
-                res = self._result_future.result()
-
-                if res.val == 1:
+                result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=True) 
+                if getattr(result, "val", 1) == 1:
                     if self.pose_bb is not None:
                         self.bb.set(self.pose_bb, self.pose_list)
                     return py_trees.common.Status.SUCCESS
                 else:
                     self.feedback_message = "Movimento fallito"
                     return py_trees.common.Status.FAILURE
-
             except Exception as e:
-                self.feedback_message = f"Errore nel risultato: {e}"
+                self.feedback_message = f"Errore move_to_pose: {e}"
                 return py_trees.common.Status.FAILURE
-
-        return py_trees.common.Status.RUNNING
+        else:
+            try:
+                result = self.motion_client.move_to_joint(self.pose_list) 
+                if getattr(result, "val", 1) == 1:
+                    if self.pose_bb is not None:
+                        self.bb.set(self.pose_bb, self.pose_list)
+                    return py_trees.common.Status.SUCCESS
+                else:
+                    self.feedback_message = "Movimento fallito"
+                    return py_trees.common.Status.FAILURE
+            except Exception as e:
+                self.feedback_message = f"Errore move_to_pose: {e}"
+                return py_trees.common.Status.FAILURE
 
 # ---------- Percezione ----------
 class CallVisionService(RosLeaf):
@@ -153,42 +136,56 @@ class CallVisionService(RosLeaf):
         self.out_pos_key = out_pos_key
         self.out_vol_key = out_vol_key
 
-        # Crea il client
+        # Client ROS2
         from interfaces.srv import Perception
         self.client = self.node.create_client(Perception, 'estimate_perception')
         while not self.client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info("Servizio estimate_perception non disponibile, retry...")
-        
+
+        self._future = None
+        self._sent = False
+
+    def initialise(self):
+        self._future = None
+        self._sent = False
+        self.node.get_logger().info("Perception started")
 
     def update(self):
-        #self.node.get_logger().info("vision tick")
-        try:
-            from interfaces.srv import Perception
+        from interfaces.srv import Perception
+
+        # 1. Invia richiesta solo una volta
+        if not self._sent:
             req = Perception.Request()
             req.estimate_volume = self.estimate_volume
+            self._future = self.client.call_async(req)
+            self._sent = True
+            return py_trees.common.Status.RUNNING
 
-            future = self.client.call_async(req)
-            rclpy.spin_until_future_complete(self.node, future)
-            resp = future.result()
+        # 2. Attende completamento future
+        if self._future is None or not self._future.done():
+            return py_trees.common.Status.RUNNING
 
+        # 3. Future completato → gestisci risultato
+        try:
+            resp = self._future.result()
             if resp is None or not resp.success:
                 self.feedback_message = "Vision service fallito"
-                self.node.get_logger().warn(f"{resp.message}")
+                msg = getattr(resp, "message", "no message")
+                self.node.get_logger().warn(f"Vision service fallito: {msg}")
                 return py_trees.common.Status.FAILURE
 
-            # Salva nel blackboard
+            # Salva risultati nel blackboard
             self.bb.set(self.out_centroid_key, list(resp.centroid))
-            self.node.get_logger().info(self.out_centroid_key)
             if self.estimate_volume:
-                self.bb.set(self.out_pos_key, list(resp.centroid))  # qui ipotizziamo centroid ≈ pos_init_cont
+                self.bb.set(self.out_pos_key, list(resp.centroid))
                 self.bb.set(self.out_vol_key, resp.volume)
 
-            self.node.get_logger().info(f"Risposta ricevuta {resp.centroid}")
+            self.node.get_logger().info(f"Vision completata: {resp.centroid}")
             return py_trees.common.Status.SUCCESS
 
         except Exception as e:
             self.feedback_message = str(e)
-            self.node.get_logger().info("Failed request")
+            self.node.get_logger().error(f"Errore VisionService: {e}")
             return py_trees.common.Status.FAILURE
 
 # ---------- Logica/Utility ----------
@@ -206,9 +203,6 @@ class ComputeOffset(RosLeaf):
         offset = [ee[0]-cont[0], ee[1]-cont[1], ee[2]-cont[2]]
         self.bb.set(self.out_key, offset)
         return py_trees.common.Status.SUCCESS
-
-
-
 
     def _goal_response_cb(self, future):
         goal_handle = future.result()
@@ -480,26 +474,70 @@ class ExecutePathPublisher(RosLeaf):
         err = np.linalg.norm(goal - current_pos, ord=np.inf)
         return err < self.tol
 
+from rclpy.duration import Duration
+from geometry_msgs.msg import PoseStamped
+from tf2_ros import Buffer, TransformListener
+
+class PrintPose(RosLeaf):
+    def __init__(self, node, target_frame="base_link", ee_frame="tip", name="PrintPose"):
+        super().__init__(name, node)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
+        self.target_frame = target_frame
+        self.ee_frame = ee_frame
+
+    def initialise(self):
+        pass
+
+    def update(self):
+        try:
+            t = self.tf_buffer.lookup_transform(
+                self.target_frame,        
+                self.ee_frame,           
+                rclpy.time.Time(),
+                timeout=Duration(seconds=0.5)
+            )
+            p = t.transform.translation
+            q = t.transform.rotation
+
+            pose = PoseStamped()
+            pose.header = t.header
+            pose.header.frame_id = self.target_frame
+            pose.pose.position.x = p.x; pose.pose.position.y = p.y; pose.pose.position.z = p.z
+            pose.pose.orientation = q
+
+            self.node.get_logger().info(
+                f"EE in {self.target_frame}: p=[{p.x:.3f}, {p.y:.3f}, {p.z:.3f}] "
+                f"q=[{q.x:.3f}, {q.y:.3f}, {q.z:.3f}, {q.w:.3f}]"
+            )
+            # stampa una volta → SUCCESS. Per stampa continua, ritorna RUNNING.
+            return py_trees.common.Status.SUCCESS
+        except Exception as e:
+            self.feedback_message = f"TF lookup failed: {e}"
+            return py_trees.common.Status.FAILURE
+
+
 #==============================================================================================================
 # COSTRUZIONE ALBERO E AVVIO:
 
 def create_tree(node: Node):
     # definizione target:
-    poses = {
-        "target_1": [0.4, 0.2, 0.3, 0, 0, 0, 1],
-        "target_2": [0.5, -0.2, 0.35, 0, 0, 0, 1],
-    }
+    target_1 = [-0.462, 0.233, 0.128, -0.005, 0.707, 0.707, 0.005]
+    joint_1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
 
-    move_t1 = MoveToPose(node, pose_list=poses["target_1"],pose_bb=None)
+    target_2 = [0.461, -0.035, 0.128, 0.005, 0.707, 0.707, -0.005]
+    joint_2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
+
+    move_t1 = MoveToPose(node, pose_list=joint_1,pose_bb=None)
     vision_1 = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
 
-    move_t2 = MoveToPose(node, pose_list=poses["target_2"],pose_bb="pos_init_ee")
+    move_t2 = MoveToPose(node, pose_list=joint_2,pose_bb="pos_init_ee")
     vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
 
     move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
 
     off = ComputeOffset(node, "pos_appr_ee", "pos_init_cont")
-    grip    = CloseGripper(node)
+    grip = CloseGripper(node)
     par_util = py_trees.composites.Parallel(
         "UtilitiesParallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll()
@@ -511,13 +549,15 @@ def create_tree(node: Node):
     wait_path = WaitForBestPath(node)
     # execp   = Retry(Timeout(ExecutePathPublisher(node), 60.0), 1) # ExecutePathPublisher o ExecutePathAction
    
-    seq = py_trees.composites.Sequence("FullCycle",memory=False)
+    pose=PrintPose(node)
+    seq = py_trees.composites.Sequence("FullCycle",memory=True)
     seq.add_children([
+        pose,
         move_t1, vision_1,
         move_t2, vision_2, 
         move_c, par_util, params,
-        send,
-        wait_path,
+        # send,
+        # wait_path,
         #execp,
         ])
     
