@@ -206,6 +206,7 @@ def init_sim():
         backend             = gs.gpu,
         theme               = 'dark',
         logger_verbose_time = 'warning',
+        performance_mode=True,
     )
 
 def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
@@ -655,7 +656,7 @@ def liq_ang(particles, quat_init, top_percent=10):
 
     return quat_wxyz
 
-def surface_normal(points, ratio_threshold=0.1):
+def surface_normal(points, ratio_threshold=0.8):
     """Stima la normale a una superficie con SVD."""
     if points.shape[0]<5: return np.array([0,0,1.])
     c = np.mean(points, axis=0)
@@ -664,7 +665,7 @@ def surface_normal(points, ratio_threshold=0.1):
         normal = Vt[-1]
         return normal / np.linalg.norm(normal)
     else:
-        return None
+        return np.array([0,0,1.])
 
 def ransac_plane_normal(p, iters=50, tol=0.01):
     # opzionale: robustezza
@@ -1371,7 +1372,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
             pos_wp, quat_wp = ur5e.forward_kinematics(wp)
             particles = np.squeeze(liquid.get_particles())
             quat_np = to_numpy_cpu(quat_wp)
-            quat_new = liq_ang(particles, quat_np)
+            quat_new = liq_compensate(particles, quat_np)
 
             # filtro cambio e riconversione
             if quat_prev is None or np.linalg.norm(quat_new - quat_prev) < 0.1:
@@ -1606,7 +1607,7 @@ def main():
     M = 1#5                     # Numero di traiettorie
     delta = 0.7*M             # Threshold di successo 
     MAX_ITERS = 1#10            # Numero massimo di iterazioni
-    view=True
+    view=False
     liq=True
     record=False
     debug=False
