@@ -655,13 +655,16 @@ def liq_ang(particles, quat_init, top_percent=10):
 
     return quat_wxyz
 
-def surface_normal(points):
-    c = points.mean(axis=0)
-    X = points - c
-    _, _, vh = np.linalg.svd(X, full_matrices=False)
-    n = vh[-1]
-    if n[2] < 0: n = -n
-    return n / np.linalg.norm(n)
+def surface_normal(points, ratio_threshold=0.1):
+    """Stima la normale a una superficie con SVD."""
+    if points.shape[0]<5: return np.array([0,0,1.])
+    c = np.mean(points, axis=0)
+    _, S, Vt = np.linalg.svd(points - c)
+    if S[-1] < ratio_threshold * S[0] and S[-1] < ratio_threshold * S[1]:
+        normal = Vt[-1]
+        return normal / np.linalg.norm(normal)
+    else:
+        return None
 
 def ransac_plane_normal(p, iters=50, tol=0.01):
     # opzionale: robustezza
@@ -698,8 +701,9 @@ class exp_filt_rot:
         self.R = R.from_rotvec(self.alpha*v) * self.R
         return self.R
 
-def liq_compensate(particles_world, quat_init_wxyz, top_percent=10,
-                   use_ransac=False, alpha=0.2, omega_max=0.8):
+def liq_compensate(particles_world, quat_init_wxyz,  motion_axis_tool=[1.,0.,0.],
+                   top_percent=10, use_ransac=False, alpha=0.2, omega_max=0.8):
+    
     # Seleziona particelle sup
     z = particles_world[:,2]
     thr = np.percentile(z, 100 - top_percent)
@@ -709,8 +713,8 @@ def liq_compensate(particles_world, quat_init_wxyz, top_percent=10,
 
     # Trova normale piano
     n = ransac_plane_normal(surf) if use_ransac else surface_normal(surf)
+    # Asse z di rif.
     zhat = np.array([0.,0.,1.])
-
     # Rotazione che porta n -> ẑ
     cos = np.clip(np.dot(n, zhat), -1.0, 1.0)
     angle = np.arccos(cos)
@@ -721,6 +725,12 @@ def liq_compensate(particles_world, quat_init_wxyz, top_percent=10,
     else:
         axis /= s
         R_corr = R.from_rotvec(axis * angle)
+
+    if motion_axis_tool is not None:
+        rotvec = R_corr.as_rotvec()
+        motion_axis_tool = motion_axis_tool / np.linalg.norm(motion_axis_tool)
+        proj = np.dot(rotvec, motion_axis_tool) * motion_axis_tool
+        R_corr = R.from_rotvec(proj)
 
     # 4) filtra e limita velocità angolare
     # filtro sul SO(3)

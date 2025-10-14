@@ -2,11 +2,15 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 # --- utility base ---
-def surface_normal(points):
-    """Stima normale con PCA."""
+def surface_normal(points, ratio_threshold=0.1):
+    """Stima la normale a una superficie con SVD."""
     c = np.mean(points, axis=0)
-    _, _, vh = np.linalg.svd(points - c)
-    return vh[-1]
+    _, S, Vt = np.linalg.svd(points - c)
+    if S[-1] < ratio_threshold * S[0] and S[-1] < ratio_threshold * S[1]:
+        normal = Vt[-1]
+        return normal / np.linalg.norm(normal)
+    else:
+        return None
 
 class exp_filt_rot:
     """Filtro esponenziale su SO(3)."""
@@ -29,10 +33,12 @@ def liq_compensate(particles_world, quat_init_wxyz, motion_axis_tool=None,
         return quat_init_wxyz
 
     n = surface_normal(surf)
-    zhat = np.array([0., 0., 1.])
-    cos = np.clip(np.dot(n, zhat), -1.0, 1.0)
+    if n is None:
+        return quat_init_wxyz
+    xhat = np.array([1., 0., 0.])
+    cos = np.clip(np.dot(n, xhat), -1.0, 1.0)
     angle = np.arccos(cos)
-    axis = np.cross(n, zhat)
+    axis = np.cross(n, xhat)
     s = np.linalg.norm(axis)
     R_corr = R.identity() if s < 1e-9 or angle < 1e-6 else R.from_rotvec(axis / s * angle)
 
