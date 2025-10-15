@@ -725,8 +725,7 @@ def liq_compensate(particles_world, quat_init_wxyz,top_percent=10,
     # orientazione corrente dell’utensile
     q_xyzw = np.roll(quat_init_wxyz, -1)
     R0 = R.from_quat(q_xyzw)
-    print(R0)
-
+    
     # porta l’asse x utensile nel mondo
     motion_axis_tool=np.array([1.,0.,0.])
     axis_world = R0.apply(motion_axis_tool)
@@ -1610,8 +1609,8 @@ def fake_sim(ur5e, paths, scene, path_debug, approach=False):
 
 ########################## main ##########################
 def main():
-    N = 3#20                    # Numero di modelli simulati (iniziale)
-    M = 3#5                     # Numero di traiettorie
+    N = 3                    # Numero di modelli simulati (iniziale)
+    M = 3                     # Numero di traiettorie
     delta = 0.7*M             # Threshold di successo 
     MAX_ITERS = 1#10            # Numero massimo di iterazioni
     view=True
