@@ -1,0 +1,108 @@
+Related works:
+
+Babaians:Our ability to accurately pour liquids into containers
+might seem trivial to us. On the contrary, such an ordinary
+interaction is one of the most challenging tasks in Robotics.
+With automation entering more and more aspects of our
+professional and private life, pouring liquids is becoming
+an indispensable skill for robots. The potential of using pre-
+cision pouring robots is immense in the catering/hospitality
+industry. Likewise, in service robotics, precision pouring as
+a skill will make robots valuable kitchen assistant robots.
+Furthermore, robots can aid as drinking and eating assistants
+for motor-impaired patients or the elderly.
+Given the complexity of the fluid dynamics and the limited
+degrees of freedom in robots, formulating a direct control
+mechanism for pouring is difficult.
+
+Recent progress in deep reinforcement learning (RL) [2]
+and inverse reinforcement learning (IRL) [3] has brought
+promising results for controlling agents in complex environ-
+ments with large state or action spaces. This motivated us to
+solve the robotic pouring using deep reinforcement learning.
+
+Related works di babaian sono interessanti
+
+Contributo:
+One of the challenges in applying RL to robotics problems
+is that acquiring a large number of experiences from the real
+world can be time and cost expensive. Therefore, often it
+is more beneficial to carry out the training in a simulation
+environment and later transfer the skill to the real world. To
+this end, we implemented a simulation environment for the
+interaction between robots and the liquids. Through extensive
+real-world and simulated experiments, we design the opti-
+mized state-space, action-space, and the reward functions.
+
+
+sim2real:
+Using Simulation and Domain Adaptation to Improve Efficiency of Deep Robotic Grasping
+
+Liquid modelling: 
+Robot Motion Planning for Pouring Liquids
+Autonomous Precision Pouring From Unknown Containers
+PourNet: Robust Robotic Pouring Through Curriculum and Curiosity-based Reinforcement Learning
+sph pressure solver (genesis paper e related)
+
+Physics modelling:
+cercare paper per simulatori (vedi genesis)
+Vision-based robot manipulation of transparent liquid containers in a laboratory setting
+Adaptable Pouring: Teaching Robots Not to Spill using Fast but Approximate Fluid Simulation
+
+Planning: 
+Planning generale:
+Paper Arrigoni per RRT.
+PLANNING ALGORITHMS (La Valle)
+Monte Carlo Tree Search for Multi-Robot Task Allocation
+A self-learning Monte Carlo tree search algorithm for robot path planning
+Human-Robot Collaborative Multi-Agent Path Planning using Monte Carlo Tree Search and Social Reward Sources
+Planning with Spatial and Temporal Abstraction from Point Clouds for Deformable Object Manipulation
+Monte-Carlo Robot Path Planning
+Motion Planning as Online Learning: A Multi-Armed Bandit Approach to Kinodynamic Sampling-Based Planning
+
+Planning con incertezza:
+Generalizing from a Few Examples: A Survey on Few-Shot Learning
+Dropout as a Bayesian Approximation: Representing Model Uncertainty in Deep Learning
+Generalized Bayesian deep reinforcement learning
+C MAX ++ : Leveraging Experience in Planning and Execution using Inaccurate Models
+Planning and Execution using Inaccurate Models with Provable Guarantees
+Online Adaptation of Sampling-Based Motion Planning with Inaccurate Models
+Monte Carlo Tree Search in the Presence of Transition Uncertainty
+Learning where to trust unreliable models in an unstructured world for deformable object manipulation (https://www.science.org/doi/epdf/10.1126/scirobotics.abd8170)
+
+
+Planning for liquids:
+Robot Motion Planning for Pouring Liquids
+An Uncertainty-aware Planning Approach to Robotized Liquid Pouring
+Vision-based robot manipulation of transparent liquid containers in a laboratory setting (pouring planning)
+Adaptable Pouring: Teaching Robots Not to Spill using Fast but Approximate Fluid Simulation ()
+
+Implementazione planning su pc:
+Reducing the Barrier to Entry of Complex Robotic Software: a MoveIt! Case Study
+Parametric Trajectory Libraries for Online Motion Planning with Application to Soft Robots
+
+RL:
+Ensemble Reinforcement Learning: A Survey	
+1. Arulkumaran, K., Deisenroth, M.P., Brundage, M., Bharath, A.A.: Deep reinforce-ment learning: A brief survey. IEEE Signal Processing Magazine 34(6), 26–38(2017). https://doi.org/10.1109/MSP.2017.2743240
+2. Ding, Z., Huang, Y., Yuan, H., Dong, H.: Introduction to reinforcement learning. In: Deep reinforcement learning, pp. 47–123. Springer (2020) 
+
+RL for liquids
+Mixline: A Hybrid Reinforcement Learning Framework for Long-horizon Bimanual Coffee Stirring Task
+One-Shot Domain-Adaptive Imitation Learning via Progressive Learning Applied to Robotic Pouring
+PourNet: Robust Robotic Pouring Through Curriculum and Curiosity-based Reinforcement Learning
+PILCO: A Model-Based and Data-Efficient Approach to Policy Search (more efficient but unapplicable to rob liq pour)
+
+Diffusion models: 
+Diffusion Policy: Visuomotor Policy Learning via Action Diffusion
+
+
+Vision:
+Vision-based robot manipulation of transparent liquid containers in a laboratory setting (2 CNN in serie)
+Unsupervised Pixel–Level Domain Adaptation with Generative Adversarial Networks
+IMPROVING FILLING LEVEL CLASSIFICATION WITH ADVERSARIAL TRAINING
+Single Image-Based Food Volume Estimation Using Monocular Depth-Prediction Networks
+Computer Vision for Recognition of Materials and Vessels in Chemistry Lab Settings and the Vector-LabPics Data Set
+Predicting 3D shapes, masks, and properties of materials inside transparent containers, using the TransProteus CGI dataset
+Depth Map Prediction from a Single Image using a Multi-Scale Deep Network
+Deep Residual Learning for Image Recognition
+Siamese Neural Networks for One-shot Image Recognition

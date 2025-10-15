@@ -18,19 +18,23 @@ ToDo:
 
 
 ########################### OVERLEAF:
-3 pagine intro ()
+1) 3 pagine intro ()
 thesis structure
-stato arte 10-15 pag (planning + ML )
+
+2) stato arte 10-15 pag (planning + ML )::
 Modellazione
 - Liquid modelling (diversi tipi di modello - perchè sim + spiegare sph pressure solver (+ condizioni per stabilità )) 
 - Modellazione fisica robot (per poter manipolare liq: dinamica robot + liquido) --> tabella sim fisici (liquidi - deformable - rigid (sì-no)) --> giustifica scelta
+
 Planning/Reinf. learning
 planning approach (RRT + robusta incertezza)
 RL approach
+
 Sim2Real
+
 Vision (ML per vision)
 
-Preliminaries/ background:
+3) Preliminaries/ background:
 ML per vision (NN e CNN)
 Planning alg. (RRT + chanche constr.)
 

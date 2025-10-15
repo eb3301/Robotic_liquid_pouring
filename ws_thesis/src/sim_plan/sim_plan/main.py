@@ -769,6 +769,7 @@ def plan_path(
         return_valid_mask=True,
         debug=False,
         approach=False,
+        max_retry=100,
     ):
 
     old=False
