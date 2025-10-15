@@ -702,57 +702,54 @@ class exp_filt_rot:
         self.R = R.from_rotvec(self.alpha*v) * self.R
         return self.R
 
-def liq_compensate(particles_world, quat_init_wxyz,  motion_axis_tool=[1.,0.,0.],
-                   top_percent=10, use_ransac=False, alpha=0.2, omega_max=0.8):
-    
-    # Seleziona particelle sup
+def liq_compensate(particles_world, quat_init_wxyz,top_percent=10,
+                   use_ransac=False, alpha=0.2, omega_max=0.8):
+
     z = particles_world[:,2]
     thr = np.percentile(z, 100 - top_percent)
     surf = particles_world[z >= thr]
     if surf.shape[0] < 3:
         return quat_init_wxyz
 
-    # Trova normale piano
     n = ransac_plane_normal(surf) if use_ransac else surface_normal(surf)
-    # Asse z di rif.
+
     zhat = np.array([0.,0.,1.])
-    # Rotazione che porta n -> ẑ
     cos = np.clip(np.dot(n, zhat), -1.0, 1.0)
     angle = np.arccos(cos)
     axis = np.cross(n, zhat)
     s = np.linalg.norm(axis)
-    if s < 1e-9 or angle < 1e-6:
-        R_corr = R.identity()
-    else:
-        axis /= s
-        R_corr = R.from_rotvec(axis * angle)
+    R_corr = R.identity() if (s < 1e-9 or angle < 1e-6) else R.from_rotvec((axis / s) * angle)
 
-    if motion_axis_tool is not None:
-        rotvec = R_corr.as_rotvec()
-        motion_axis_tool = motion_axis_tool / np.linalg.norm(motion_axis_tool)
-        proj = np.dot(rotvec, motion_axis_tool) * motion_axis_tool
-        R_corr = R.from_rotvec(proj)
+    # Solo attorno a x utensile
+    rotvec = R_corr.as_rotvec()
+    # orientazione corrente dell’utensile
+    q_xyzw = np.roll(quat_init_wxyz, -1)
+    R0 = R.from_quat(q_xyzw)
+    print(R0)
 
-    # 4) filtra e limita velocità angolare
-    # filtro sul SO(3)
+    # porta l’asse x utensile nel mondo
+    motion_axis_tool=np.array([1.,0.,0.])
+    axis_world = R0.apply(motion_axis_tool)
+
+    # proietta il rotvec sull’asse x utensile (espresso nel mondo)
+    proj = np.dot(rotvec, axis_world) * axis_world
+    R_corr = R.from_rotvec(proj)
+
+    # filtro esponenziale su SO(3) con stato persistente per sessione
     static_lpf = getattr(liq_compensate, "_lpf", None)
     if static_lpf is None:
         static_lpf = exp_filt_rot(alpha=alpha)
-        liq_compensate._lpf = static_lpf    
+        liq_compensate._lpf = static_lpf
     R_corr_f = static_lpf.update(R_corr)
 
-    # rate limit: tronca la rotazione istantanea
+    # rate limit per passo
     rotvec = R_corr_f.as_rotvec()
-    norm = np.linalg.norm(rotvec)
-    if norm > omega_max:  # massimo passo angolare per ciclo
-        rotvec = rotvec * (omega_max / norm)
+    nrm = np.linalg.norm(rotvec)
+    if nrm > omega_max:
+        rotvec *= (omega_max / nrm)
     R_step = R.from_rotvec(rotvec)
 
-    # Applica alla pose iniziale
-    q_xyzw = np.roll(quat_init_wxyz, -1)
-    R0 = R.from_quat(q_xyzw)
-    R_des = R_step * R0  
-
+    R_des = R_step * R0
     q_out_xyzw = R_des.as_quat()
     q_out_wxyz = np.roll(q_out_xyzw, 1)
     return q_out_wxyz
@@ -769,6 +766,7 @@ def plan_path(
         return_valid_mask=True,
         debug=False,
         approach=False,
+        max_retry=20,
     ):
 
     old=False
@@ -831,6 +829,7 @@ def plan_path(
             ignore_collision=ignore_collision,
             planner=planner,
             return_valid_mask=return_valid_mask,
+            max_retry=max_retry,
         )
         if not valid:  # se invalido
             raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
@@ -865,6 +864,7 @@ def plan_path(
             ignore_collision=ignore_collision,
             planner=planner,
             return_valid_mask=return_valid_mask,
+            max_retry=max_retry,
         )
         if not valid:  # se invalido
             raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
@@ -919,6 +919,7 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         raise RuntimeError(f"path di sollevamento è invalido")
@@ -957,6 +958,7 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         raise RuntimeError(f"path di trasporto è invalido")
@@ -998,6 +1000,7 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         raise RuntimeError(f"path da fine trasporto a preversamento è invalido")
@@ -1171,6 +1174,7 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         print(path7)
@@ -1370,9 +1374,12 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         wp=to_device_tensor(wp)
         if liq:
             pos_wp, quat_wp = ur5e.forward_kinematics(wp)
+            pos_wp=pos_wp[7] # ['world', 'shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link', 'tool0', 'hand_e_link', 'hande_left_finger', 'hande_right_finger']
+            quat_wp=quat_wp[7]
             particles = np.squeeze(liquid.get_particles())
             quat_np = to_numpy_cpu(quat_wp)
             quat_new = liq_compensate(particles, quat_np)
+            #print(f"old: {quat_wp}, new: {quat_new}")
 
             # filtro cambio e riconversione
             if quat_prev is None or np.linalg.norm(quat_new - quat_prev) < 0.1:
@@ -1381,7 +1388,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
             try:
                 qpos = ur5e.inverse_kinematics(
                     link=ur5e.get_link("tool0"),
-                    pos=pos_wp[-1],
+                    pos=pos_wp,
                     quat=quat_wp
                 )
                 qpos[-2:]=0.005
@@ -1603,11 +1610,11 @@ def fake_sim(ur5e, paths, scene, path_debug, approach=False):
 
 ########################## main ##########################
 def main():
-    N = 1#20                    # Numero di modelli simulati (iniziale)
-    M = 1#5                     # Numero di traiettorie
+    N = 3#20                    # Numero di modelli simulati (iniziale)
+    M = 3#5                     # Numero di traiettorie
     delta = 0.7*M             # Threshold di successo 
     MAX_ITERS = 1#10            # Numero massimo di iterazioni
-    view=False
+    view=True
     liq=True
     record=False
     debug=False
@@ -1689,7 +1696,7 @@ def main():
         new_samples = [update_parameters(p) for p in param_new] 
         parameters_set = param_new + new_samples
 
-        max_models = 30
+        max_models = 5
         if len(parameters_set) > max_models:
             parameters_set = random.sample(parameters_set, max_models)
 
