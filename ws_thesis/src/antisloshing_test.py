@@ -24,47 +24,52 @@ class exp_filt_rot:
         return self.R_prev
 
 # --- funzione principale ---
-def liq_compensate(particles_world, quat_init_wxyz, motion_axis_tool=None,
+def liq_compensate(particles_world, quat_init_wxyz, motion_axis_tool=np.array([1.,0.,0.]),
                    top_percent=10, use_ransac=False, alpha=0.2, omega_max=0.8):
-    z = particles_world[:, 2]
+
+    z = particles_world[:,2]
     thr = np.percentile(z, 100 - top_percent)
     surf = particles_world[z >= thr]
     if surf.shape[0] < 3:
         return quat_init_wxyz
 
     n = surface_normal(surf)
-    if n is None:
-        return quat_init_wxyz
-    xhat = np.array([1., 0., 0.])
-    cos = np.clip(np.dot(n, xhat), -1.0, 1.0)
+
+    zhat = np.array([0.,0.,1.])
+    cos = np.clip(np.dot(n, zhat), -1.0, 1.0)
     angle = np.arccos(cos)
-    axis = np.cross(n, xhat)
+    axis = np.cross(n, zhat)
     s = np.linalg.norm(axis)
-    R_corr = R.identity() if s < 1e-9 or angle < 1e-6 else R.from_rotvec(axis / s * angle)
+    R_corr = R.identity() if (s < 1e-9 or angle < 1e-6) else R.from_rotvec((axis / s) * angle)
 
-    # se specificato, proietta la correzione sull'asse del movimento
-    if motion_axis_tool is not None:
-        rotvec = R_corr.as_rotvec()
-        motion_axis_tool = motion_axis_tool / np.linalg.norm(motion_axis_tool)
-        proj = np.dot(rotvec, motion_axis_tool) * motion_axis_tool
-        R_corr = R.from_rotvec(proj)
+    # Solo attorno a x utensile
+    rotvec = R_corr.as_rotvec()
+    
+    # orientazione corrente dell’utensile
+    q_xyzw = np.roll(quat_init_wxyz, -1)
+    R0 = R.from_quat(q_xyzw)
 
-    # filtro su SO(3)
+    # porta l’asse x utensile nel mondo
+    axis_world = R0.apply(motion_axis_tool)
+
+    # proietta il rotvec sull’asse x utensile (espresso nel mondo)
+    proj = np.dot(rotvec, axis_world) * axis_world
+    R_corr = R.from_rotvec(proj)
+
+    # filtro esponenziale su SO(3) con stato persistente per sessione
     static_lpf = getattr(liq_compensate, "_lpf", None)
     if static_lpf is None:
         static_lpf = exp_filt_rot(alpha=alpha)
         liq_compensate._lpf = static_lpf
     R_corr_f = static_lpf.update(R_corr)
 
-    # rate limit
+    # rate limit per passo
     rotvec = R_corr_f.as_rotvec()
-    norm = np.linalg.norm(rotvec)
-    if norm > omega_max:
-        rotvec *= omega_max / norm
+    nrm = np.linalg.norm(rotvec)
+    if nrm > omega_max:
+        rotvec *= (omega_max / nrm)
     R_step = R.from_rotvec(rotvec)
 
-    q_xyzw = np.roll(quat_init_wxyz, -1)
-    R0 = R.from_quat(q_xyzw)
     R_des = R_step * R0
     q_out_xyzw = R_des.as_quat()
     q_out_wxyz = np.roll(q_out_xyzw, 1)
@@ -82,14 +87,10 @@ if __name__ == "__main__":
     q_init = np.array([1, 0, 0, 0])  # orientamento neutro (wxyz)
 
     # test single-axis
-    q_out_single = liq_compensate(particles, q_init, motion_axis_tool=np.array([0, 0, 1]))
-    # test multi-axis
-    q_out_multi = liq_compensate(particles, q_init, motion_axis_tool=None)
+    q_out_single = liq_compensate(particles, q_init)
 
     R_single = R.from_quat(np.roll(q_out_single, -1))
-    R_multi = R.from_quat(np.roll(q_out_multi, -1))
 
+    print("q_init: ",q_init)
     print("q_out_single:", q_out_single)
-    print("q_out_multi :", q_out_multi)
     print("Single-axis correction (deg):", R_single.as_euler('xyz', degrees=True))
-    print("Multi-axis  correction (deg):", R_multi.as_euler('xyz', degrees=True))
