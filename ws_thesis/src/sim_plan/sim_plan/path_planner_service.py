@@ -12,6 +12,26 @@ import torch
 from scipy.spatial.transform import Rotation as R
 from interfaces.srv import Simplan
 
+def to_device_tensor(x):
+    """Converte in torch.Tensor solo se Genesis usa GPU."""
+    if gs.backend == gs.gpu:
+        if isinstance(x, np.ndarray):
+            return torch.as_tensor(x, dtype=torch.float32, device="cuda")
+        elif isinstance(x, torch.Tensor):
+            return x.to("cuda", dtype=torch.float32)
+    else:
+        if isinstance(x, np.ndarray):
+            return torch.as_tensor(x, dtype=torch.float32)
+        elif isinstance(x, torch.Tensor):
+            return x.to("cpu", dtype=torch.float32)
+    return torch.tensor(x, dtype=torch.float32)
+
+def to_numpy_cpu(x):
+    """Converte tensor → numpy solo se è su GPU."""
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    return np.array(x, dtype=np.float32)
+
 def quaternion_to_euler(quaternion):
     """
     Convert quaternion to Euler angles (in radians) using ZYX convention.
@@ -41,6 +61,47 @@ def quaternion_to_euler(quaternion):
     
     return np.array([yaw, pitch, roll])
 
+def quat_inverse(q):
+    """
+    Inversa di un quaternione unitario.
+    q: [w, x, y, z]
+    """
+    w, x, y, z = q
+    return np.array([w, -x, -y, -z], dtype=np.float32)
+
+def quat_multiply(q1, q2):
+    """
+    Moltiplicazione di due quaternioni.
+    q1, q2: [w, x, y, z]
+    """
+    w1, x1, y1, z1 = q1
+    w2, x2, y2, z2 = q2
+    w = w1*w2 - x1*x2 - y1*y2 - z1*z2
+    x = w1*x2 + x1*w2 + y1*z2 - z1*y2
+    y = w1*y2 - x1*z2 + y1*w2 + z1*x2
+    z = w1*z2 + x1*y2 - y1*x2 + z1*w2
+    return np.array([w, x, y, z], dtype=np.float32)
+
+def generate_parameters(parameters_range):
+    parameters = {}
+    for key, value in parameters_range.items():
+        if isinstance(value, list) and len(value) == 2 and all(isinstance(v, (int, float)) for v in value):
+            # Singolo range: [min, max]
+            parameters[key] = random.uniform(value[0], value[1])
+        elif isinstance(value, list) and all(isinstance(v, list) and len(v) == 2 for v in value):
+            # Lista di range: [[min, max], [min, max], ...]
+            sampled_values = []
+            for v in value:
+                if v[0] == v[1]:
+                    sampled_values.append(v[0])  # valore fisso
+                else:
+                    sampled_values.append(random.uniform(v[0], v[1]))
+            parameters[key] = sampled_values
+        else:
+            # Caso non gestito o vuoto
+            parameters[key] = None
+    return parameters
+
 def init_sim():
     ########################## init ##########################
     gs.init(
@@ -49,9 +110,10 @@ def init_sim():
         debug               = False,
         eps                 = 1e-12,
         logging_level       = None,
-        backend             = gs.cpu,
+        backend             = gs.gpu,
         theme               = 'dark',
         logger_verbose_time = 'warning',
+        performance_mode=True,
     )
 
 def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
@@ -62,15 +124,15 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 10000*dt,  # Increased substeps for better stability
+            substeps= 200, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
         enable_collision=True,
         enable_self_collision=True,
         enable_adjacent_collision=False,
-        constraint_timeconst=0.0001,
-        max_dynamic_constraints=10,
+        # constraint_timeconst=0.0001,
+        # max_dynamic_constraints=10,
         ),
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
@@ -109,12 +171,12 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             GUI    = False
         )
     ########################## entities ##########################
-    mat_rigid = gs.materials.Rigid(coup_friction=0.1,
-                                   coup_softness=0.0001,
-                                   coup_restitution=0.001,
-                                   sdf_cell_size=0.0001,
-                                   sdf_min_res=32,
-                                   sdf_max_res=512)
+    # mat_rigid = gs.materials.Rigid(coup_friction=0.1,
+    #                                coup_softness=0.0001,
+    #                                coup_restitution=0.001,
+    #                                sdf_cell_size=0.0001,
+    #                                sdf_min_res=32,
+    #                                sdf_max_res=512)
     
     plane = scene.add_entity(gs.morphs.Plane())
 
@@ -262,9 +324,13 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     container2_size = (container2_bounds[1] - container2_bounds[0])*container_scale2
     
     # Calculate liquid dimensions based on container size
-    liquid_radius = min(container_size[0], container_size[1])/2*0.5
-    init_volume = parameters['vol_init']
+    liquid_radius = min(container_size[0], container_size[1])/2*0.7
+    init_volume = parameters['vol_init'] if parameters['vol_init']<1 else parameters['vol_init']*1e-6 
     liquid_height = init_volume/(np.pi*liquid_radius**2)
+    num_part=init_volume/(0.01**3*0.7) #vol/(part_size^3*efficiency)
+
+    print(f"Radius: {liquid_radius*10**3} mm, Height: {liquid_height*10**3} mm")
+    print(f"Th. num of part: {num_part}")
     #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
     #print(liquid_radius, liquid_height)
     # Position liquid relative to container center
@@ -280,6 +346,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 exponent=7.0,
                 mu= parameters['viscosità'], # 0.001002       # viscosità dinamica dell'acqua a 20 °C [Pa·s]
                 gamma=parameters['tens_sup'], # 0.0728       # tensione superficiale dell'acqua a 20 °C [N/m]),
+                sampler='regular'
             ),
             morph=gs.morphs.Cylinder(
                 pos  = liqpos,
@@ -406,25 +473,102 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
 
     return scene, ur5e, becher, becher2, liquid, dt
 
-def generate_parameters(parameters_range):
-    parameters = {}
-    for key, value in parameters_range.items():
-        if isinstance(value, list) and len(value) == 2 and all(isinstance(v, (int, float)) for v in value):
-            # Singolo range: [min, max]
-            parameters[key] = random.uniform(value[0], value[1])
-        elif isinstance(value, list) and all(isinstance(v, list) and len(v) == 2 for v in value):
-            # Lista di range: [[min, max], [min, max], ...]
-            sampled_values = []
-            for v in value:
-                if v[0] == v[1]:
-                    sampled_values.append(v[0])  # valore fisso
-                else:
-                    sampled_values.append(random.uniform(v[0], v[1]))
-            parameters[key] = sampled_values
-        else:
-            # Caso non gestito o vuoto
-            parameters[key] = None
-    return parameters
+def surface_normal(points, ratio_threshold=0.8):
+    """Stima la normale a una superficie con SVD."""
+    if points.shape[0]<5: return np.array([0,0,1.])
+    c = np.mean(points, axis=0)
+    _, S, Vt = np.linalg.svd(points - c)
+    if S[-1] < ratio_threshold * S[0] and S[-1] < ratio_threshold * S[1]:
+        normal = Vt[-1]
+        return normal / np.linalg.norm(normal)
+    else:
+        return np.array([0,0,1.])
+
+def ransac_plane_normal(p, iters=50, tol=0.01):
+    # opzionale: robustezza
+    best_n, best_in = None, -1
+    N = p.shape[0]
+    if N < 3: return np.array([0,0,1.])
+    idx = np.arange(N)
+    for _ in range(iters):
+        J = np.random.choice(idx, 3, replace=False)
+        n = np.cross(p[J[1]]-p[J[0]], p[J[2]]-p[J[0]])
+        n_norm = np.linalg.norm(n)
+        if n_norm < 1e-9: continue
+        n = n / n_norm
+        d = -np.dot(n, p[J[0]])
+        dist = np.abs(p @ n + d)
+        inliers = (dist < tol).sum()
+        if inliers > best_in:
+            best_in, best_n = inliers, n
+    if best_n is None: return surface_normal(p)
+    if best_n[2] < 0: best_n = -best_n
+    return best_n / np.linalg.norm(best_n)
+
+class exp_filt_rot:
+    def __init__(self, alpha=0.2):
+        self.R = R.identity()
+        self.alpha = alpha
+        self.init = False
+    def update(self, R_new):
+        if not self.init:
+            self.R = R_new; self.init = True; return self.R
+        # log/exp smoothing
+        R_err = R_new * self.R.inv()
+        v = R_err.as_rotvec()
+        self.R = R.from_rotvec(self.alpha*v) * self.R
+        return self.R
+
+def liq_compensate(particles_world, quat_init_wxyz,top_percent=10,
+                   use_ransac=False, alpha=0.2, omega_max=0.8):
+
+    z = particles_world[:,2]
+    thr = np.percentile(z, 100 - top_percent)
+    surf = particles_world[z >= thr]
+    if surf.shape[0] < 3:
+        return quat_init_wxyz
+
+    n = ransac_plane_normal(surf) if use_ransac else surface_normal(surf)
+
+    zhat = np.array([0.,0.,1.])
+    cos = np.clip(np.dot(n, zhat), -1.0, 1.0)
+    angle = np.arccos(cos)
+    axis = np.cross(n, zhat)
+    s = np.linalg.norm(axis)
+    R_corr = R.identity() if (s < 1e-9 or angle < 1e-6) else R.from_rotvec((axis / s) * angle)
+
+    # Solo attorno a x utensile
+    rotvec = R_corr.as_rotvec()
+    # orientazione corrente dell’utensile
+    q_xyzw = np.roll(quat_init_wxyz, -1)
+    R0 = R.from_quat(q_xyzw)
+    
+    # porta l’asse x utensile nel mondo
+    motion_axis_tool=np.array([1.,0.,0.])
+    axis_world = R0.apply(motion_axis_tool)
+
+    # proietta il rotvec sull’asse x utensile (espresso nel mondo)
+    proj = np.dot(rotvec, axis_world) * axis_world
+    R_corr = R.from_rotvec(proj)
+
+    # filtro esponenziale su SO(3) con stato persistente per sessione
+    static_lpf = getattr(liq_compensate, "_lpf", None)
+    if static_lpf is None:
+        static_lpf = exp_filt_rot(alpha=alpha)
+        liq_compensate._lpf = static_lpf
+    R_corr_f = static_lpf.update(R_corr)
+
+    # rate limit per passo
+    rotvec = R_corr_f.as_rotvec()
+    nrm = np.linalg.norm(rotvec)
+    if nrm > omega_max:
+        rotvec *= (omega_max / nrm)
+    R_step = R.from_rotvec(rotvec)
+
+    R_des = R_step * R0
+    q_out_xyzw = R_des.as_quat()
+    q_out_wxyz = np.roll(q_out_xyzw, 1)
+    return q_out_wxyz
 
 def plan_path(
         ur5e,
@@ -438,11 +582,13 @@ def plan_path(
         return_valid_mask=True,
         debug=False,
         approach=False,
+        max_retry=20,
     ):
+
     old=False
     path=np.empty((0, 8))
     print(f"planning started")
-    # trasforma tutti i path in array numpy
+    
     #################################
     x_shift=0.13
     z_min=0.967
@@ -454,11 +600,13 @@ def plan_path(
         if debug: print(f"Collisioni 0: {collisions0}")
         pos0=np.array([parameters['pos_init_ee'][0], parameters['pos_init_ee'][1],parameters['pos_init_ee'][2]])
         quat0=np.array([parameters['pos_init_ee'][3], parameters['pos_init_ee'][4], parameters['pos_init_ee'][5], parameters['pos_init_ee'][6]])
+
         q0_test = ur5e.inverse_kinematics(
                     link=ur5e.get_link("tool0"),
                     pos=pos0,
                     quat=quat0,
             )
+        
         links_p0, _ = ur5e.forward_kinematics(q0)      
         p0 = links_p0[-1]
         links_p0_test, _ = ur5e.forward_kinematics(q0_test)
@@ -497,6 +645,7 @@ def plan_path(
             ignore_collision=ignore_collision,
             planner=planner,
             return_valid_mask=return_valid_mask,
+            max_retry=max_retry,
         )
         if not valid:  # se invalido
             raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
@@ -531,6 +680,7 @@ def plan_path(
             ignore_collision=ignore_collision,
             planner=planner,
             return_valid_mask=return_valid_mask,
+            max_retry=max_retry,
         )
         if not valid:  # se invalido
             raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
@@ -585,6 +735,7 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         raise RuntimeError(f"path di sollevamento è invalido")
@@ -623,9 +774,11 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         raise RuntimeError(f"path di trasporto è invalido")
+    path3 = path3.cpu().numpy()
     path = np.concatenate((path, path3))
     #################################
     # q4 (pre vers)
@@ -663,6 +816,7 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         raise RuntimeError(f"path da fine trasporto a preversamento è invalido")
@@ -702,6 +856,8 @@ def plan_path(
         ur5e.set_qpos(q5)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = np.array(path5)
+        path5 = path5.cpu().numpy()
         path = np.concatenate((path, path5))    
 
         #################################
@@ -728,7 +884,8 @@ def plan_path(
         collisions6 = ur5e.detect_collision()
         if debug:
             print(f"Collisioni 6: {collisions6}")
-
+        path6 = np.array(path6)
+        path6 = path6.cpu().numpy()
         path = np.concatenate((path, path6))
 
     else:
@@ -773,6 +930,7 @@ def plan_path(
         ur5e.set_qpos(q5)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path5])
         path = np.concatenate((path, path5))
 
         ###########################################
@@ -801,7 +959,7 @@ def plan_path(
         ur5e.set_qpos(q6)
         collisions6 = ur5e.detect_collision()
         if debug: print(f"Collisioni 6: {collisions6}")
-
+        path6 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path6])
         path = np.concatenate((path, path6))
 
     #################################
@@ -832,6 +990,7 @@ def plan_path(
         ignore_collision=ignore_collision,
         planner=planner,
         return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
     )
     if not valid:  
         print(path7)
@@ -936,6 +1095,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     path2=paths["lift"]
     for qpos in path2:
         qpos[-2:]=0.005
+        qpos=to_device_tensor(qpos)
         if approach:
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
             ur5e.control_dofs_force(closing_force, fingers_dof)
@@ -952,15 +1112,26 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     
     # Trasporto:
     path3=paths["transport"]
+    quat_prev=None
     for wp in path3: 
+        wp=to_device_tensor(wp)
         if liq:
-            pos_wp, _ = ur5e.forward_kinematics(wp)
+            pos_wp, quat_wp = ur5e.forward_kinematics(wp)
+            pos_wp=pos_wp[7] # ['world', 'shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link', 'tool0', 'hand_e_link', 'hande_left_finger', 'hande_right_finger']
+            quat_wp=quat_wp[7]
             particles = np.squeeze(liquid.get_particles())
-            quat_wp = liq_ang(particles)
+            quat_np = to_numpy_cpu(quat_wp)
+            quat_new = liq_compensate(particles, quat_np)
+            #print(f"old: {quat_wp}, new: {quat_new}")
+
+            # filtro cambio e riconversione
+            if quat_prev is None or np.linalg.norm(quat_new - quat_prev) < 0.1:
+                quat_prev = quat_new
+            quat_wp = to_device_tensor(quat_prev)
             try:
                 qpos = ur5e.inverse_kinematics(
                     link=ur5e.get_link("tool0"),
-                    pos=pos_wp[-1],
+                    pos=pos_wp,
                     quat=quat_wp
                 )
                 qpos[-2:]=0.005
@@ -1085,55 +1256,12 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         vol=num_particles_in_target*liquid.particle_size
         if abs(vol-target_vol)<err:
             score+=1 # to be tuned
-    else:
-        score=int(parameters["num_wp"])/1500
 
     tf=scene.get_state().scene.t
     Dt=tf-t0
     score-=1e-2*Dt
     print(f"Simulation completed")
     return score
-
-def liq_ang(particles, top_percent=10):
-    """
-    Dato l'array di particelle, stima la normale alla superficie 
-    libera del liquido, poi calcola la rotazione dell'ee per 
-    mantenere la superficie libera parallela al fondo del contenitore.
-    """
-    z_vals = particles[:, 2]
-    threshold = np.percentile(z_vals, 100 - top_percent) # solo part vicine a sup
-    surface_particles = particles[z_vals >= threshold]
-    centroid = surface_particles.mean(axis=0)
-    X = surface_particles - centroid
-    _, _, vh = np.linalg.svd(X) # PCA/SVD per stimare il piano
-    normal = vh[-1] # normale al piano è ult vect sing
-
-    if normal[2] < 0: # per avere direzione verso l'alto coerente con asse z
-        normal = -normal
-    n = normal / np.linalg.norm(normal)
-    
-    roll = np.arctan2(n[1], n[2])
-    # Costruisci rotazione solo attorno a X
-    r_roll = R.from_euler('x', -roll)  # negativo se vogliamo compensare
-    quat = r_roll.as_quat()  # [x, y, z, w]
-    quat_wxyz = np.roll(quat, 1) 
-
-    # z_axis_tool = estimate_liquid_normal(particles)
-    # world_x = np.array([1.0, 0.0, 0.0])
-    # if np.allclose(np.abs(np.dot(world_x, z_axis_tool)), 1.0, atol=1e-3):
-    #     world_x = np.array([0.0, 1.0, 0.0])
-
-    # y_axis_tool = np.cross(z_axis_tool, world_x)
-    # y_axis_tool /= np.linalg.norm(y_axis_tool)
-    # x_axis_tool = np.cross(y_axis_tool, z_axis_tool)
-    # x_axis_tool /= np.linalg.norm(x_axis_tool)
-
-    # R_target = np.vstack([x_axis_tool, y_axis_tool, z_axis_tool]).T # matrice di rotazione
-    # r_target = R.from_matrix(R_target)
-    # quat_target = r_target.as_quat() # [x, y, z, w]
-    # quat_wxyz = np.roll(quat_target, 1)  # porta l'ultimo elemento in prima posizione
-
-    return quat_wxyz
 
 def is_success(score, threshold=0.5):
     return score > threshold
