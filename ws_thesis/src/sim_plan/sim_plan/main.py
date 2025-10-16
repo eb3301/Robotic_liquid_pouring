@@ -1613,7 +1613,7 @@ def main():
     M = 3                     # Numero di traiettorie
     delta = 0.7*M             # Threshold di successo 
     MAX_ITERS = 1#10            # Numero massimo di iterazioni
-    view=True
+    view=False
     liq=True
     record=False
     debug=False
