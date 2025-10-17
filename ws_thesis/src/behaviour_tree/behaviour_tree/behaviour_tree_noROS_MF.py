@@ -17,6 +17,9 @@ from drims2_motion_server.motion_client import MotionClient
 import yaml
 import os
 import paramiko
+from tf2_ros import Buffer, TransformListener
+from rclpy.duration import Duration
+from rclpy.time import Time
 
 
 
@@ -64,7 +67,7 @@ class RosLeaf(py_trees.behaviour.Behaviour):
         self.bb = Blackboard()
 
 # ---------- Movimento ----------
-class PrintPose(RosLeaf):
+class PrintPose1(RosLeaf):
     def __init__(self, node, target_frame="base_link", ee_frame="tip", name="PrintPose"):
         super().__init__(name, node)
         self.tf_buffer = Buffer()
@@ -73,16 +76,18 @@ class PrintPose(RosLeaf):
         self.ee_frame = ee_frame
 
     def initialise(self):
-        pass
+        self.node.get_logger().info(f"Print pose started")
+        
 
     def update(self):
         try:
             t = self.tf_buffer.lookup_transform(
                 self.target_frame,        
                 self.ee_frame,           
-                rclpy.time.Time(),
+                Time(),
                 timeout=Duration(seconds=0.5)
             )
+            self.node.get_logger().info(f"tf trovata")
             p = t.transform.translation
             q = t.transform.rotation
 
@@ -101,6 +106,46 @@ class PrintPose(RosLeaf):
         except Exception as e:
             self.feedback_message = f"TF lookup failed: {e}"
             return py_trees.common.Status.FAILURE
+class PrintPose(RosLeaf):
+    def __init__(self, node, target_frame="base_link", ee_frame="tip", name="PrintPose"):
+        super().__init__(name, node)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
+        self.target_frame = target_frame
+        self.ee_frame = ee_frame
+
+    def initialise(self):
+        self.node.get_logger().info("Print pose started")
+
+    def update(self):
+        try:
+            if not self.tf_buffer.can_transform(
+                self.target_frame,
+                self.ee_frame,
+                Time(),
+                timeout=Duration(seconds=0.5)
+            ):
+                self.feedback_message = "TF non pronta"
+                return py_trees.common.Status.RUNNING
+
+            t = self.tf_buffer.lookup_transform(
+                self.target_frame,
+                self.ee_frame,
+                Time(),
+                timeout=Duration(seconds=0.5)
+            )
+
+            p = t.transform.translation
+            q = t.transform.rotation
+            self.node.get_logger().info(
+                f"EE in {self.target_frame}: "
+                f"p=[{p.x:.3f}, {p.y:.3f}, {p.z:.3f}] "
+                f"q=[{q.x:.3f}, {q.y:.3f}, {q.z:.3f}, {q.w:.3f}]"
+            )
+            return py_trees.common.Status.SUCCESS
+        except Exception as e:
+            self.feedback_message = f"TF lookup failed: {e}"
+            return py_trees.common.Status.RUNNING
 
 class MoveToPose(RosLeaf):
     def __init__(self, node, pose_list=None, pose_bb=None, name="MoveToPose"):
@@ -136,7 +181,7 @@ class MoveToPose(RosLeaf):
             pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w = map(float,self.pose_list[3:])
 
             try:
-                result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=True) 
+                result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=False) 
                 if getattr(result, "val", 1) == 1:
                     if self.pose_bb is not None:
                         self.bb.set(self.pose_bb, self.pose_list)
@@ -330,7 +375,7 @@ class OpenGripper(RosLeaf):
                 return py_trees.common.Status.FAILURE
 
             goal = GripperCommand.Goal()
-            goal.command.position = 0.025    # aperto
+            goal.command.position = 0.049    # aperto
             goal.command.max_effort = 0.1  # come da comando corretto
 
             self._goal_future = self.client.send_goal_async(goal)
@@ -567,9 +612,13 @@ class ExecutePathPublisher(RosLeaf):
 # COSTRUZIONE ALBERO E AVVIO:
 
 def create_tree(node: Node):
-    joint_v1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
-    joint_v2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
+    #joint_v1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
+    #joint_v2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
 
+    joint_v1=[0.7012355923652649, -1.7084723911681117, -2.219346523284912, -1.8182255230345667, 0.793083667755127, -3.5496469179736536]
+    #joint_v2=[-3.4113157431231897, -1.5812603435912074, -2.313349723815918, -1.3917177480510254, -3.618211809788839, -2.1802199522601526]
+    joint_v2= [-2.9784508387195032, -2.2492810688414515, -1.4298287630081177, -1.9104792080321253, -3.66062838235964, -2.5633793512927454]
+    
     open=OpenGripper(node)
     move_t1 = MoveToPose(node, pose_list=joint_v1,pose_bb=None)
     vision_1 = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
@@ -577,7 +626,12 @@ def create_tree(node: Node):
     move_t2 = MoveToPose(node, pose_list=joint_v2,pose_bb="pos_init_ee")
     vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
 
-    pose_c=[0.331, 0.571, 0.066, -0.018, 0.721, 0.692, -0.027] # x,y,z,x,y,z,w
+    joint_v3= [-1.5371907393084925, -1.2124689680388947, -2.2734172344207764, -2.786943098107809, -1.552525822316305, -3.143904987965719]
+    move_t3 = MoveToPose(node, pose_list=joint_v3,pose_bb=None)
+
+    #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
+    pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
+
     move_c = MoveToPose(node, pose_list=pose_c, pose_bb="pos_appr_ee")
     #move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
 
@@ -601,6 +655,7 @@ def create_tree(node: Node):
         open,
         move_t1, vision_1,
         move_t2, vision_2, 
+        move_t3,
         move_c, par_util, params,
         send,
         wait_path,
