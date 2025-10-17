@@ -30,7 +30,7 @@ ros2 run belief_updater belief_updater_service
 
 
 ############# Calibrazione:
-ros2 run depthai_ros_driver camera_node 	
+ros2 launch depthai_ros_driver camera.launch.py  (ros2 run depthai_ros_driver camera_node)	
 ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=false
 (stampa aruco)
 segui processo calib
