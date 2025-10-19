@@ -20,6 +20,7 @@ import paramiko
 from tf2_ros import Buffer, TransformListener
 from rclpy.duration import Duration
 from rclpy.time import Time
+from interfaces.srv import Perception
 
 
 
@@ -209,18 +210,14 @@ class MoveToPose(RosLeaf):
 # ---------- Percezione ----------
 class CallVisionService(RosLeaf):
     def __init__(self, node, estimate_volume: bool, 
-                 out_centroid_key="pos_cont_goal",
-                 out_pos_key="pos_init_cont",
+                 out_centroid_key=None,
                  out_vol_key="init_vol",
                  name="CallVisionService"):
         super().__init__(name, node)
         self.estimate_volume = estimate_volume
         self.out_centroid_key = out_centroid_key
-        self.out_pos_key = out_pos_key
         self.out_vol_key = out_vol_key
 
-        # Client ROS2
-        from interfaces.srv import Perception
         self.client = self.node.create_client(Perception, 'estimate_perception')
         while not self.client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info("Servizio estimate_perception non disponibile, retry...")
@@ -234,9 +231,8 @@ class CallVisionService(RosLeaf):
         self.node.get_logger().info("Perception started")
 
     def update(self):
-        from interfaces.srv import Perception
+        
 
-        # 1. Invia richiesta solo una volta
         if not self._sent:
             req = Perception.Request()
             req.estimate_volume = self.estimate_volume
@@ -244,11 +240,9 @@ class CallVisionService(RosLeaf):
             self._sent = True
             return py_trees.common.Status.RUNNING
 
-        # 2. Attende completamento future
         if self._future is None or not self._future.done():
             return py_trees.common.Status.RUNNING
 
-        # 3. Future completato → gestisci risultato
         try:
             resp = self._future.result()
             if resp is None or not resp.success:
@@ -260,7 +254,6 @@ class CallVisionService(RosLeaf):
             # Salva risultati nel blackboard
             self.bb.set(self.out_centroid_key, list(resp.centroid))
             if self.estimate_volume:
-                self.bb.set(self.out_pos_key, list(resp.centroid))
                 self.bb.set(self.out_vol_key, resp.volume)
 
             self.node.get_logger().info(f"Vision completed: {resp.centroid}")
@@ -403,15 +396,15 @@ class SetPlanParams(RosLeaf):
         self.bb.set("target_vol", self.target_vol)
 
         # Debug purposes:
-        self.bb.set("pos_init_cont", [0.0, 0.0, 0.0]),
-        self.bb.set("pos_init_ee",[0.0]*7),
-        self.bb.set("pos_cont_goal", [0.0, 0.0, 0.0]),
-        self.bb.set("offset", [0.0, 0.0, 0.0]),
-        self.bb.set("init_vol", 0.0),
-        self.bb.set("densità", 998.0),
-        self.bb.set("viscosità", 0.001),
-        self.bb.set( "tens_sup", 0.072),
-        self.bb.set("err_target", 5e-6),
+        # self.bb.set("pos_init_cont", [0.0, 0.0, 0.0]),
+        # self.bb.set("pos_init_ee",[0.0]*7),
+        # self.bb.set("pos_cont_goal", [0.0, 0.0, 0.0]),
+        # self.bb.set("offset", [0.0, 0.0, 0.0]),
+        # self.bb.set("init_vol", 0.0),
+        # self.bb.set("densità", 998.0),
+        # self.bb.set("viscosità", 0.001),
+        # self.bb.set( "tens_sup", 0.072),
+        # self.bb.set("err_target", 5e-6),
                 
         try:
             init_parameters = {
@@ -616,8 +609,8 @@ def create_tree(node: Node):
     #joint_v2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
 
     joint_v1=[0.7012355923652649, -1.7084723911681117, -2.219346523284912, -1.8182255230345667, 0.793083667755127, -3.5496469179736536]
-    #joint_v2=[-3.4113157431231897, -1.5812603435912074, -2.313349723815918, -1.3917177480510254, -3.618211809788839, -2.1802199522601526]
-    joint_v2= [-2.9784508387195032, -2.2492810688414515, -1.4298287630081177, -1.9104792080321253, -3.66062838235964, -2.5633793512927454]
+    joint_v2=[-3.4113157431231897, -1.5812603435912074, -2.313349723815918, -1.3917177480510254, -3.618211809788839, -2.1802199522601526]
+    #joint_v2= [-2.9784508387195032, -2.2492810688414515, -1.4298287630081177, -1.9104792080321253, -3.66062838235964, -2.5633793512927454]
     
     open=OpenGripper(node)
     move_t1 = MoveToPose(node, pose_list=joint_v1,pose_bb=None)
@@ -646,7 +639,7 @@ def create_tree(node: Node):
 
     send = SendYamlToVM(node)
     wait_path = WaitForBestPath(node)
-    # execp   = Retry(Timeout(ExecutePathPublisher(node), 60.0), 1) # ExecutePathPublisher o ExecutePathAction
+    execp   = ExecutePathPublisher(node) # ExecutePathPublisher o ExecutePathAction
    
     pose=PrintPose(node)
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
@@ -659,7 +652,7 @@ def create_tree(node: Node):
         move_c, par_util, params,
         send,
         wait_path,
-        #execp,
+        execp,
         ])
     
   

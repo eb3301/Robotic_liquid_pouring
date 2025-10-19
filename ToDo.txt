@@ -4,16 +4,13 @@ ToDo:
 -fine tuning se non funziona --> aggiunta volume contenitore
 
 # SIMULAZIONE
-- (P) aggiungere correzione anti-sloshing
-- testare se logica tilting funziona (bisogno GPU)
+- (P) check angolo correzione anti-sloshing
 - definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
 - tuning rewards e penalties (durante test)
 
 # INTEGRAZIONE
 - testa sim_plan su vm (serve motion control)
-- (P) creare tf da camera frame a tool0 (moveit calibration toolbox o qualcosa del genere)
 - testare plan executer con path
-- testare singole parti bt
 - quando tutto ok crea launch file
 
 
