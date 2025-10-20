@@ -1327,10 +1327,10 @@ class PathPlannerService(Node):
 
     def plan_path_callback(self, request, response):
 
-        N = 2                    # Numero di modelli simulati (iniziale)
-        M = 3                     # Numero di traiettorie
+        N = 1                    # Numero di modelli simulati (iniziale)
+        M = 1                     # Numero di traiettorie
         delta = 0.7            # Threshold di successo
-        view=False
+        view=True
         liq=False
         record=False
         debug=False

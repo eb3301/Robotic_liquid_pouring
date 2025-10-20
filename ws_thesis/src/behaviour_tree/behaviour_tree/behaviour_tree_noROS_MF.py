@@ -4,7 +4,7 @@ from rclpy.node import Node
 import py_trees
 from py_trees.blackboard import Blackboard
 import numpy as np
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, PointStamped
 from sensor_msgs.msg import JointState
 from moveit.planning import MoveItPy
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
@@ -21,7 +21,7 @@ from tf2_ros import Buffer, TransformListener
 from rclpy.duration import Duration
 from rclpy.time import Time
 from interfaces.srv import Perception
-
+import tf2_geometry_msgs 
 
 
 class Timeout(py_trees.decorators.Decorator):
@@ -151,6 +151,8 @@ class PrintPose(RosLeaf):
 class MoveToPose(RosLeaf):
     def __init__(self, node, pose_list=None, pose_bb=None, name="MoveToPose"):
         super().__init__(name, node)
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
         self.pose_list = pose_list
         self.pose_bb = pose_bb
         self.motion_client = MotionClient()
@@ -175,7 +177,7 @@ class MoveToPose(RosLeaf):
             return py_trees.common.Status.FAILURE
 
         if len(self.pose_list) == 7:
-        # crea messaggio pose
+            # crea messaggio pose
             pose_msg = PoseStamped()
             pose_msg.header.frame_id = "base_link"
             pose_msg.pose.position.x, pose_msg.pose.position.y, pose_msg.pose.position.z = map(float,self.pose_list[:3])
@@ -183,7 +185,7 @@ class MoveToPose(RosLeaf):
 
             try:
                 result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=False) 
-                if getattr(result, "val", 1) == 1:
+                if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
                         self.bb.set(self.pose_bb, self.pose_list)
                     return py_trees.common.Status.SUCCESS
@@ -196,9 +198,36 @@ class MoveToPose(RosLeaf):
         else:
             try:
                 result = self.motion_client.move_to_joint(self.pose_list) 
-                if getattr(result, "val", 1) == 1:
+                if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
-                        self.bb.set(self.pose_bb, self.pose_list)
+                        target_frame="base_link"
+                        ee_frame="tool0"
+                        try:
+                            if not self.tf_buffer.can_transform(
+                                target_frame,
+                                ee_frame,
+                                Time(),
+                                timeout=Duration(seconds=0.5)
+                            ):
+                                self.feedback_message = "TF non pronta"
+                                return py_trees.common.Status.RUNNING
+
+                            t = self.tf_buffer.lookup_transform(
+                                target_frame,
+                                ee_frame,
+                                Time(),
+                                timeout=Duration(seconds=0.5)
+                            )
+
+                            p = t.transform.translation
+                            q = t.transform.rotation
+                            pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
+                            self.bb.set(self.pose_bb, pose_val)
+                        except Exception as e:
+                            self.node.get_logger().warn(f"TF lookup failed: {e}")
+                            self.bb.set(self.pose_bb, None)
+
+                        
                     return py_trees.common.Status.SUCCESS
                 else:
                     self.feedback_message = "Movimento fallito"
@@ -389,7 +418,64 @@ class OpenGripper(RosLeaf):
 class SetPlanParams(RosLeaf):
     def __init__(self, node, theta_f, num_wp, target_vol, name="SetPlanParams"):
         super().__init__(name, node)
-        self.theta_f = theta_f; self.num_wp = num_wp; self.target_vol = target_vol
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
+        self.theta_f = theta_f 
+        self.num_wp = num_wp
+        self.target_vol = target_vol
+    
+    def transform_to_world(self, point_list):
+        """Converte una posizione [x, y, z] da base_link a world"""
+        to_frame_rel = 'world'
+        from_frame_rel = 'base_link'
+        time=rclpy.time.Time() 
+        # Wait for the transform asynchronously
+        # tf_future = self.tf_buffer.wait_for_transform_async(
+        # target_frame=to_frame_rel,
+        # source_frame=from_frame_rel,
+        # time=time
+        # )
+        # rclpy.spin_until_future_complete(self.node, tf_future, timeout_sec=1)
+
+        if len(point_list)<=3:
+            ps = PointStamped()
+            ps.header.frame_id = "base_link"
+            ps.header.stamp = self.node.get_clock().now().to_msg()
+            ps.point.x, ps.point.y, ps.point.z = map(float, point_list)
+            try:
+                t = self.tf_buffer.lookup_transform(to_frame_rel,
+                                                from_frame_rel,
+                                                time)
+                # Do the transform
+                transformed_point_msg = tf2_geometry_msgs.do_transform_point(ps, t)
+                transformed_point=[float(transformed_point_msg.point.x), float(transformed_point_msg.point.y), float(transformed_point_msg.point.z)]
+                return transformed_point
+            except Exception as e:
+                self.node.get_logger().warn(f"No transform found: {str(e)}")
+                return point_list
+            
+        else:
+            ps = PoseStamped()
+            ps.header.frame_id = "base_link"
+            ps.header.stamp = self.node.get_clock().now().to_msg()
+            ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = map(float, point_list[:3])
+            ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = map(float, point_list[3:])
+            try:
+                t = self.tf_buffer.lookup_transform(to_frame_rel,
+                                                from_frame_rel,
+                                                time)
+                # Do the transform
+                transformed_point_msg = tf2_geometry_msgs.do_transform_pose_stamped(ps, t)
+                transformed_point = [
+                    float(transformed_point_msg.pose.position.x), float(transformed_point_msg.pose.position.y), float(transformed_point_msg.pose.position.z),
+                    float(transformed_point_msg.pose.orientation.x), float(transformed_point_msg.pose.orientation.y),
+                    float(transformed_point_msg.pose.orientation.z), float(transformed_point_msg.pose.orientation.w)
+                ]
+                return transformed_point
+            except Exception as e:
+                self.node.get_logger().warn(f"No transform found: {str(e)}")  
+                return point_list
+        
     def update(self):
         self.bb.set("theta_f", self.theta_f)
         self.bb.set("num_wp", self.num_wp)
@@ -406,11 +492,19 @@ class SetPlanParams(RosLeaf):
         # self.bb.set( "tens_sup", 0.072),
         # self.bb.set("err_target", 5e-6),
                 
+        pos_init_cont = self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]
+        pos_init_ee = self.bb.get("pos_init_ee") or [0.0]*7
+        pos_cont_goal = self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]
+
+        pos_init_cont_w = self.transform_to_world(pos_init_cont)
+        pos_cont_goal_w = self.transform_to_world(pos_cont_goal)
+        # Se pos_init_ee rappresenta solo la posizione (non la posa completa):
+        pos_init_ee_w = self.transform_to_world(pos_init_ee)
         try:
             init_parameters = {
-                "pos_init_cont": list(self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]),
-                "pos_init_ee": list(self.bb.get("pos_init_ee") or [0.0]*7),
-                "pos_cont_goal": list(self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]),
+                "pos_init_cont": list(pos_init_cont_w),
+                "pos_init_ee": list(pos_init_ee_w),
+                "pos_cont_goal": list(pos_cont_goal_w),
                 "offset": list(self.bb.get("offset") or [0.0, 0.0, 0.0]),
                 "vol_init": float(self.bb.get("init_vol") or 0.0),
                 "densità": 998.0, # not used in serv but same val
@@ -421,6 +515,8 @@ class SetPlanParams(RosLeaf):
                 "theta_f": float(self.bb.get("theta_f") or 90.0),
                 "num_wp": int(self.bb.get("num_wp") or 1000),
             }
+
+            init_parameters = self.to_builtin(init_parameters)
             self.bb.set("init_parameters", init_parameters)
             with open("/tmp/init_parameters.yaml", "w") as f:
                 yaml.safe_dump({"parameters": init_parameters}, f, sort_keys=False)
@@ -429,6 +525,17 @@ class SetPlanParams(RosLeaf):
         except Exception as e:
             self.node.get_logger().error(f"File creation failed: {str(e)}")
             return py_trees.common.Status.FAILURE
+    
+    def to_builtin(self, obj):
+        if isinstance(obj, np.generic):
+            return obj.item()
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, list):
+            return [self.to_builtin(x) for x in obj]
+        if isinstance(obj, dict):
+            return {k: self.to_builtin(v) for k, v in obj.items()}
+        return obj
         
 class SendYamlToVM(RosLeaf):
     def __init__(self, node, name="SendYamlToVM"):
