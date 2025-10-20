@@ -4,6 +4,7 @@ ToDo:
 -fine tuning se non funziona --> aggiunta volume contenitore
 
 # SIMULAZIONE
+- (P) riduci boundaries sim
 - (P) check angolo correzione anti-sloshing
 - definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
 - tuning rewards e penalties (durante test)

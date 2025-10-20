@@ -12,7 +12,7 @@ from rclpy.action import ActionClient
 from control_msgs.action import FollowJointTrajectory
 from control_msgs.action import GripperCommand
 from std_msgs.msg import Float32
-from builtin_interfaces.msg import Duration
+from builtin_interfaces.msg import Duration as MsgDuration
 from drims2_motion_server.motion_client import MotionClient
 import yaml
 import os
@@ -108,7 +108,7 @@ class PrintPose1(RosLeaf):
             self.feedback_message = f"TF lookup failed: {e}"
             return py_trees.common.Status.FAILURE
 class PrintPose(RosLeaf):
-    def __init__(self, node, target_frame="base_link", ee_frame="tip", name="PrintPose"):
+    def __init__(self, node, target_frame="world", ee_frame="tip", name="PrintPose"):
         super().__init__(name, node)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
@@ -146,6 +146,7 @@ class PrintPose(RosLeaf):
             return py_trees.common.Status.SUCCESS
         except Exception as e:
             self.feedback_message = f"TF lookup failed: {e}"
+            self.node.get_logger().info("non funziona")
             return py_trees.common.Status.RUNNING
 
 class MoveToPose(RosLeaf):
@@ -165,11 +166,13 @@ class MoveToPose(RosLeaf):
         # se pose_list è chiave del blackboard, leggi una sola volta
         if isinstance(self.pose_list, str):
             val = self.bb.get(self.pose_list)
-            if val is not None:
-                self.pose_list = val
+            if val is not None and len(val)==3:
+                quat=[-np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2]
+                self.pose_list = val + quat
             else:
                 self.feedback_message = f"Pose '{self.pose_list}' non ancora disponibile"
                 return py_trees.common.Status.RUNNING
+        #self.node.get_logger().info(f"pose {self.pose_bb}: {self.pose_list}")
 
         # controlla validità
         if self.pose_list is None or (len(self.pose_list) != 7 and len(self.pose_list) != 6):
@@ -187,7 +190,36 @@ class MoveToPose(RosLeaf):
                 result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=False) 
                 if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
-                        self.bb.set(self.pose_bb, self.pose_list)
+                        bb_grip=self.pose_bb+"_grip"
+                        self.bb.set(bb_grip, self.pose_list)
+                        target_frame="base_link"
+                        ee_frame="tool0"
+                        try:
+                            if not self.tf_buffer.can_transform(
+                                target_frame,
+                                ee_frame,
+                                Time(),
+                                timeout=Duration(seconds=0.5)
+                            ):
+                                self.feedback_message = "TF non pronta"
+                                return py_trees.common.Status.RUNNING
+
+                            t = self.tf_buffer.lookup_transform(
+                                target_frame,
+                                ee_frame,
+                                Time(),
+                                timeout=Duration(seconds=0.5)
+                            )
+
+                            p = t.transform.translation
+                            q = t.transform.rotation
+                            pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
+                            self.bb.set(self.pose_bb, pose_val)
+                            #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
+                        except Exception as e:
+                            self.node.get_logger().warn(f"TF lookup failed: {e}")
+                            self.bb.set(self.pose_bb, None)
+
                     return py_trees.common.Status.SUCCESS
                 else:
                     self.feedback_message = "Movimento fallito"
@@ -223,6 +255,7 @@ class MoveToPose(RosLeaf):
                             q = t.transform.rotation
                             pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
                             self.bb.set(self.pose_bb, pose_val)
+                            #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
                         except Exception as e:
                             self.node.get_logger().warn(f"TF lookup failed: {e}")
                             self.bb.set(self.pose_bb, None)
@@ -442,6 +475,14 @@ class SetPlanParams(RosLeaf):
             ps.header.frame_id = "base_link"
             ps.header.stamp = self.node.get_clock().now().to_msg()
             ps.point.x, ps.point.y, ps.point.z = map(float, point_list)
+            if not self.tf_buffer.can_transform(
+                to_frame_rel,
+                from_frame_rel,
+                time,
+                timeout=rclpy.duration.Duration(seconds=0.5)
+            ):
+                self.node.get_logger().warn(f"No transform {from_frame_rel} → {to_frame_rel}")
+                return None
             try:
                 t = self.tf_buffer.lookup_transform(to_frame_rel,
                                                 from_frame_rel,
@@ -460,6 +501,14 @@ class SetPlanParams(RosLeaf):
             ps.header.stamp = self.node.get_clock().now().to_msg()
             ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = map(float, point_list[:3])
             ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = map(float, point_list[3:])
+            if not self.tf_buffer.can_transform(
+                to_frame_rel,
+                from_frame_rel,
+                time,
+                timeout=rclpy.duration.Duration(seconds=0.5)
+            ):
+                self.node.get_logger().warn(f"No transform {from_frame_rel} → {to_frame_rel}")
+                return None
             try:
                 t = self.tf_buffer.lookup_transform(to_frame_rel,
                                                 from_frame_rel,
@@ -495,16 +544,29 @@ class SetPlanParams(RosLeaf):
         pos_init_cont = self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]
         pos_init_ee = self.bb.get("pos_init_ee") or [0.0]*7
         pos_cont_goal = self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]
+        pos_grip_ee = self.bb.get("pos_grip_ee") or [0.0]*7
 
-        pos_init_cont_w = self.transform_to_world(pos_init_cont)
-        pos_cont_goal_w = self.transform_to_world(pos_cont_goal)
-        # Se pos_init_ee rappresenta solo la posizione (non la posa completa):
-        pos_init_ee_w = self.transform_to_world(pos_init_ee)
+        self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
+        self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
+        self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
+        self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
+
+        pos_init_cont = self.transform_to_world(pos_init_cont)
+        pos_cont_goal = self.transform_to_world(pos_cont_goal)
+        pos_init_ee = self.transform_to_world(pos_init_ee)
+        pos_grip_ee = self.transform_to_world(pos_grip_ee)
+
+        self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
+        self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
+        self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
+        self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
+
         try:
             init_parameters = {
-                "pos_init_cont": list(pos_init_cont_w),
-                "pos_init_ee": list(pos_init_ee_w),
-                "pos_cont_goal": list(pos_cont_goal_w),
+                "pos_init_cont": list(pos_init_cont),
+                "pos_cont_goal": list(pos_cont_goal),
+                "pos_init_ee": list(pos_init_ee),
+                "pos_grip_ee":list(pos_grip_ee),
                 "offset": list(self.bb.get("offset") or [0.0, 0.0, 0.0]),
                 "vol_init": float(self.bb.get("init_vol") or 0.0),
                 "densità": 998.0, # not used in serv but same val
@@ -661,7 +723,7 @@ class ExecutePathPublisher(RosLeaf):
             for t, q in zip(time_arr, path):
                 pt = JointTrajectoryPoint()
                 pt.positions = q[:6]
-                pt.time_from_start = Duration(sec=int(t), nanosec=int((t % 1.0) * 1e9))
+                pt.time_from_start = MsgDuration(sec=int(t), nanosec=int((t % 1.0) * 1e9))
                 #pt.time_from_start = rclpy.duration.Duration(seconds=float(t)).to_msg()
                 traj.points.append(pt)
 
@@ -730,12 +792,13 @@ def create_tree(node: Node):
     move_t3 = MoveToPose(node, pose_list=joint_v3,pose_bb=None)
 
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
-    pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
+    #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
+    pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
 
-    move_c = MoveToPose(node, pose_list=pose_c, pose_bb="pos_appr_ee")
+    move_c = MoveToPose(node, pose_list=pose_c, pose_bb="pos_grip_ee")
     #move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
 
-    off = ComputeOffset(node, "pos_appr_ee", "pos_init_cont")
+    off = ComputeOffset(node, "pos_grip_ee_grip", "pos_init_cont")
     grip = CloseGripper(node)
     par_util = py_trees.composites.Parallel(
         "UtilitiesParallel",
@@ -751,13 +814,14 @@ def create_tree(node: Node):
     pose=PrintPose(node)
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     seq.add_children([
-        #pose,
+        # pose,
         open,
         move_t1, vision_1,
         move_t2, vision_2, 
         move_t3,
         move_c, par_util, params,
         send,
+        #pose,  
         wait_path,
         execp,
         ])

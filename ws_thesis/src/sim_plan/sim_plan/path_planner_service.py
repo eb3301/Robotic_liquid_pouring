@@ -124,7 +124,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 200, #10000*dt,  # Increased substeps for better stability
+            substeps= 100, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -329,6 +329,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     liquid_height = init_volume/(np.pi*liquid_radius**2)
     num_part=init_volume/(0.01**3*0.7) #vol/(part_size^3*efficiency)
 
+    print(f"Init Volume: {init_volume}")
     print(f"Radius: {liquid_radius*10**3} mm, Height: {liquid_height*10**3} mm")
     print(f"Th. num of part: {num_part}")
     #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
@@ -431,17 +432,19 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     if approach:
         end_effector = ur5e.get_link("tool0")
         init_pos=np.array([parameters['pos_init_ee'][0], parameters['pos_init_ee'][1],parameters['pos_init_ee'][2]])
-        init_quat=np.array([parameters['pos_init_ee'][3], parameters['pos_init_ee'][4], parameters['pos_init_ee'][5], parameters['pos_init_ee'][6]])
+        init_quat=np.array([parameters['pos_init_ee'][6], parameters['pos_init_ee'][3], parameters['pos_init_ee'][4], parameters['pos_init_ee'][5]]) # xyzw-> wxyz
     else:     
         end_effector = ur5e.get_link("tool0")
-        x_shift=0.13
-        z_min=0.967
-        quat_orizz = np.array([0.5,0.5,0.5,0.5])
-        init_pos = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
-        init_pos[0]-=x_shift 
-        init_pos[2]+=container_size[2]-0.01
-        init_pos[2]=max(init_pos[2],z_min)
-        init_quat = quat_orizz
+        init_pos=np.array([parameters['pos_grip_ee'][0], parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
+        init_quat=np.array([parameters['pos_grip_ee'][6], parameters['pos_grip_ee'][3], parameters['pos_grip_ee'][4], parameters['pos_grip_ee'][5]]) # xyzw-> wxyz
+        # x_shift=0.13
+        # z_min=0.967
+        # quat_orizz = np.array([0.5,0.5,0.5,0.5])
+        # init_pos = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
+        # init_pos[0]-=x_shift 
+        # init_pos[2]+=container_size[2]-0.01
+        # init_pos[2]=max(init_pos[2],z_min)
+        # init_quat = quat_orizz
         
     # Use inverse kinematics to get joint angles
     init_qpos = ur5e.inverse_kinematics(
@@ -592,7 +595,7 @@ def plan_path(
     #################################
     x_shift=0.13
     z_min=0.967
-    quat_orizz = np.array([0.5,0.5,0.5,0.5])
+    quat_orizz = np.array([np.sqrt(2)/2,-np.sqrt(2)/2,0.0,0.0])
     if approach:
         # q0 (foto)
         q0 = ur5e.get_qpos()
@@ -689,11 +692,14 @@ def plan_path(
         path = np.concatenate((path, path1))
     else:
         # q1 (grasp)
-        pos1 = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
-        pos1[0]-=x_shift 
-        pos1[2]+=container_size[2]-0.01
-        pos1[2]=max(pos1[2],z_min)
-        quat1 = quat_orizz
+        # pos1 = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
+        # pos1[0]-=x_shift 
+        # pos1[2]+=container_size[2]-0.01
+        # pos1[2]=max(pos1[2],z_min)
+        # quat1 = quat_orizz
+        pos1=np.array([parameters['pos_grip_ee'][0], parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
+        quat1=np.array([parameters['pos_grip_ee'][6], parameters['pos_grip_ee'][3], parameters['pos_grip_ee'][4], parameters['pos_grip_ee'][5]]) # xyzw-> wxyz
+        
         try:
             q1 = ur5e.inverse_kinematics(
                 link=ur5e.get_link("tool0"),

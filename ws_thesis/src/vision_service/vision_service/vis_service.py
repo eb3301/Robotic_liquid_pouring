@@ -67,7 +67,7 @@ class PerceptionService(Node):
                                     y=float(centroid[1]),
                                     z=float(centroid[2]))
 
-            # Trasformazione da camera_frame a world:
+            # Trasformazione da camera_frame a base_link:
             to_frame_rel = 'base_link'
             from_frame_rel = 'oak_rgb_camera_optical_frame'
             time=rclpy.time.Time() 
