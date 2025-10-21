@@ -104,7 +104,7 @@ container_size = (container_bounds[1] - container_bounds[0])*0.015
 
 liquid_radius = min(container_size[0], container_size[1])/2*0.7
 init_volume=100*1e-6
-liquid_height = init_volume/(np.pi*liquid_radius**2)*0.5
+liquid_height = init_volume/(np.pi*liquid_radius**2)
 print(f"Radius: {liquid_radius*10**3} mm, Height: {liquid_height*10**3} mm")
 #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
 #print(liquid_radius, liquid_height)

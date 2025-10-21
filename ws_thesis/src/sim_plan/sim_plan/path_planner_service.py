@@ -595,7 +595,7 @@ def plan_path(
     #################################
     x_shift=0.13
     z_min=0.967
-    quat_orizz = np.array([np.sqrt(2)/2,-np.sqrt(2)/2,0.0,0.0])
+    quat_orizz = np.array([0.5,0.5,0.5,0.5])
     if approach:
         # q0 (foto)
         q0 = ur5e.get_qpos()
