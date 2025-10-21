@@ -108,7 +108,7 @@ class PrintPose1(RosLeaf):
             self.feedback_message = f"TF lookup failed: {e}"
             return py_trees.common.Status.FAILURE
 class PrintPose(RosLeaf):
-    def __init__(self, node, target_frame="world", ee_frame="tip", name="PrintPose"):
+    def __init__(self, node, target_frame="world", ee_frame="tool0", name="PrintPose"):
         super().__init__(name, node)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
@@ -139,7 +139,7 @@ class PrintPose(RosLeaf):
             p = t.transform.translation
             q = t.transform.rotation
             self.node.get_logger().info(
-                f"EE in {self.target_frame}: "
+                f"EE ({self.ee_frame}) in {self.target_frame}: "
                 f"p=[{p.x:.3f}, {p.y:.3f}, {p.z:.3f}] "
                 f"q=[{q.x:.3f}, {q.y:.3f}, {q.z:.3f}, {q.w:.3f}]"
             )
@@ -150,13 +150,13 @@ class PrintPose(RosLeaf):
             return py_trees.common.Status.RUNNING
 
 class MoveToPose(RosLeaf):
-    def __init__(self, node, pose_list=None, pose_bb=None, name="MoveToPose"):
+    def __init__(self, node, pose_list=None, pose_bb=None, motion_client=None, name="MoveToPose"):
         super().__init__(name, node)
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
         self.pose_list = pose_list
         self.pose_bb = pose_bb
-        self.motion_client = MotionClient()
+        self.motion_client = motion_client or MotionClient()
         
 
     def initialise(self):
@@ -531,24 +531,22 @@ class SetPlanParams(RosLeaf):
         self.bb.set("target_vol", self.target_vol)
 
         # Debug purposes:
-        # self.bb.set("pos_init_cont", [0.0, 0.0, 0.0]),
+        self.bb.set("pos_init_cont", [0.85, 0.2, 0.92]),
         # self.bb.set("pos_init_ee",[0.0]*7),
-        # self.bb.set("pos_cont_goal", [0.0, 0.0, 0.0]),
-        # self.bb.set("offset", [0.0, 0.0, 0.0]),
-        # self.bb.set("init_vol", 0.0),
-        # self.bb.set("densità", 998.0),
-        # self.bb.set("viscosità", 0.001),
-        # self.bb.set( "tens_sup", 0.072),
-        # self.bb.set("err_target", 5e-6),
+        self.bb.set("pos_cont_goal", [0.85, 0.7, 0.92]),
+        self.bb.set("offset", [0.0,-0.04,0.13]),
+        self.bb.set("init_vol", 40.0),
+
                 
         pos_init_cont = self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]
         pos_init_ee = self.bb.get("pos_init_ee") or [0.0]*7
         pos_cont_goal = self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]
         pos_grip_ee = self.bb.get("pos_grip_ee") or [0.0]*7
 
-        self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
+        np.set_printoptions(precision=3, suppress=True)
+        #self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
         self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
-        self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
+        #self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
         self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
 
         pos_init_cont = self.transform_to_world(pos_init_cont)
@@ -556,9 +554,9 @@ class SetPlanParams(RosLeaf):
         pos_init_ee = self.transform_to_world(pos_init_ee)
         pos_grip_ee = self.transform_to_world(pos_grip_ee)
 
-        self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
+        #self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
         self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
-        self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
+        #self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
         self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
 
         try:
@@ -774,6 +772,7 @@ class ExecutePathPublisher(RosLeaf):
 # COSTRUZIONE ALBERO E AVVIO:
 
 def create_tree(node: Node):
+    motion_client = MotionClient()
     #joint_v1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
     #joint_v2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
 
@@ -782,20 +781,20 @@ def create_tree(node: Node):
     #joint_v2= [-2.9784508387195032, -2.2492810688414515, -1.4298287630081177, -1.9104792080321253, -3.66062838235964, -2.5633793512927454]
     
     open=OpenGripper(node)
-    move_t1 = MoveToPose(node, pose_list=joint_v1,pose_bb=None)
+    move_t1 = MoveToPose(node, pose_list=joint_v1,pose_bb=None, motion_client=motion_client)
     vision_1 = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
 
-    move_t2 = MoveToPose(node, pose_list=joint_v2,pose_bb="pos_init_ee")
+    move_t2 = MoveToPose(node, pose_list=joint_v2,pose_bb="pos_init_ee", motion_client=motion_client)
     vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
 
     joint_v3= [-1.5371907393084925, -1.2124689680388947, -2.2734172344207764, -2.786943098107809, -1.552525822316305, -3.143904987965719]
-    move_t3 = MoveToPose(node, pose_list=joint_v3,pose_bb=None)
+    move_t3 = MoveToPose(node, pose_list=joint_v3,pose_bb=None, motion_client=motion_client)
 
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
     #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
     pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
 
-    move_c = MoveToPose(node, pose_list=pose_c, pose_bb="pos_grip_ee")
+    move_c = MoveToPose(node, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
     #move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
 
     off = ComputeOffset(node, "pos_grip_ee_grip", "pos_init_cont")
@@ -828,13 +827,13 @@ def create_tree(node: Node):
     pose1=PrintPose(node)
     pose2=PrintPose(node)
     pose3=PrintPose(node)
-    pose4=PrintPose(node)
     seq.add_children([
         open,
         move_t1, pose1,
         move_t2, pose2, 
-        move_t3, pose3,
-        move_c, pose4,
+        move_t3,
+        move_c, pose3,
+        params,
         wait_path,
         ])
 
