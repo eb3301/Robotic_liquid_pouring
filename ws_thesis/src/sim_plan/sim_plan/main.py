@@ -211,13 +211,13 @@ def init_sim():
 
 def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
     ########################## create a scene ##########################
-    DIR="/home/barutta/Robotic_liquid_pouring"
+    DIR= "/home/edo/thesis" # "/home/barutta/Robotic_liquid_pouring"
     dt=1e-2
     global scene
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 200, #10000*dt,  # Increased substeps for better stability
+            substeps= 10, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -248,6 +248,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             plane_reflection = False, # turn on plane reflection
             ambient_light    = (0.1, 0.1, 0.1), # ambient light setting
             shadow=False,
+            visualize_sph_boundary=True,
         ),
         show_viewer = view,
         renderer = gs.renderers.Rasterizer(), # using rasterizer for camera rendering
