@@ -211,7 +211,7 @@ def init_sim():
 
 def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
     ########################## create a scene ##########################
-    DIR= "/home/edo/thesis" # "/home/barutta/Robotic_liquid_pouring"
+    DIR="/home/barutta/Robotic_liquid_pouring"
     dt=1e-2
     global scene
     scene = gs.Scene(
