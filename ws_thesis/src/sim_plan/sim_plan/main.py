@@ -485,7 +485,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     # import IPython; IPython.embed()
     
     ########################## build ##########################
-    scene.build()
+    scene.build(n_envs=4)
 
     # sol_param=scene.rigid_solver.get_sol_params()
     # sol_param=sol_param[0]

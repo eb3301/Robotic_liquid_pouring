@@ -813,18 +813,31 @@ def create_tree(node: Node):
    
     pose=PrintPose(node)
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
+    # seq.add_children([
+    #     # pose,
+    #     open,
+    #     move_t1, vision_1,
+    #     move_t2, vision_2, 
+    #     move_t3,
+    #     move_c, par_util, params,
+    #     send,
+    #     pose,  
+    #     wait_path,
+    #     execp,
+    #     ])
+    pose1=PrintPose(node)
+    pose2=PrintPose(node)
+    pose3=PrintPose(node)
+    pose4=PrintPose(node)
     seq.add_children([
-        # pose,
         open,
-        move_t1, vision_1,
-        move_t2, vision_2, 
-        move_t3,
-        move_c, par_util, params,
-        send,
-        #pose,  
+        move_t1, pose1,
+        move_t2, pose2, 
+        move_t3, pose3,
+        move_c, pose4,
         wait_path,
-        execp,
         ])
+
     
   
     return seq  
