@@ -121,7 +121,10 @@ class MoveToPose(RosLeaf):
         self.pose_list = pose_list
         self.pose_bb = pose_bb
         self.motion_client = motion_client or MotionClient()
-        
+        if self.pose_list == "pos_init_cont":
+            self.cartesian=True
+        else:
+            self.cartesian=False
 
     def initialise(self):
         self.node.get_logger().info(f"MoveToPose started {self.pose_bb}")
@@ -129,15 +132,13 @@ class MoveToPose(RosLeaf):
     def update(self):
         # se pose_list è chiave del blackboard, leggi una sola volta
         if isinstance(self.pose_list, str):
-            val = self.bb.get(self.pose_list)
+            val = self.bb.get(self.pose_list)    
             if val is not None and len(val)==3:
                 quat=[-np.sqrt(2)/2, 0.0, 0.0, np.sqrt(2)/2]
                 self.pose_list = val + quat
             else:
                 self.feedback_message = f"Pose '{self.pose_list}' non ancora disponibile"
                 return py_trees.common.Status.RUNNING
-        #self.node.get_logger().info(f"pose {self.pose_bb}: {self.pose_list}")
-
         # controlla validità
         if self.pose_list is None or (len(self.pose_list) != 7 and len(self.pose_list) != 6):
             self.feedback_message = "Pose non valida"
@@ -151,7 +152,7 @@ class MoveToPose(RosLeaf):
             pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w = map(float,self.pose_list[3:])
 
             try:
-                result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=False) 
+                result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=self.cartesian) 
                 if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
                         bb_grip=self.pose_bb + "_grip"
@@ -187,7 +188,7 @@ class MoveToPose(RosLeaf):
                             q = t.transform.rotation
                             pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
                             self.bb.set(self.pose_bb, pose_val)
-                            #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
+                            self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
                         except Exception as e:
                             self.node.get_logger().warn(f"TF lookup failed: {e}")
                             self.bb.set(self.pose_bb, None)
@@ -291,12 +292,21 @@ class CallVisionService(RosLeaf):
                 self.node.get_logger().warn(f"Vision service fallito: {msg}")
                 return py_trees.common.Status.FAILURE
 
+            centroid=resp.centroid 
+            centroid[1]+=0.03
+            centroid[2]=max(0.04,centroid[2])
+
+            pre_centroid=centroid.copy()
+            pre_centroid[1]-=0.15 # nel frame base_link la y è la direzione x in world
+            pre_key=self.out_centroid_key+"_pre"
+
             # Salva risultati nel blackboard
-            self.bb.set(self.out_centroid_key, list(resp.centroid))
+            self.bb.set(self.out_centroid_key, list(centroid))
+            self.bb.set(pre_key, list(pre_centroid))
             if self.estimate_volume:
                 self.bb.set(self.out_vol_key, resp.volume)
 
-            self.node.get_logger().info(f"Vision completed: {resp.centroid}")
+            self.node.get_logger().info(f"Vision completed: {centroid}")
             return py_trees.common.Status.SUCCESS
 
         except Exception as e:
@@ -359,8 +369,8 @@ class CloseGripper(RosLeaf):
                 return py_trees.common.Status.FAILURE
 
             goal = GripperCommand.Goal()
-            goal.command.position = 0.0    # chiuso
-            goal.command.max_effort = 0.0  # come da comando corretto
+            goal.command.position = 0.0    
+            goal.command.max_effort = 0.0 
 
             self._goal_future = self.client.send_goal_async(goal)
             self._goal_future.add_done_callback(self._goal_response_cb)
@@ -369,10 +379,13 @@ class CloseGripper(RosLeaf):
 
         if self._result_future and self._result_future.done():
             result = self._result_future.result().result
-            if getattr(result, "reached_goal", True):
+            
+            if getattr(result, "stalled", True) or getattr(result, "goal_reached", True):
+                self.node.get_logger().info("qualcosa")
                 return py_trees.common.Status.SUCCESS
             else:
                 self.feedback_message = "Gripper non ha raggiunto il goal"
+                self.node.get_logger().info("no")
                 return py_trees.common.Status.FAILURE
 
         return py_trees.common.Status.RUNNING
@@ -408,8 +421,8 @@ class OpenGripper(RosLeaf):
                 return py_trees.common.Status.FAILURE
 
             goal = GripperCommand.Goal()
-            goal.command.position = 0.049    # aperto
-            goal.command.max_effort = 0.1  # come da comando corretto
+            goal.command.position = 0.049  
+            goal.command.max_effort = 0.1  
 
             self._goal_future = self.client.send_goal_async(goal)
             self._goal_future.add_done_callback(self._goal_response_cb)
@@ -523,11 +536,11 @@ class SetPlanParams(RosLeaf):
         self.bb.set("target_vol", self.target_vol)
 
         # Debug purposes:
-        self.bb.set("pos_init_cont", [0.85, 0.2, 0.92]),
+        # self.bb.set("pos_init_cont", [0.85, 0.2, 0.92]),
         # self.bb.set("pos_init_ee",[0.0]*7),
-        self.bb.set("pos_cont_goal", [0.85, 0.7, 0.92]),
-        self.bb.set("offset", [0.0,-0.04,0.13]),
-        self.bb.set("init_vol", 40.0),
+        # self.bb.set("pos_cont_goal", [0.85, 0.7, 0.92]),
+        # self.bb.set("offset", [0.0,-0.04,0.13]),
+        # self.bb.set("init_vol", 40.0),
 
                 
         pos_init_cont = self.bb.get("pos_init_cont") or [0.0, 0.0, 0.0]
@@ -778,23 +791,26 @@ def create_tree(node: Node, tf_buffer, motion_client):
     move_t2 = MoveToPose(node, tf_buffer, pose_list=joint_v2,pose_bb="pos_init_ee", motion_client=motion_client)
     vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
 
-    joint_v3= [-1.5371907393084925, -1.2124689680388947, -2.2734172344207764, -2.786943098107809, -1.552525822316305, -3.143904987965719]
+    #joint_v3 = [-1.5371907393084925, -1.2124689680388947, -2.2734172344207764, -2.786943098107809, -1.552525822316305, -3.143904987965719]
+    joint_v3 = [-2.08985406557192, -1.8842722378172816, -2.6087613105773926, -1.8289934597411097, -2.0932639280902308, -3.162097756062643]
     move_t3 = MoveToPose(node, tf_buffer, pose_list=joint_v3,pose_bb=None, motion_client=motion_client)
 
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
     #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
     pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
 
-    move_c = MoveToPose(node, tf_buffer, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
-    #move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
+    #move_c = MoveToPose(node, tf_buffer, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
+
+    move_pre_c = MoveToPose(node, tf_buffer, pose_list="pos_init_cont_pre", pose_bb=None, motion_client=motion_client)
+    move_c = MoveToPose(node, tf_buffer, pose_list="pos_init_cont", pose_bb="pos_grip_ee", motion_client=motion_client)
 
     off = ComputeOffset(node, "pos_grip_ee_grip", "pos_init_cont")
-    grip = CloseGripper(node)
+    close = CloseGripper(node)
     par_util = py_trees.composites.Parallel(
         "UtilitiesParallel",
         policy=py_trees.common.ParallelPolicy.SuccessOnAll()
     )
-    par_util.add_children([off, grip])
+    par_util.add_children([off, close])
     params  = SetPlanParams(node, tf_buffer, theta_f=90, num_wp=1000, target_vol=20.0)
 
     send = SendYamlToVM(node)
@@ -804,50 +820,28 @@ def create_tree(node: Node, tf_buffer, motion_client):
     pose=PrintPose(node, tf_buffer)
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     
-    # seq.add_children([
-    #     # pose,
-    #     open,
-    #     move_t1, vision_1,
-    #     move_t2, vision_2, 
-    #     move_t3,
-    #     move_c, par_util, params,
-    #     send,
-    #     pose,  
-    #     wait_path,
-    #     execp,
-    #     ])
-
     seq.add_children([
         open,
-        move_t1,
-        move_t2,  
-        move_t3,
-        move_c, #pose,
-        params,
+        move_t1, vision_1,
+        move_t2, vision_2, 
+        move_t3, move_pre_c,
+        move_c, par_util, params,
+        send,
         wait_path,
+        execp,
         ])
 
-    return seq  
+    # seq.add_children([
+    #     open,
+    #     move_t1,
+    #     move_t2,  
+    #     move_t3,
+    #     move_c, #pose,
+    #     params,
+    #     wait_path,
+    #     ])
 
-def main1():
-    rclpy.init()
-    node = Node("bt_orchestrator")
-    tf_buffer = Buffer()
-    tf_listener = TransformListener(tf_buffer, node)
-
-    motion_client = MotionClient()
-
-    tree = py_trees.trees.BehaviourTree(create_tree(node, tf_buffer, motion_client))
-    # Tick ~10 Hz (a piacere)
-    try:
-        while rclpy.ok():
-            rclpy.spin_once(node, timeout_sec=0.01)
-            tree.tick()
-    finally:
-        executor.shutdown()
-        node.destroy_node()
-        motion_client.destroy_node()
-        rclpy.shutdown()
+    return seq
 
 def main():
     import threading
