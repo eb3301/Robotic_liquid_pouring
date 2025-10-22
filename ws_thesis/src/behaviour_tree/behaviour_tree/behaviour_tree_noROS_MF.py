@@ -68,50 +68,10 @@ class RosLeaf(py_trees.behaviour.Behaviour):
         self.bb = Blackboard()
 
 # ---------- Movimento ----------
-class PrintPose1(RosLeaf):
-    def __init__(self, node, target_frame="base_link", ee_frame="tip", name="PrintPose"):
-        super().__init__(name, node)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
-        self.target_frame = target_frame
-        self.ee_frame = ee_frame
-
-    def initialise(self):
-        self.node.get_logger().info(f"Print pose started")
-        
-
-    def update(self):
-        try:
-            t = self.tf_buffer.lookup_transform(
-                self.target_frame,        
-                self.ee_frame,           
-                Time(),
-                timeout=Duration(seconds=0.5)
-            )
-            self.node.get_logger().info(f"tf trovata")
-            p = t.transform.translation
-            q = t.transform.rotation
-
-            pose = PoseStamped()
-            pose.header = t.header
-            pose.header.frame_id = self.target_frame
-            pose.pose.position.x = p.x; pose.pose.position.y = p.y; pose.pose.position.z = p.z
-            pose.pose.orientation = q
-
-            self.node.get_logger().info(
-                f"EE in {self.target_frame}: p=[{p.x:.3f}, {p.y:.3f}, {p.z:.3f}] "
-                f"q=[{q.x:.3f}, {q.y:.3f}, {q.z:.3f}, {q.w:.3f}]"
-            )
-            # stampa una volta → SUCCESS. Per stampa continua, ritorna RUNNING.
-            return py_trees.common.Status.SUCCESS
-        except Exception as e:
-            self.feedback_message = f"TF lookup failed: {e}"
-            return py_trees.common.Status.FAILURE
 class PrintPose(RosLeaf):
-    def __init__(self, node, target_frame="world", ee_frame="tool0", name="PrintPose"):
+    def __init__(self, node, tf_buffer, target_frame="base_link", ee_frame="tool0", name="PrintPose"):
         super().__init__(name, node)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
+        self.tf_buffer = tf_buffer
         self.target_frame = target_frame
         self.ee_frame = ee_frame
 
@@ -119,23 +79,21 @@ class PrintPose(RosLeaf):
         self.node.get_logger().info("Print pose started")
 
     def update(self):
+        
+        time=Time() 
+        # Wait for the transform asynchronously
+        tf_future = self.tf_buffer.wait_for_transform_async(
+        target_frame=self.target_frame,
+        source_frame=self.ee_frame,
+        time=time
+        )
+        rclpy.spin_until_future_complete(self.node, tf_future, timeout_sec=1)
+
+        # Lookup tansform
         try:
-            if not self.tf_buffer.can_transform(
-                self.target_frame,
-                self.ee_frame,
-                Time(),
-                timeout=Duration(seconds=0.5)
-            ):
-                self.feedback_message = "TF non pronta"
-                return py_trees.common.Status.RUNNING
-
-            t = self.tf_buffer.lookup_transform(
-                self.target_frame,
-                self.ee_frame,
-                Time(),
-                timeout=Duration(seconds=0.5)
-            )
-
+            t = self.tf_buffer.lookup_transform(self.target_frame,
+                                            self.ee_frame,
+                                            time)
             p = t.transform.translation
             q = t.transform.rotation
             self.node.get_logger().info(
@@ -145,22 +103,50 @@ class PrintPose(RosLeaf):
             )
             return py_trees.common.Status.SUCCESS
         except Exception as e:
-            self.feedback_message = f"TF lookup failed: {e}"
-            self.node.get_logger().info("non funziona")
+            self.node.get_logger().info(f"No transform found: {str(e)}")
             return py_trees.common.Status.RUNNING
+        
+        # try:
+        #     if not self.tf_buffer.can_transform(
+        #         self.target_frame,
+        #         self.ee_frame,
+        #         Time(),
+        #         timeout=Duration(seconds=0.5)
+        #     ):
+        #         self.feedback_message = "TF non pronta"
+        #         return py_trees.common.Status.RUNNING
+
+        #     t = self.tf_buffer.lookup_transform(
+        #         self.target_frame,
+        #         self.ee_frame,
+        #         Time(),
+        #         timeout=Duration(seconds=0.5)
+        #     )
+
+        #     p = t.transform.translation
+        #     q = t.transform.rotation
+        #     self.node.get_logger().info(
+        #         f"EE ({self.ee_frame}) in {self.target_frame}: "
+        #         f"p=[{p.x:.3f}, {p.y:.3f}, {p.z:.3f}] "
+        #         f"q=[{q.x:.3f}, {q.y:.3f}, {q.z:.3f}, {q.w:.3f}]"
+        #     )
+        #     return py_trees.common.Status.SUCCESS
+        # except Exception as e:
+        #     self.feedback_message = f"TF lookup failed: {e}"
+        #     self.node.get_logger().info("non funziona")
+        #     return py_trees.common.Status.RUNNING
 
 class MoveToPose(RosLeaf):
-    def __init__(self, node, pose_list=None, pose_bb=None, motion_client=None, name="MoveToPose"):
+    def __init__(self, node, tf_buffer, pose_list=None, pose_bb=None, motion_client=None, name="MoveToPose"):
         super().__init__(name, node)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
+        self.tf_buffer = tf_buffer
         self.pose_list = pose_list
         self.pose_bb = pose_bb
         self.motion_client = motion_client or MotionClient()
         
 
     def initialise(self):
-        self.node.get_logger().info("MoveToPose started")
+        self.node.get_logger().info(f"MoveToPose started {self.pose_bb}")
 
     def update(self):
         # se pose_list è chiave del blackboard, leggi una sola volta
@@ -190,35 +176,61 @@ class MoveToPose(RosLeaf):
                 result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=False) 
                 if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
-                        bb_grip=self.pose_bb+"_grip"
+                        bb_grip=self.pose_bb + "_grip"
                         self.bb.set(bb_grip, self.pose_list)
+
                         target_frame="base_link"
                         ee_frame="tool0"
+
+                        time=Time() 
+                        # Wait for the transform asynchronously
+                        tf_future = self.tf_buffer.wait_for_transform_async(
+                        target_frame=target_frame,
+                        source_frame=ee_frame,
+                        time=time
+                        )
+                        rclpy.spin_until_future_complete(self.node, tf_future, timeout_sec=1)
+
+                        # Lookup tansform
                         try:
-                            if not self.tf_buffer.can_transform(
-                                target_frame,
-                                ee_frame,
-                                Time(),
-                                timeout=Duration(seconds=0.5)
-                            ):
-                                self.feedback_message = "TF non pronta"
-                                return py_trees.common.Status.RUNNING
-
-                            t = self.tf_buffer.lookup_transform(
-                                target_frame,
-                                ee_frame,
-                                Time(),
-                                timeout=Duration(seconds=0.5)
-                            )
-
+                            #rclpy.spin_once(self.node, timeout_sec=0.1)
+                            t = self.tf_buffer.lookup_transform(target_frame,
+                                                            ee_frame,
+                                                            time)
                             p = t.transform.translation
                             q = t.transform.rotation
                             pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
                             self.bb.set(self.pose_bb, pose_val)
-                            #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
+                            self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
                         except Exception as e:
                             self.node.get_logger().warn(f"TF lookup failed: {e}")
                             self.bb.set(self.pose_bb, None)
+
+                        # try:
+                        #     if not self.tf_buffer.can_transform(
+                        #         target_frame,
+                        #         ee_frame,
+                        #         Time(),
+                        #         timeout=Duration(seconds=0.5)
+                        #     ):
+                        #         self.feedback_message = "TF non pronta"
+                        #         return py_trees.common.Status.RUNNING
+
+                        #     t = self.tf_buffer.lookup_transform(
+                        #         target_frame,
+                        #         ee_frame,
+                        #         Time(),
+                        #         timeout=Duration(seconds=0.5)
+                        #     )
+
+                        #     p = t.transform.translation
+                        #     q = t.transform.rotation
+                        #     pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
+                        #     self.bb.set(self.pose_bb, pose_val)
+                        #     #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
+                        # except Exception as e:
+                        #     self.node.get_logger().warn(f"TF lookup failed: {e}")
+                        #     self.bb.set(self.pose_bb, None)
 
                     return py_trees.common.Status.SUCCESS
                 else:
@@ -234,31 +246,56 @@ class MoveToPose(RosLeaf):
                     if self.pose_bb is not None:
                         target_frame="base_link"
                         ee_frame="tool0"
+
+                        time=Time() 
+                        # Wait for the transform asynchronously
+                        tf_future = self.tf_buffer.wait_for_transform_async(
+                        target_frame=target_frame,
+                        source_frame=ee_frame,
+                        time=time
+                        )
+                        rclpy.spin_until_future_complete(self.node, tf_future, timeout_sec=1)
+
+                        # Lookup tansform
                         try:
-                            if not self.tf_buffer.can_transform(
-                                target_frame,
-                                ee_frame,
-                                Time(),
-                                timeout=Duration(seconds=0.5)
-                            ):
-                                self.feedback_message = "TF non pronta"
-                                return py_trees.common.Status.RUNNING
-
-                            t = self.tf_buffer.lookup_transform(
-                                target_frame,
-                                ee_frame,
-                                Time(),
-                                timeout=Duration(seconds=0.5)
-                            )
-
+                            #rclpy.spin_once(self.node, timeout_sec=0.1)
+                            t = self.tf_buffer.lookup_transform(target_frame,
+                                                            ee_frame,
+                                                            time)
                             p = t.transform.translation
                             q = t.transform.rotation
                             pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
                             self.bb.set(self.pose_bb, pose_val)
-                            #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
+                            self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
                         except Exception as e:
                             self.node.get_logger().warn(f"TF lookup failed: {e}")
                             self.bb.set(self.pose_bb, None)
+
+                        # try:
+                        #     if not self.tf_buffer.can_transform(
+                        #         target_frame,
+                        #         ee_frame,
+                        #         Time(),
+                        #         timeout=Duration(seconds=0.5)
+                        #     ):
+                        #         self.feedback_message = "TF non pronta"
+                        #         return py_trees.common.Status.RUNNING
+
+                        #     t = self.tf_buffer.lookup_transform(
+                        #         target_frame,
+                        #         ee_frame,
+                        #         Time(),
+                        #         timeout=Duration(seconds=0.5)
+                        #     )
+
+                        #     p = t.transform.translation
+                        #     q = t.transform.rotation
+                        #     pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
+                        #     self.bb.set(self.pose_bb, pose_val)
+                        #     #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
+                        # except Exception as e:
+                        #     self.node.get_logger().warn(f"TF lookup failed: {e}")
+                        #     self.bb.set(self.pose_bb, None)
 
                         
                     return py_trees.common.Status.SUCCESS
@@ -449,10 +486,9 @@ class OpenGripper(RosLeaf):
         return py_trees.common.Status.RUNNING
     
 class SetPlanParams(RosLeaf):
-    def __init__(self, node, theta_f, num_wp, target_vol, name="SetPlanParams"):
+    def __init__(self, node, tf_buffer, theta_f, num_wp, target_vol, name="SetPlanParams"):
         super().__init__(name, node)
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self.node, spin_thread=True)
+        self.tf_buffer = tf_buffer
         self.theta_f = theta_f 
         self.num_wp = num_wp
         self.target_vol = target_vol
@@ -461,28 +497,23 @@ class SetPlanParams(RosLeaf):
         """Converte una posizione [x, y, z] da base_link a world"""
         to_frame_rel = 'world'
         from_frame_rel = 'base_link'
-        time=rclpy.time.Time() 
-        # Wait for the transform asynchronously
-        # tf_future = self.tf_buffer.wait_for_transform_async(
-        # target_frame=to_frame_rel,
-        # source_frame=from_frame_rel,
-        # time=time
-        # )
-        # rclpy.spin_until_future_complete(self.node, tf_future, timeout_sec=1)
+        time=Time() 
 
         if len(point_list)<=3:
             ps = PointStamped()
             ps.header.frame_id = "base_link"
             ps.header.stamp = self.node.get_clock().now().to_msg()
             ps.point.x, ps.point.y, ps.point.z = map(float, point_list)
-            if not self.tf_buffer.can_transform(
-                to_frame_rel,
-                from_frame_rel,
-                time,
-                timeout=rclpy.duration.Duration(seconds=0.5)
-            ):
-                self.node.get_logger().warn(f"No transform {from_frame_rel} → {to_frame_rel}")
-                return None
+ 
+            # Wait for the transform asynchronously
+            tf_future = self.tf_buffer.wait_for_transform_async(
+            target_frame=to_frame_rel,
+            source_frame=from_frame_rel,
+            time=time
+            )
+            rclpy.spin_until_future_complete(self.node, tf_future, timeout_sec=1)
+
+            # Lookup tansform
             try:
                 t = self.tf_buffer.lookup_transform(to_frame_rel,
                                                 from_frame_rel,
@@ -491,9 +522,30 @@ class SetPlanParams(RosLeaf):
                 transformed_point_msg = tf2_geometry_msgs.do_transform_point(ps, t)
                 transformed_point=[float(transformed_point_msg.point.x), float(transformed_point_msg.point.y), float(transformed_point_msg.point.z)]
                 return transformed_point
+                
             except Exception as e:
                 self.node.get_logger().warn(f"No transform found: {str(e)}")
                 return point_list
+
+            # if not self.tf_buffer.can_transform(
+            #     to_frame_rel,
+            #     from_frame_rel,
+            #     time,
+            #     timeout=rclpy.duration.Duration(seconds=0.5)
+            # ):
+            #     self.node.get_logger().warn(f"No transform {from_frame_rel} → {to_frame_rel}")
+            #     return None
+            # try:
+            #     t = self.tf_buffer.lookup_transform(to_frame_rel,
+            #                                     from_frame_rel,
+            #                                     time)
+            #     # Do the transform
+            #     transformed_point_msg = tf2_geometry_msgs.do_transform_point(ps, t)
+            #     transformed_point=[float(transformed_point_msg.point.x), float(transformed_point_msg.point.y), float(transformed_point_msg.point.z)]
+            #     return transformed_point
+            # except Exception as e:
+            #     self.node.get_logger().warn(f"No transform found: {str(e)}")
+            #     return point_list
             
         else:
             ps = PoseStamped()
@@ -501,14 +553,16 @@ class SetPlanParams(RosLeaf):
             ps.header.stamp = self.node.get_clock().now().to_msg()
             ps.pose.position.x, ps.pose.position.y, ps.pose.position.z = map(float, point_list[:3])
             ps.pose.orientation.x, ps.pose.orientation.y, ps.pose.orientation.z, ps.pose.orientation.w = map(float, point_list[3:])
-            if not self.tf_buffer.can_transform(
-                to_frame_rel,
-                from_frame_rel,
-                time,
-                timeout=rclpy.duration.Duration(seconds=0.5)
-            ):
-                self.node.get_logger().warn(f"No transform {from_frame_rel} → {to_frame_rel}")
-                return None
+
+            # Wait for the transform asynchronously
+            tf_future = self.tf_buffer.wait_for_transform_async(
+            target_frame=to_frame_rel,
+            source_frame=from_frame_rel,
+            time=time
+            )
+            rclpy.spin_until_future_complete(self.node, tf_future, timeout_sec=1)
+
+            # Lookup tansform
             try:
                 t = self.tf_buffer.lookup_transform(to_frame_rel,
                                                 from_frame_rel,
@@ -524,6 +578,30 @@ class SetPlanParams(RosLeaf):
             except Exception as e:
                 self.node.get_logger().warn(f"No transform found: {str(e)}")  
                 return point_list
+            
+            # if not self.tf_buffer.can_transform(
+            #     to_frame_rel,
+            #     from_frame_rel,
+            #     time,
+            #     timeout=rclpy.duration.Duration(seconds=0.5)
+            # ):
+            #     self.node.get_logger().warn(f"No transform {from_frame_rel} → {to_frame_rel}")
+            #     return None
+            # try:
+            #     t = self.tf_buffer.lookup_transform(to_frame_rel,
+            #                                     from_frame_rel,
+            #                                     time)
+            #     # Do the transform
+            #     transformed_point_msg = tf2_geometry_msgs.do_transform_pose_stamped(ps, t)
+            #     transformed_point = [
+            #         float(transformed_point_msg.pose.position.x), float(transformed_point_msg.pose.position.y), float(transformed_point_msg.pose.position.z),
+            #         float(transformed_point_msg.pose.orientation.x), float(transformed_point_msg.pose.orientation.y),
+            #         float(transformed_point_msg.pose.orientation.z), float(transformed_point_msg.pose.orientation.w)
+            #     ]
+            #     return transformed_point
+            # except Exception as e:
+            #     self.node.get_logger().warn(f"No transform found: {str(e)}")  
+            #     return point_list
         
     def update(self):
         self.bb.set("theta_f", self.theta_f)
@@ -543,11 +621,10 @@ class SetPlanParams(RosLeaf):
         pos_cont_goal = self.bb.get("pos_cont_goal") or [0.0, 0.0, 0.0]
         pos_grip_ee = self.bb.get("pos_grip_ee") or [0.0]*7
 
-        np.set_printoptions(precision=3, suppress=True)
         #self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
-        self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
+        #self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
         #self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
-        self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
+        #self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
 
         pos_init_cont = self.transform_to_world(pos_init_cont)
         pos_cont_goal = self.transform_to_world(pos_cont_goal)
@@ -555,9 +632,9 @@ class SetPlanParams(RosLeaf):
         pos_grip_ee = self.transform_to_world(pos_grip_ee)
 
         #self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
-        self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
+        #self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
         #self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
-        self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
+        #self.node.get_logger().info(f"pos_grip_ee {pos_grip_ee}")
 
         try:
             init_parameters = {
@@ -771,8 +848,10 @@ class ExecutePathPublisher(RosLeaf):
 #==============================================================================================================
 # COSTRUZIONE ALBERO E AVVIO:
 
-def create_tree(node: Node):
+def create_tree(node: Node, tf_buffer):
+    
     motion_client = MotionClient()
+
     #joint_v1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
     #joint_v2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
 
@@ -781,20 +860,20 @@ def create_tree(node: Node):
     #joint_v2= [-2.9784508387195032, -2.2492810688414515, -1.4298287630081177, -1.9104792080321253, -3.66062838235964, -2.5633793512927454]
     
     open=OpenGripper(node)
-    move_t1 = MoveToPose(node, pose_list=joint_v1,pose_bb=None, motion_client=motion_client)
-    vision_1 = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
+    move_t1 = MoveToPose(node, tf_buffer, pose_list=joint_v1,pose_bb="banana", motion_client=motion_client)
+    #vision_1 = CallVisionService(node, estimate_volume=False, out_centroid_key="pos_cont_goal")
 
-    move_t2 = MoveToPose(node, pose_list=joint_v2,pose_bb="pos_init_ee", motion_client=motion_client)
-    vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
+    move_t2 = MoveToPose(node, tf_buffer, pose_list=joint_v2,pose_bb="pos_init_ee", motion_client=motion_client)
+    #vision_2 = CallVisionService(node, estimate_volume=True, out_centroid_key="pos_init_cont", out_vol_key="init_vol")
 
     joint_v3= [-1.5371907393084925, -1.2124689680388947, -2.2734172344207764, -2.786943098107809, -1.552525822316305, -3.143904987965719]
-    move_t3 = MoveToPose(node, pose_list=joint_v3,pose_bb=None, motion_client=motion_client)
+    move_t3 = MoveToPose(node, tf_buffer, pose_list=joint_v3,pose_bb=None, motion_client=motion_client)
 
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
     #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
     pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
 
-    move_c = MoveToPose(node, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
+    move_c = MoveToPose(node, tf_buffer, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
     #move_c = MoveToPose(node, pose_list="pos_init_cont", pose_bb="pos_appr_ee")
 
     off = ComputeOffset(node, "pos_grip_ee_grip", "pos_init_cont")
@@ -804,13 +883,13 @@ def create_tree(node: Node):
         policy=py_trees.common.ParallelPolicy.SuccessOnAll()
     )
     par_util.add_children([off, grip])
-    params  = SetPlanParams(node, theta_f=90, num_wp=1000, target_vol=20.0)
+    params  = SetPlanParams(node, tf_buffer, theta_f=90, num_wp=1000, target_vol=20.0)
 
     send = SendYamlToVM(node)
     wait_path = WaitForBestPath(node)
     execp   = ExecutePathPublisher(node) # ExecutePathPublisher o ExecutePathAction
    
-    pose=PrintPose(node)
+    pose=PrintPose(node, tf_buffer)
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     # seq.add_children([
     #     # pose,
@@ -824,27 +903,27 @@ def create_tree(node: Node):
     #     wait_path,
     #     execp,
     #     ])
-    pose1=PrintPose(node)
-    pose2=PrintPose(node)
-    pose3=PrintPose(node)
-    seq.add_children([
-        open,
-        move_t1, pose1,
-        move_t2, pose2, 
-        move_t3,
-        move_c, pose3,
-        params,
-        wait_path,
-        ])
 
-    
-  
+    # seq.add_children([
+    #     open,
+    #     move_t1,
+    #     move_t2,  
+    #     move_t3,
+    #     move_c, #pose,
+    #     params,
+    #     wait_path,
+    #     ])
+    seq.add_children([ move_t1, move_t2])
+
     return seq  
 
 def main():
     rclpy.init()
     node = Node("bt_orchestrator")
-    tree = py_trees.trees.BehaviourTree(create_tree(node))
+    tf_buffer = Buffer()
+    tf_listener = TransformListener(tf_buffer, node, spin_thread=True)
+
+    tree = py_trees.trees.BehaviourTree(create_tree(node, tf_buffer))
     # Tick ~10 Hz (a piacere)
     try:
         while rclpy.ok():
