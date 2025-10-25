@@ -452,7 +452,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 link=end_effector,
                 pos=init_pos,
                 quat=init_quat,
-                init_qpos=[-114.0,-138.0,-90.0,-134.0,-116.0,-182.0,0.0,0.0]/180*np.pi,
+                init_qpos=np.deg2rad([-114.0,-138.0,-90.0,-134.0,-116.0,-182.0,0.0,0.0]),
         )
     if approach:
         init_qpos[-2:]=-0.02
@@ -914,8 +914,9 @@ def plan_path(
         ])
         p_tcp0 = pos4.copy()
         scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
-        axis_world = np.array([1.0, 0.0, 0.0]) # asse rot x
-
+        tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
+        axis_world = R0.apply(tool_x_axis)                  # asse x nel mondo
+      
         # 3) Orientazione iniziale del tool in pre-pour (q4/pos4/quat4)
         R0 = R.from_quat(quat4) # matrice rot init
         l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D

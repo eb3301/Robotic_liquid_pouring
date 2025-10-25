@@ -157,7 +157,7 @@ class MoveToPose(RosLeaf):
                 result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=self.cartesian) 
                 if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
-                        bb_grip=self.pose_bb + "_grip"
+                        bb_grip=self.pose_bb + "_tip"
                         self.bb.set(bb_grip, self.pose_list)
 
                         target_frame="base_link"
@@ -328,7 +328,7 @@ class ComputeOffset(RosLeaf):
         cont = self.bb.get(self.cont_pose_key) # 3D
         if ee is None or cont is None:
             return py_trees.common.Status.FAILURE
-        offset = [ee[0]-cont[0], ee[1]-cont[1], ee[2]-cont[2]]
+        offset = [-ee[0]+cont[0], -ee[1]+cont[1], -ee[2]+cont[2]]
         self.bb.set(self.out_key, offset)
         return py_trees.common.Status.SUCCESS
 
@@ -807,7 +807,7 @@ def create_tree(node: Node, tf_buffer, motion_client):
     move_pre_c = MoveToPose(node, tf_buffer, pose_list="pos_init_cont_pre", pose_bb=None, motion_client=motion_client)
     move_c = MoveToPose(node, tf_buffer, pose_list="pos_init_cont", pose_bb="pos_grip_ee", motion_client=motion_client)
 
-    off = ComputeOffset(node, "pos_grip_ee_grip", "pos_init_cont")
+    off = ComputeOffset(node, "pos_grip_ee", "pos_init_cont")
     close = CloseGripper(node)
     par_util = py_trees.composites.Parallel(
         "UtilitiesParallel",
