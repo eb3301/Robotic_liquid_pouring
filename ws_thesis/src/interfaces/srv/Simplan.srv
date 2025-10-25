@@ -9,5 +9,7 @@ float64 init_vol
 float64 target_vol
 
 ---
+bool success
+string message
 float64[] time
 float64[] best_path

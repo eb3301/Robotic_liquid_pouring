@@ -155,6 +155,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             plane_reflection = False, # turn on plane reflection
             ambient_light    = (0.1, 0.1, 0.1), # ambient light setting
             shadow=False,
+            visualize_sph_boundary=True,
         ),
         show_viewer = view,
         renderer = gs.renderers.Rasterizer(), # using rasterizer for camera rendering
@@ -1469,6 +1470,7 @@ class PathPlannerService(Node):
                 score_best_path = local_scores
         
         best_score/=N
+        best_score+=100
         if best_score < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
             response.success=False
