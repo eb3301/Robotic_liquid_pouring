@@ -446,12 +446,13 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         # init_pos[2]+=container_size[2]-0.01
         # init_pos[2]=max(init_pos[2],z_min)
         # init_quat = quat_orizz
-        
+    
     # Use inverse kinematics to get joint angles
     init_qpos = ur5e.inverse_kinematics(
                 link=end_effector,
                 pos=init_pos,
                 quat=init_quat,
+                init_qpos=[-114.0,-138.0,-90.0,-134.0,-116.0,-182.0,0.0,0.0]/180*np.pi,
         )
     if approach:
         init_qpos[-2:]=-0.02
@@ -1342,7 +1343,7 @@ class PathPlannerService(Node):
                 raise TypeError(f"Tipo non supportato per {key}: {type(val)}")
 
         return result
-
+    
     def plan_path_callback(self, request, response):
 
         N = 1                    # Numero di modelli simulati (iniziale)
@@ -1499,13 +1500,13 @@ class PathPlannerService(Node):
 
         try:
             with open("/tmp/best_path.yaml", "w") as f:
-                yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
+                yaml.safe_dump({"best_path": list(best_path)}, f, sort_keys=False)
             with open("/tmp/parameters.yaml", "w") as f:
                 yaml.safe_dump({"parameters": best_parameters}, f, sort_keys=False)
             with open("/tmp/tolerances.yaml", "w") as f:
                 yaml.safe_dump({"tolerances": tolerances}, f, sort_keys=False)
             with open("/tmp/score_best_path.yaml", "w") as f:
-                yaml.safe_dump({"score_best_path": score_best_path}, f, sort_keys=False)
+                yaml.safe_dump({"score_best_path": float(score_best_path)}, f, sort_keys=False)
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
