@@ -914,13 +914,13 @@ def plan_path(
         ])
         p_tcp0 = pos4.copy()
         scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
-        tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
-        axis_world = R0.apply(tool_x_axis)                  # asse x nel mondo
-      
+        
         # 3) Orientazione iniziale del tool in pre-pour (q4/pos4/quat4)
         R0 = R.from_quat(quat4) # matrice rot init
         l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
-
+        tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
+        axis_world = R0.apply(tool_x_axis)                  # asse x nel mondo
+      
         path5 = []
         n_steps = int(num_waypoints/2.5)
         for theta in np.linspace(0, theta_f, n_steps):
