@@ -35,8 +35,9 @@ class CallPlannerSrv(Node):
     def call_service(self, params: dict):
         req = Simplan.Request()
         req.pos_init_cont = params.get("pos_init_cont", [0.0, 0.0, 0.0])
-        req.pos_init_ee   = params.get("pos_init_ee", [0.0]*7)
         req.pos_cont_goal = params.get("pos_cont_goal", [0.0, 0.0, 0.0])
+        req.pos_init_ee   = params.get("pos_init_ee", [0.0]*7)
+        req.pos_grip_ee   = params.get("pos_grip_ee", [0.0]*7)
         req.offset        = params.get("offset", [0.0, 0.0, 0.0])
         req.theta_f       = float(params.get("theta_f", 0.0))
         req.num_wp        = int(params.get("num_wp", 0))

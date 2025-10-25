@@ -124,7 +124,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 100, #10000*dt,  # Increased substeps for better stability
+            substeps= 10, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -1340,12 +1340,15 @@ class PathPlannerService(Node):
         liq=False
         record=False
         debug=False
-
+    
+            
+    
         # Deve andare solo la prima volta la generazione del range, dopodiché check esistenza paraeters_range.yaml e uso quello
         req_parameters = {
             "pos_init_cont": list(request.pos_init_cont),
-            "pos_init_ee": list(request.pos_init_ee),
             "pos_cont_goal": list(request.pos_cont_goal),
+            "pos_init_ee": list(request.pos_init_ee),
+            "pos_grip_ee":list(request.pos_grip_ee),
             "offset": list(request.offset),
             "dCoR": [0.0, -0.01, 0.04],
             "vol_init": request.init_vol, #2e-5, +-MAE
@@ -1363,6 +1366,11 @@ class PathPlannerService(Node):
                 (0.015, 0.015),  # y: ±1.5 cm
                 (0.01, 0.01),    # z: ±1.0 cm
             ],
+            "pos_cont_goal": [
+                (0.015, 0.015),  # x: ±1.5 cm
+                (0.015, 0.015),  # y: ±1.5 cm
+                (0.01, 0.01),    # z: ±1.0 cm
+            ],
             "pos_init_ee": [
                 (0.005, 0.005),  # x: ±5 mm
                 (0.005, 0.005),  # y: ±5 mm
@@ -1372,10 +1380,14 @@ class PathPlannerService(Node):
                 (0.00, 0.00),    # y: fisso
                 (0.00, 0.00),    # z: fisso
             ],
-            "pos_cont_goal": [
-                (0.015, 0.015),  # x: ±1.5 cm
-                (0.015, 0.015),  # y: ±1.5 cm
-                (0.01, 0.01),    # z: ±1.0 cm
+            "pos_grip_ee": [
+                (0.005, 0.005),  # x: ±5 mm
+                (0.005, 0.005),  # y: ±5 mm
+                (0.005, 0.005),  # z: ±5 mm
+                (0.00, 0.00),    # w: fisso
+                (0.00, 0.00),    # x: fisso
+                (0.00, 0.00),    # y: fisso
+                (0.00, 0.00),    # z: fisso
             ],
             "offset": [
                 (0.00, 0.00),  # primo offset bloccato (le pinze riportano al centro quando chiuse)

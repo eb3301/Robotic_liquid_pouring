@@ -22,6 +22,8 @@ from rclpy.duration import Duration
 from rclpy.time import Time
 from interfaces.srv import Perception
 import tf2_geometry_msgs 
+import threading
+from rclpy.executors import MultiThreadedExecutor
 
 
 class Timeout(py_trees.decorators.Decorator):
@@ -67,7 +69,7 @@ class RosLeaf(py_trees.behaviour.Behaviour):
         self.node = node
         self.bb = Blackboard()
 
-# ---------- Movimento ----------
+# ---------- Motion ----------
 class PrintPose(RosLeaf):
     def __init__(self, node, tf_buffer, target_frame="base_link", ee_frame="tool0", name="PrintPose"):
         super().__init__(name, node)
@@ -248,7 +250,7 @@ class MoveToPose(RosLeaf):
                 self.feedback_message = f"Errore move_to_pose: {e}"
                 return py_trees.common.Status.FAILURE
 
-# ---------- Percezione ----------
+# ---------- Perception ----------
 class CallVisionService(RosLeaf):
     def __init__(self, node, estimate_volume: bool, 
                  out_centroid_key=None,
@@ -314,7 +316,7 @@ class CallVisionService(RosLeaf):
             self.node.get_logger().error(f"Errore VisionService: {e}")
             return py_trees.common.Status.FAILURE
 
-# ---------- Logica/Utility ----------
+# ---------- Gripper ----------
 class ComputeOffset(RosLeaf):
     def __init__(self, node, ee_pose_key, cont_pose_key, out_key="offset", name="ComputeOffset"):
         super().__init__(name, node)
@@ -370,7 +372,7 @@ class CloseGripper(RosLeaf):
 
             goal = GripperCommand.Goal()
             goal.command.position = 0.0    
-            goal.command.max_effort = 0.0 
+            goal.command.max_effort = 0.0 # min_F = 20N 
 
             self._goal_future = self.client.send_goal_async(goal)
             self._goal_future.add_done_callback(self._goal_response_cb)
@@ -439,6 +441,7 @@ class OpenGripper(RosLeaf):
 
         return py_trees.common.Status.RUNNING
     
+# ---------- Parameters --------
 class SetPlanParams(RosLeaf):
     def __init__(self, node, tf_buffer, theta_f, num_wp, target_vol, name="SetPlanParams"):
         super().__init__(name, node)
@@ -831,22 +834,9 @@ def create_tree(node: Node, tf_buffer, motion_client):
         execp,
         ])
 
-    # seq.add_children([
-    #     open,
-    #     move_t1,
-    #     move_t2,  
-    #     move_t3,
-    #     move_c, #pose,
-    #     params,
-    #     wait_path,
-    #     ])
-
     return seq
 
 def main():
-    import threading
-    from rclpy.executors import MultiThreadedExecutor
-
     rclpy.init()
     node = Node("bt_orchestrator")
 
