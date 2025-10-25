@@ -635,6 +635,7 @@ def plan_path(
         except Exception as e:
             raise RuntimeError(f"errore nella IK q1")
         ur5e.set_qpos(q01)
+        scene.visualizer.update(force=True, auto=True)
         collisions01 = ur5e.detect_collision()
         if debug: print(f"Collisioni 01: {collisions01}")
 
@@ -670,6 +671,7 @@ def plan_path(
         except Exception as e:
             raise RuntimeError(f"errore nella IK q1")
         ur5e.set_qpos(q1)
+        scene.visualizer.update(force=True, auto=True)
         collisions1 = ur5e.detect_collision()
         if debug: print(f"Collisioni 1: {collisions1}")
 
@@ -710,6 +712,7 @@ def plan_path(
         except Exception as e:
             raise RuntimeError(f"errore nella IK q1")
         ur5e.set_qpos(q1)
+        scene.visualizer.update(force=True, auto=True)
         collisions1 = ur5e.detect_collision()
         if debug: print(f"Collisioni 1: {collisions1}")
    
@@ -728,6 +731,7 @@ def plan_path(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q2")
     ur5e.set_qpos(q2)
+    scene.visualizer.update(force=True, auto=True)
     collisions2 = ur5e.detect_collision()
     if debug: print(f"Collisioni 2: {collisions2}")
 
@@ -766,6 +770,7 @@ def plan_path(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q3")
     ur5e.set_qpos(q3)
+    scene.visualizer.update(force=True, auto=True)
     collisions3 = ur5e.detect_collision()
     if debug: print(f"Collisioni 3: {collisions3}")
 
@@ -809,6 +814,7 @@ def plan_path(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q4")
     ur5e.set_qpos(q4)
+    scene.visualizer.update(force=True, auto=True)
     collisions4 = ur5e.detect_collision()
     if debug: print(f"Collisioni 4: {collisions4}")
 
@@ -861,6 +867,7 @@ def plan_path(
             path5.append(q5)
         
         ur5e.set_qpos(q5)
+        scene.visualizer.update(force=True, auto=True)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
         path5 = np.array(path5)
@@ -888,6 +895,7 @@ def plan_path(
             path6.append(q6)
 
         ur5e.set_qpos(q6)
+        scene.visualizer.update(force=True, auto=True)
         collisions6 = ur5e.detect_collision()
         if debug:
             print(f"Collisioni 6: {collisions6}")
@@ -935,6 +943,7 @@ def plan_path(
             path5.append(q5)
 
         ur5e.set_qpos(q5)
+        scene.visualizer.update(force=True, auto=True)
         collisions5 = ur5e.detect_collision()
         if debug: print(f"Collisioni 5: {collisions5}")
         path5 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path5])
@@ -964,6 +973,7 @@ def plan_path(
             path6.append(q6)
         pos6=p_tcp
         ur5e.set_qpos(q6)
+        scene.visualizer.update(force=True, auto=True)
         collisions6 = ur5e.detect_collision()
         if debug: print(f"Collisioni 6: {collisions6}")
         path6 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path6])
@@ -984,6 +994,7 @@ def plan_path(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q7")
     ur5e.set_qpos(q7)
+    scene.visualizer.update(force=True, auto=True)
     collisions7 = ur5e.detect_collision()
     if debug: print(f"Collisioni 7: {collisions7}")
     # Termina rilasciando contenitore sul tavolo
