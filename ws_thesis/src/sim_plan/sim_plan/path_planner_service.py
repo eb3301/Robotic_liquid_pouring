@@ -967,14 +967,29 @@ def plan_path(
         ###########################################
         # Ritorno dal versamento (5->6)
         path6 = []
+        R_current = R0 * R.from_rotvec(theta_f * axis_world)
         for theta in np.linspace(theta_f, 0.0, n_steps):
-            R_theta = R.from_rotvec(theta * axis_world) * R0
-            quat6 = R_theta.as_quat()
+            # Asse x corrente nel mondo
+            axis_world = R_current.apply(np.array([1.0, 0.0, 0.0]))
+            # Rotazione incrementale inversa
+            R_increment = R.from_rotvec((-theta_f / n_steps) * axis_world)
+            R_current = R_increment * R_current  # aggiorna
 
-            p_tcp = CoR3D - R_theta.apply(l)
+            quat6 = R_current.as_quat()
+            delta_pos = R_current.apply(l)
+            p_tcp = CoR3D - delta_pos
             p_tcp[2] = max(p_tcp[2], z_min)
-            lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.05
+            lip_height = parameters['pos_cont_goal'][2] + container2_size[2] + 0.05
             p_tcp[2] = max(p_tcp[2], lip_height)
+
+
+            # R_theta = R.from_rotvec(theta * axis_world) * R0
+            # quat6 = R_theta.as_quat()
+
+            # p_tcp = CoR3D - R_theta.apply(l)
+            # p_tcp[2] = max(p_tcp[2], z_min)
+            # lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.05
+            # p_tcp[2] = max(p_tcp[2], lip_height)
 
             try:
                 q6 = ur5e.inverse_kinematics(
