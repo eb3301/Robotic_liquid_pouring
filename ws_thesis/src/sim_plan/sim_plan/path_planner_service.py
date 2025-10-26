@@ -124,7 +124,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 10, #10000*dt,  # Increased substeps for better stability
+            substeps= 100,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -1363,7 +1363,7 @@ class PathPlannerService(Node):
         M = 1                     # Numero di traiettorie
         delta = 0.7            # Threshold di successo
         view=True
-        liq=False
+        liq=True
         record=False
         debug=False        
     
@@ -1374,7 +1374,7 @@ class PathPlannerService(Node):
             "pos_init_ee": list(request.pos_init_ee),
             "pos_grip_ee":list(request.pos_grip_ee),
             "offset": list(request.offset),
-            "dCoR": [0.0, -0.01, 0.04],
+            "dCoR": [0.0, -0.015, 0.04],
             "vol_init": request.init_vol, #2e-5, +-MAE
             "densità": 998.0,
             "viscosità": 0.001,
