@@ -914,10 +914,10 @@ def plan_path(
         ])
         p_tcp0 = pos4.copy()
         scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
-        print(f"quat: {quat4}")
+        print(f"quat: {quat4}",flush=True)
         # 3) Orientazione iniziale del tool in pre-pour (q4/pos4/quat4)
         R0 = R.from_quat(quat4) # matrice rot init
-        print(f"mat rot init: {R0}")
+        print(f"mat rot init: {R0}", flush=True)
         l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
         tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
         axis_world = R0.apply(tool_x_axis)                  # asse x nel mondo
@@ -930,8 +930,8 @@ def plan_path(
             R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
             quat5 = R_theta.as_quat()
             if c % 10 == 0:
-                print(f"mat rot: {R0}")
-                print(f"quat: {quat5}")
+                print(f"mat rot: {R0}", flush=True)
+                print(f"quat: {quat5}", flush=True)
             c+=1
 
             delta_pos=R_theta.apply(l)
