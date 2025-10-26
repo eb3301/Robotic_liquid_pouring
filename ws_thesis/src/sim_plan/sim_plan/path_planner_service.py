@@ -137,7 +137,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
             lower_bound   = (0, 0, 0.0), 
-            upper_bound   = (1, 1, 2),
+            upper_bound   = (1.2, 1.2, 1.5),
             particle_size = 0.01, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
@@ -255,7 +255,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             visualize_contact=debug,
         )
     else:
-        contpos= (parameters['offset'][1],parameters['offset'][2], parameters['offset'][0]) # ordine z, y, x # np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
+        contpos= (parameters['offset'][1],parameters['offset'][2], parameters['offset'][0]) # ordine y, z, x # np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
         container_scale = 0.015
         container_mesh_path = DIR + '/becher/becher1.obj'
 
@@ -340,7 +340,10 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
     #print(liquid_radius, liquid_height)
     # Position liquid relative to container center
-    liqpos = (parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]+container_size[2]+liquid_height/2) 
+    if approach:
+        liqpos = (parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]+container_size[2]+liquid_height/2) 
+    else:
+        liqpos = (parameters['pos_grip_ee'][0]+parameters['offset'][0],parameters['pos_grip_ee'][0]+parameters['offset'][0], parameters['pos_grip_ee'][0]-parameters['offset'][0] + +container_size[2]+liquid_height/2)
 
     if liq:
         liquid = scene.add_entity(
