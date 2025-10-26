@@ -124,7 +124,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 100, #10000*dt,  # Increased substeps for better stability
+            substeps= 10, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -251,7 +251,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             visualize_contact=debug,
         )
     else:
-        contpos= (parameters['offset'][0],parameters['offset'][1],parameters['offset'][2]) #np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
+        contpos= (parameters['offset'][1],-parameters['offset'][2],parameters['offset'][0]) # ordine y, -z, x #np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
         container_scale = 0.015
         container_mesh_path = DIR + '/becher/becher1.obj'
 
@@ -290,7 +290,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     container_size = (container_bounds[1] - container_bounds[0])*container_scale
     #container_center = container_mesh.center_mass
 
-    contpos2= (parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2])
+    contpos2= (parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1], 0.92 ) #parameters['pos_cont_goal'][2])
     container_scale2 = 0.013
     container_mesh_path2 = DIR + '/becher/becher.obj'
 
@@ -1342,6 +1342,17 @@ class PathPlannerService(Node):
 
         return result
     
+    def to_builtin(self, obj):
+        if isinstance(obj, np.generic):
+            return obj.item()
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, list):
+            return [self.to_builtin(x) for x in obj]
+        if isinstance(obj, dict):
+            return {k: self.to_builtin(v) for k, v in obj.items()}
+        return obj
+    
     def plan_path_callback(self, request, response):
 
         N = 1                    # Numero di modelli simulati (iniziale)
@@ -1350,9 +1361,7 @@ class PathPlannerService(Node):
         view=True
         liq=False
         record=False
-        debug=False
-    
-            
+        debug=False        
     
         # Deve andare solo la prima volta la generazione del range, dopodiché check esistenza paraeters_range.yaml e uso quello
         req_parameters = {
@@ -1496,9 +1505,14 @@ class PathPlannerService(Node):
         n_points = len(best_path)
         time = np.linspace(0, (n_points - 1) * dt, n_points)
 
+        best_path=self.to_builtin(best_path)
+        best_parameters=self.to_builtin(best_parameters)
+        tolerances=self.to_builtin(tolerances)
+        score_best_path=self.to_builtin(score_best_path)
+
         try:
             with open("/tmp/best_path.yaml", "w") as f:
-                yaml.safe_dump({"best_path": list(best_path)}, f, sort_keys=False)
+                yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
             with open("/tmp/parameters.yaml", "w") as f:
                 yaml.safe_dump({"parameters": best_parameters}, f, sort_keys=False)
             with open("/tmp/tolerances.yaml", "w") as f:
