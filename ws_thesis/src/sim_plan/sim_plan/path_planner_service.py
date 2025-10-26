@@ -923,7 +923,7 @@ def plan_path(
       
         path5 = []
         n_steps = int(num_waypoints/2.5)
-        R_curr=R0
+        R_current=R0
         for theta in np.linspace(0, theta_f, n_steps):
 
             axis_world = R_current.apply(np.array([1.0, 0.0, 0.0]))
