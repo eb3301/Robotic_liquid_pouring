@@ -914,24 +914,31 @@ def plan_path(
         ])
         p_tcp0 = pos4.copy()
         scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
-        
+        print(f"quat: {quat4}")
         # 3) Orientazione iniziale del tool in pre-pour (q4/pos4/quat4)
         R0 = R.from_quat(quat4) # matrice rot init
+        print(f"mat rot init: {R0}")
         l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
         tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
         axis_world = R0.apply(tool_x_axis)                  # asse x nel mondo
+        axis_world /= np.linalg.norm(axis_world)
       
         path5 = []
         n_steps = int(num_waypoints/2.5)
+        c=0
         for theta in np.linspace(0, theta_f, n_steps):
             R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
             quat5 = R_theta.as_quat()
+            if c % 10 == 0:
+                print(f"mat rot: {R0}")
+                print(f"quat: {quat5}")
+            c+=1
+
             delta_pos=R_theta.apply(l)
             p_tcp = CoR3D - delta_pos
             p_tcp[2] = max(p_tcp[2], z_min) 
             lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.05
             p_tcp[2] = max(p_tcp[2], lip_height)
-
 
             try:
                 q5 = ur5e.inverse_kinematics(
