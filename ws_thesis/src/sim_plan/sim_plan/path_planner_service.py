@@ -255,7 +255,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             visualize_contact=debug,
         )
     else:
-        contpos= (-parameters['offset'][2], parameters['offset'][1], parameters['offset'][0]) # ordine z, y, x # np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
+        contpos= (parameters['offset'][1],parameters['offset'][2], parameters['offset'][0]) # ordine z, y, x # np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
         container_scale = 0.015
         container_mesh_path = DIR + '/becher/becher1.obj'
 
@@ -264,7 +264,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 file=container_mesh_path,
                 fixed=True,
                 pos=contpos,
-                euler=(0, 180, 0),
+                euler=(180, 0, 0),
                 scale=container_scale,
                 decimate=False,
                 convexify=False,
