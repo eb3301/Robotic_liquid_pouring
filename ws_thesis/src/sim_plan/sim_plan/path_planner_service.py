@@ -340,8 +340,10 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
     #print(liquid_radius, liquid_height)
     # Position liquid relative to container center
-    #liqpos = (parameters['pos_init_cont'][0]-0.01,parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]+container_size[2]+liquid_height/2) 
-    liqpos = (parameters['pos_grip_ee'][0]+parameters['offset'][0],parameters['pos_grip_ee'][1]+parameters['offset'][1], parameters['pos_grip_ee'][2]-parameters['offset'][2]+container_size[2]+liquid_height/2)
+    if approach:
+        liqpos = (parameters['pos_init_cont'][0]-0.01,parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]+container_size[2]+liquid_height/2) 
+    else:
+        liqpos = (parameters['pos_grip_ee'][0]+parameters['offset'][0],parameters['pos_grip_ee'][1]+parameters['offset'][1], parameters['pos_grip_ee'][2]-parameters['offset'][2]+container_size[2]+liquid_height/2)
 
     if liq:
         liquid = scene.add_entity(
