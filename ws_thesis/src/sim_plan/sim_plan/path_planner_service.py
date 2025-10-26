@@ -136,8 +136,8 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         ),
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
-            lower_bound   = (0, 0, 0.9), 
-            upper_bound   = (1.2, 1.2, 1.3),
+            lower_bound   = (0.3, 0.1, 0.9), 
+            upper_bound   = (1.0, 1.1, 1.3),
             particle_size = 0.01, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
@@ -340,8 +340,8 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     #liquid_height = container_size[2]*container_scale*np.sqrt(2)*0.5
     #print(liquid_radius, liquid_height)
     # Position liquid relative to container center
-    liqpos = (parameters['pos_init_cont'][0]-0.01,parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]+container_size[2]+liquid_height/2) 
-    # liqpos = (parameters['pos_grip_ee'][0]+parameters['offset'][0],parameters['pos_grip_ee'][0]+parameters['offset'][0], parameters['pos_grip_ee'][0]-parameters['offset'][0] + +container_size[2]+liquid_height/2)
+    #liqpos = (parameters['pos_init_cont'][0]-0.01,parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]+container_size[2]+liquid_height/2) 
+    liqpos = (parameters['pos_grip_ee'][0]+parameters['offset'][0],parameters['pos_grip_ee'][1]+parameters['offset'][1], parameters['pos_grip_ee'][2]-parameters['offset'][2]+container_size[2]+liquid_height/2)
 
     if liq:
         liquid = scene.add_entity(
@@ -1387,9 +1387,9 @@ class PathPlannerService(Node):
         }
         tolerances = {
             "pos_init_cont": [
-                (0.015, 0.015),  # x: ±1.5 cm
-                (0.015, 0.015),  # y: ±1.5 cm
-                (0.01, 0.01),    # z: ±1.0 cm
+                (0.01, 0.01),  # x: ±1.0 cm
+                (0.01, 0.01),  # y: ±1.0 cm
+                (0.0, 0.0),    # z: ±0.0 cm
             ],
             "pos_cont_goal": [
                 (0.015, 0.015),  # x: ±1.5 cm
@@ -1417,7 +1417,7 @@ class PathPlannerService(Node):
             "offset": [
                 (0.01, 0.01),  # x: ±1 cm (0.15)
                 (0.0, 0.0),  # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
-                (0.01, 0.01),  #  ±1 cm (0.04)
+                (0.005, 0.005),  #  ±1 cm (0.04)
             ],
             "dCoR": [
                 (0.001, 0.001),  # componente 1: ±1 mm
