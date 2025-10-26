@@ -124,7 +124,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene = gs.Scene(
         sim_options=gs.options.SimOptions(
             dt=dt,
-            substeps= 10, #10000*dt,  # Increased substeps for better stability
+            substeps= 100, #10000*dt,  # Increased substeps for better stability
             gravity=(0, 0, -9.81),
         ),
         rigid_options=gs.options.RigidOptions(
@@ -136,8 +136,8 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         ),
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
-            lower_bound   = (-1.5, -1.5, 0.0), 
-            upper_bound   = (1.5, 1.5, 2),
+            lower_bound   = (0, 0, 0.0), 
+            upper_bound   = (1, 1, 2),
             particle_size = 0.01, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
