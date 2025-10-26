@@ -917,8 +917,6 @@ def plan_path(
         R0 = R.from_quat(quat4) # matrice rot init
         l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
         tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
-        # axis_world = R0.apply(tool_x_axis)                  # asse x nel mondo
-        # axis_world /= np.linalg.norm(axis_world)
         axis_world=tool_x_axis
       
         path5 = []
@@ -1437,7 +1435,7 @@ class PathPlannerService(Node):
             scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             
             for j in range(M):
-                theta_f =  parameters["theta_f"] #np.pi * 0.48
+                theta_f =  np.deg2rad(parameters["theta_f"]) #np.pi * 0.48
                 num_wp = int(parameters["num_wp"]) #int(10/dt)
 
                 paths = plan_path(
