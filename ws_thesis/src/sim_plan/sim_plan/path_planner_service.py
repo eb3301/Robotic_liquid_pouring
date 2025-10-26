@@ -222,6 +222,10 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
 
     plane1 = scene.add_entity(gs.morphs.Plane(pos=(0,0,0.92), visualization=False))
 
+    # Real z position is for sure in contact with the table
+    parameters['pos_cont_goal'][2] = 0.92
+    parameters['pos_init_cont'][2] = 0.92
+
     if approach:
         contpos= (parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]) # (0.85,0.2, 0.92) # Initial position
         container_scale = 0.015
@@ -251,7 +255,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             visualize_contact=debug,
         )
     else:
-        contpos= (parameters['offset'][1],-parameters['offset'][2],parameters['offset'][0]) # ordine y, -z, x #np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
+        contpos= (-parameters['offset'][2], parameters['offset'][1], parameters['offset'][0]) # ordine z, y, x # np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
         container_scale = 0.015
         container_mesh_path = DIR + '/becher/becher1.obj'
 
@@ -260,7 +264,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 file=container_mesh_path,
                 fixed=True,
                 pos=contpos,
-                euler=(0, 0, 0),
+                euler=(0, 180, 0),
                 scale=container_scale,
                 decimate=False,
                 convexify=False,
@@ -290,7 +294,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     container_size = (container_bounds[1] - container_bounds[0])*container_scale
     #container_center = container_mesh.center_mass
 
-    contpos2= (parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1], 0.92 ) #parameters['pos_cont_goal'][2])
+    contpos2= (parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1], parameters['pos_cont_goal'][2])
     container_scale2 = 0.013
     container_mesh_path2 = DIR + '/becher/becher.obj'
 
