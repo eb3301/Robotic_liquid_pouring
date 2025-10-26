@@ -137,7 +137,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
             lower_bound   = (0, 0, 0.9), 
-            upper_bound   = (1.2, 1.2, 1.5),
+            upper_bound   = (1.2, 1.2, 1.3),
             particle_size = 0.01, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
@@ -1415,9 +1415,9 @@ class PathPlannerService(Node):
                 (0.00, 0.00),    # z: fisso
             ],
             "offset": [
-                (0.00, 0.00),  # primo offset bloccato (le pinze riportano al centro quando chiuse)
-                (0.01, 0.01),  # secondo: ±1 cm
-                (0.01, 0.01),  # terzo: -1 cm / +0 cm (per restare entro [0.12, 0.13])
+                (0.01, 0.01),  # x: ±1 cm (0.15)
+                (0.0, 0.0),  # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
+                (0.01, 0.01),  #  ±1 cm (0.04)
             ],
             "dCoR": [
                 (0.001, 0.001),  # componente 1: ±1 mm
