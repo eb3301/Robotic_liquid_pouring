@@ -660,8 +660,8 @@ class WaitForBestPath(RosLeaf):
                     with open(self.file_path, "r") as f:
                         data = yaml.safe_load(f)
                     # estrazione campi
-                    time_arr = data.get("time")
-                    path = data.get("all")
+                    time_arr = data.get("best_path", {}).get("time", [])
+                    path = data.get("best_path", {}).get("all", [])
                     if time_arr is None or path is None:
                         self.node.get_logger().info("File trovato ma campi mancanti")
                         return py_trees.common.Status.FAILURE
@@ -712,6 +712,7 @@ class ExecutePathPublisher(RosLeaf):
 
         if time_arr is None or path is None:
             self.feedback_message = "Traiettoria non disponibile"
+            self.node.get_logger().warn(f"Traiettoria non disponibile")
             return py_trees.common.Status.FAILURE
 
         if not self._sent:
@@ -726,6 +727,7 @@ class ExecutePathPublisher(RosLeaf):
             ]
 
             for t, q in zip(time_arr, path):
+                print(q)
                 pt = JointTrajectoryPoint()
                 pt.positions = q[:6]
                 pt.time_from_start = MsgDuration(sec=int(t), nanosec=int((t % 1.0) * 1e9))
@@ -738,10 +740,10 @@ class ExecutePathPublisher(RosLeaf):
             self.bb.set("goal_joints", path[-1][:6])  # salva goal finale
             return py_trees.common.Status.RUNNING
 
-        elapsed = (self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time", 0.0)
+        elapsed = (self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time")
         if elapsed >= self._traj_duration + self.grace_t: # SÌ MA DAMMI IL TEMPOOO
             # Check anche sulla posizione attuale dei giunti
-            if self._check_joints_close():
+            if self._check_final_joints_close():
                 return py_trees.common.Status.SUCCESS
             else:
                 self.feedback_message = "Joint finali fuori tolleranza"
@@ -749,7 +751,7 @@ class ExecutePathPublisher(RosLeaf):
 
         return py_trees.common.Status.RUNNING
 
-    def _check_joints_close(self):
+    def _check_final_joints_close(self):
         """Verifica che i giunti attuali siano vicini al goal"""
         goal = self.bb.get("goal_joints")
         if self._last_joint_state is None or goal is None:
@@ -774,6 +776,30 @@ class ExecutePathPublisher(RosLeaf):
         err = np.linalg.norm(goal - current_pos, ord=np.inf)
         return err < self.tol
 
+    def _check_initial_joints_close(self):
+        """Verifica che i giunti attuali siano vicini alla prima q della traj"""
+        goal = self.bb.get("goal_joints")
+        if self._last_joint_state is None or goal is None:
+            return False
+
+        name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
+        current_pos = []
+        for j in [
+            "shoulder_pan_joint",
+            "shoulder_lift_joint",
+            "elbow_joint",
+            "wrist_1_joint",
+            "wrist_2_joint",
+            "wrist_3_joint"
+        ]:
+            if j not in name_to_idx:
+                return False
+            current_pos.append(self._last_joint_state.position[name_to_idx[j]])
+
+        current_pos = np.array(current_pos)
+        goal = np.array(goal)
+        err = np.linalg.norm(goal - current_pos, ord=np.inf)
+        return err < self.tol
 
 #==============================================================================================================
 # COSTRUZIONE ALBERO E AVVIO:
@@ -798,12 +824,7 @@ def create_tree(node: Node, tf_buffer, motion_client):
     joint_v3 = [-2.08985406557192, -1.8842722378172816, -2.6087613105773926, -1.8289934597411097, -2.0932639280902308, -3.162097756062643]
     move_t3 = MoveToPose(node, tf_buffer, pose_list=joint_v3,pose_bb=None, motion_client=motion_client)
 
-    #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
-    #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
-    pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
-
-    #move_c = MoveToPose(node, tf_buffer, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
-
+    
     move_pre_c = MoveToPose(node, tf_buffer, pose_list="pos_init_cont_pre", pose_bb=None, motion_client=motion_client)
     move_c = MoveToPose(node, tf_buffer, pose_list="pos_init_cont", pose_bb="pos_grip_ee", motion_client=motion_client)
 
@@ -823,17 +844,31 @@ def create_tree(node: Node, tf_buffer, motion_client):
     pose=PrintPose(node, tf_buffer)
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     
+    # seq.add_children([
+    #     open,
+    #     move_t1, vision_1,
+    #     move_t2, vision_2, 
+    #     move_t3, move_pre_c,
+    #     move_c, par_util, params,
+    #     send,
+    #     wait_path,
+    #     execp,
+    #     ])
+
+    #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
+    #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
+    pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
+
+    move_c_test = MoveToPose(node, tf_buffer, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
+
     seq.add_children([
         open,
-        move_t1, vision_1,
-        move_t2, vision_2, 
-        move_t3, move_pre_c,
-        move_c, par_util, params,
-        send,
+        move_t1, 
+        move_t2,  
+        move_t3, move_c_test,
         wait_path,
         execp,
         ])
-
     return seq
 
 def main():

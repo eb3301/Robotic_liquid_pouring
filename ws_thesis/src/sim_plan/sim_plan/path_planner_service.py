@@ -1415,10 +1415,10 @@ class PathPlannerService(Node):
 
     def plan_path_callback(self, request, response):
 
-        N = 1                    # Numero di modelli simulati (iniziale)
-        M = 1                     # Numero di traiettorie
-        delta = 0.7            # Threshold di successo
-        view=True
+        N = 3                     # Numero di modelli simulati (iniziale)
+        M = 3                     # Numero di traiettorie
+        delta = 0.5               # Threshold di successo
+        view=False
         liq=True
         record=False
         debug=False        
@@ -1535,7 +1535,7 @@ class PathPlannerService(Node):
             local_scores = []
             
             for parameters in parameters_set:
-                score = 1 # simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
+                score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
                 print(f"score: {score}")
                 total_score += score
                 local_scores.append((parameters, score))
@@ -1551,7 +1551,6 @@ class PathPlannerService(Node):
         
 
         best_score/=N
-        best_score+=100
         if best_score < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
             response.success=False
