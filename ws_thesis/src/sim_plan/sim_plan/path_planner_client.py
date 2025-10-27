@@ -50,14 +50,15 @@ class CallPlannerSrv(Node):
             raise RuntimeError("Chiamata al planner fallita")
         return future.result()
 
-    def save_response(self, resp):
-        out = {
-            "best_path": resp.best_path,
-            "time": resp.time.tolist() if hasattr(resp.time, "tolist") else list(resp.time),
-        }
-        with open(OUTPUT_FILE, "w") as f:
-            yaml.safe_dump(out, f, sort_keys=False)
-        self.get_logger().info(f"Risultato salvato in {OUTPUT_FILE}")
+def save_response(self, resp):
+    out = {
+        "best_path": list(resp.best_path),
+        "time": list(resp.time),
+    }
+    with open(OUTPUT_FILE, "w") as f:
+        yaml.safe_dump(out, f, sort_keys=False)
+    self.get_logger().info(f"Risultato salvato in {OUTPUT_FILE}")
+
     
     def send_path(self):
         local_path = "/tmp/best_path.yaml"
@@ -93,7 +94,7 @@ def main():
         node.wait_for_init_file()
         params = node.load_parameters()
         resp = node.call_service(params)
-        node.save_response(resp)
+        #node.save_response(resp)
         node.send_path()
     finally:
         node.destroy_node()

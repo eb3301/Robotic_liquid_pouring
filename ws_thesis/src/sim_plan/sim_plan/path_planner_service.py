@@ -1588,6 +1588,7 @@ class PathPlannerService(Node):
             response.success = False
             return response
         
+        response.success = True
         flat_best_path = [x for wp in exec_path for x in wp]
         response.best_path = flat_best_path
         response.time = time

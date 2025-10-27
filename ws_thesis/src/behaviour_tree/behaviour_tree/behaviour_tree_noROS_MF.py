@@ -661,7 +661,7 @@ class WaitForBestPath(RosLeaf):
                         data = yaml.safe_load(f)
                     # estrazione campi
                     time_arr = data.get("time")
-                    path = data.get("best_path")
+                    path = data.get("all")
                     if time_arr is None or path is None:
                         self.node.get_logger().info("File trovato ma campi mancanti")
                         return py_trees.common.Status.FAILURE
