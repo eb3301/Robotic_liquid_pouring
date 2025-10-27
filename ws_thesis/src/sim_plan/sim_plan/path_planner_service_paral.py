@@ -932,8 +932,8 @@ def plan_path(
         # Versamento (4->5)
         CoR3D = np.array([
             parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
-            parameters['pos_cont_goal'][1] - 0.005 + parameters['dCoR'][1], # - 0.01 
-            parameters['pos_cont_goal'][2] - 0.005 + parameters['dCoR'][2], # + 0.04
+            parameters['pos_cont_goal'][1] - 0.01 + parameters['dCoR'][1], # - 0.01 
+            parameters['pos_cont_goal'][2] - 0.01 + parameters['dCoR'][2], # + 0.04
         ])
         p_tcp0 = pos4.copy()
         scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
@@ -1401,16 +1401,89 @@ class PathPlannerService(Node):
         return obj
     
     def plan_path_callback(self, request, response):
+                        
 
-        N = 1                    # Numero di modelli simulati (iniziale)
-        M = 1                     # Numero di traiettorie
-        delta = 0.7            # Threshold di successo
-        view=True
+        # Valuta ogni traiettoria su ogni set di param
+        best_path = None
+        best_score = -1e30
+        best_parameters = None
+        score_best_path=[]
+        
+        
+        for paths in candidate_paths:
+            total_score = 0
+            local_best_score = -1e30
+            local_best_parameters = None
+            local_scores = []
+            
+            for parameters in parameters_set:
+                score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
+                total_score += score
+                local_scores.append((parameters, score))
+                if score > local_best_score:
+                    local_best_score = score
+                    local_best_parameters = parameters
+
+            if total_score > best_score:
+                best_score = total_score
+                best_path = paths
+                best_parameters = local_best_parameters
+                score_best_path = local_scores
+        
+        best_score/=N
+        best_score+=100
+        if best_score < delta:
+            self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
+            response.success=False
+            return response
+        else:
+            print("Esiste traj che soddisfa req succ")
+
+        if best_parameters is None or best_path is None: 
+            self.get_logger().info("Nessuna traiettoria o no best params")
+            response.success=False
+            return response
+
+        n_points = len(best_path)
+        time = np.linspace(0, (n_points - 1) * dt, n_points)
+
+        best_path=self.to_builtin(best_path)
+        best_parameters=self.to_builtin(best_parameters)
+        tolerances=self.to_builtin(tolerances)
+        score_best_path=self.to_builtin(score_best_path)
+
+        try:
+            with open("/tmp/best_path.yaml", "w") as f:
+                yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
+            with open("/tmp/parameters.yaml", "w") as f:
+                yaml.safe_dump({"parameters": best_parameters}, f, sort_keys=False)
+            with open("/tmp/tolerances.yaml", "w") as f:
+                yaml.safe_dump({"tolerances": tolerances}, f, sort_keys=False)
+            with open("/tmp/score_best_path.yaml", "w") as f:
+                yaml.safe_dump({"score_best_path": float(score_best_path)}, f, sort_keys=False)
+        except Exception as e:
+            self.get_logger().error(f"Errore salvataggio YAML: {e}")
+            response.success = False
+            return response
+
+        best_path = best_path.tolist()
+        response.best_path = best_path
+        response.time = time
+        return response
+
+    def plan_path_callback(self, request, response):
+
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        import os
+
+        N = 4                    # Numero di ambienti paralleli
+        M = 1                    # Numero di traiettorie per set
+        delta = 0.7              # Threshold di successo
+        view=False               # Niente viewer in parallelo
         liq=True
         record=False
-        debug=False        
-    
-        # Deve andare solo la prima volta la generazione del range, dopodiché check esistenza paraeters_range.yaml e uso quello
+        debug=False  
+
         req_parameters = {
             "pos_init_cont": list(request.pos_init_cont),
             "pos_cont_goal": list(request.pos_cont_goal),
@@ -1477,86 +1550,101 @@ class PathPlannerService(Node):
         }
         parameters_range=self._make_parameters_range(req_parameters,tolerances)
 
-        init_sim()
+        #init_sim()
+        parameters_set = [generate_parameters(parameters_range) for _ in range(N)]
 
-        parameters_set=[]
-        for _ in range(N):
-            parameters_set.append(generate_parameters(parameters_range)) 
+        # ------------------ PARALLELIZATION BLOCK ------------------
+        def worker_sim_plan(args):
+            parameters, view, liq, debug, record, M = args
+            try:
+                init_sim()
+                scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters, view, liq, debug, record)
+                theta_f = np.deg2rad(parameters["theta_f"])
+                num_wp = int(parameters["num_wp"])
+                candidate_paths = []
+                for j in range(M):
+                    paths = plan_path(
+                        ur5e,
+                        theta_f,
+                        parameters,
+                        timeout=5.0,
+                        smooth_path=True,
+                        num_waypoints=num_wp,
+                        ignore_collision=False,
+                        planner="RRTStar",
+                        debug=debug,
+                    )
+                    candidate_paths.append(paths)
 
-        # Da qui inizia parte ciclica codice:
+                return (parameters, candidate_paths, scene, ur5e, becher, becher2, liquid, dt)
+            except Exception as e:
+                return ("ERROR", str(e))
+
+        tasks = [(p, view, liq, debug, record) for p in parameters_set]
         candidate_paths = []
 
-        for i in range(len(parameters_set)):
-            parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
-            scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
-            
-            for j in range(M):
-                theta_f =  np.deg2rad(parameters["theta_f"]) #np.pi * 0.48
-                num_wp = int(parameters["num_wp"]) #int(10/dt)
+        with ProcessPoolExecutor(max_workers=min(N, os.cpu_count())) as executor:
+            futures = [executor.submit(worker_sim_plan, t) for t in tasks]
+            for fut in as_completed(futures):
+                result = fut.result()
+                if isinstance(result, tuple) and result[0] != "ERROR":
+                    candidate_paths.append(result)
+                else:
+                    self.get_logger().error(f"Simulazione fallita: {result}")
 
-                paths = plan_path(
-                    ur5e, 
-                    theta_f,
-                    parameters,
-                    timeout=5.0, 
-                    smooth_path=True, 
-                    num_waypoints=num_wp, 
-                    ignore_collision=False, 
-                    planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
-                    debug=debug,
-                )
-                candidate_paths.append(paths)
-                    
+        if not candidate_paths:
+            self.get_logger().error("Tutte le simulazioni parallele sono fallite.")
+            response.success = False
+            return response
+        # ------------------------------------------------------------
 
-        # Valuta ogni traiettoria su ogni set di param
+        # ------------------ EVALUATION BLOCK ------------------
         best_path = None
         best_score = -1e30
         best_parameters = None
-        score_best_path=[]
-        
-        
-        for paths in candidate_paths:
+        score_best_path = []
+
+        for parameters, paths, scene, ur5e, becher, becher2, liquid, dt in candidate_paths:
             total_score = 0
             local_best_score = -1e30
             local_best_parameters = None
             local_scores = []
-            
-            for parameters in parameters_set:
-                score = 1 # simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
-                print(f"score: {score}")
+
+            for params_eval in parameters_set:
+                score = simulate_action(ur5e, params_eval, paths, scene, becher, becher2, liquid, liq)
                 total_score += score
-                local_scores.append((parameters, score))
+                local_scores.append((params_eval, score))
                 if score > local_best_score:
                     local_best_score = score
-                    local_best_parameters = parameters
+                    local_best_parameters = params_eval
 
             if total_score > best_score:
                 best_score = total_score
                 best_path = paths
                 best_parameters = local_best_parameters
                 score_best_path = local_scores
-        
-        best_score/=N
-        best_score+=100
-        if best_score < delta:
-            self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
-            response.success=False
-            return response
-        else:
-            print("Esiste traj che soddisfa req succ")
+        # ------------------------------------------------------------
 
-        if best_parameters is None or best_path is None: 
-            self.get_logger().info("Nessuna traiettoria o no best params")
-            response.success=False
+        best_score /= N
+        best_score += 100
+
+        if best_score < delta:
+            self.get_logger().info("Nessuna traiettoria soddisfa la soglia di successo.")
+            response.success = False
+            return response
+
+        if best_parameters is None or best_path is None:
+            self.get_logger().info("Nessuna traiettoria valida trovata.")
+            response.success = False
             return response
 
         n_points = len(best_path)
         time = np.linspace(0, (n_points - 1) * dt, n_points)
 
-        best_path=self.to_builtin(best_path)
-        best_parameters=self.to_builtin(best_parameters)
-        tolerances=self.to_builtin(tolerances)
-        score_best_path=self.to_builtin(score_best_path)
+        best_path = self.to_builtin(best_path)
+        best_parameters = self.to_builtin(best_parameters)
+        tolerances = self.to_builtin(tolerances)
+        score_best_path = self.to_builtin(score_best_path)
 
         try:
             with open("/tmp/best_path.yaml", "w") as f:
@@ -1566,15 +1654,15 @@ class PathPlannerService(Node):
             with open("/tmp/tolerances.yaml", "w") as f:
                 yaml.safe_dump({"tolerances": tolerances}, f, sort_keys=False)
             with open("/tmp/score_best_path.yaml", "w") as f:
-                yaml.safe_dump({"score_best_path": score_best_path}, f, sort_keys=False)
+                yaml.safe_dump({"score_best_path": float(best_score)}, f, sort_keys=False)
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
             return response
 
-        best_path = best_path.tolist()
         response.best_path = best_path
         response.time = time
+        response.success = True
         return response
 
 def main(args=None):
