@@ -3,6 +3,7 @@ clear = lambda: os.system('clear')
 clear()
 import rclpy
 from rclpy.node import Node
+from rclpy.logging import get_logger
 import yaml
 import numpy as np
 import genesis as gs
@@ -470,15 +471,22 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     scene.visualizer.update(force=True, auto=True)
 
     # Reach steady state of the liquid
+    logger = get_logger('steady_state')
     if liq:
-        for i in range(100):
+        n=100
+        for i in range(n):
             ur5e.control_dofs_position(
                 position=init_qpos,
                 dofs_idx_local=dofs_idx,
             )
             scene.step()
+            percent = (i + 1) / n
+            bar = ('#' * int(percent * 20)).ljust(20)
+            logger.info(f"[{bar}] {percent*100:.1f}% completato")
+                
             # cam.render()
         print("Scene ready to use (steady state reached)")
+        logger.info("Scene ready to use (steady state reached)")
 
     global init_scene
     init_scene = scene.get_state()
@@ -1067,6 +1075,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     # Esegui il path
     score=0
     excluded=[]
+    logger=get_logger("path logger")
     if liq:
         particles = np.squeeze(liquid.get_particles())
         h_min=np.min(particles[:,2])
@@ -1133,6 +1142,9 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles2) # to be tuned
                         excluded.append(idx)
         scene.step()
+        percent = (i + 1) / len(path2)
+        bar = ('#' * int(percent * 20)).ljust(20)
+        logger.info(f"[{bar}] {percent*100:.1f}% lifting")
     
     # Trasporto:
     path3=paths["transport"]
@@ -1181,6 +1193,9 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles3) # to be tuned
                         excluded.append(idx)
         scene.step()
+        percent = (i + 1) / len(path3)
+        bar = ('#' * int(percent * 20)).ljust(20)
+        logger.info(f"[{bar}] {percent*100:.1f}% transport")
 
     # Posizionamento pre pouring:
     path4=paths["pre_pour"]
@@ -1199,6 +1214,10 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles4) # to be tuned
                         excluded.append(idx)
         scene.step()
+        percent = (i + 1) / len(path4)
+        bar = ('#' * int(percent * 20)).ljust(20)
+        logger.info(f"[{bar}] {percent*100:.1f}% lowering")
+
     if approach:
         for _ in range(10):
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
@@ -1222,6 +1241,10 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles5) # to be tuned
                         excluded.append(idx)
         scene.step()
+        percent = (i + 1) / len(path5)
+        bar = ('#' * int(percent * 20)).ljust(20)
+        logger.info(f"[{bar}] {percent*100:.1f}% pouring")
+
     # Unpouring:
     path6=paths["unpour"]   
     for qpos in path6:
@@ -1239,6 +1262,10 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles5) # to be tuned
                         excluded.append(idx)
         scene.step()
+        percent = (i + 1) / len(path6)
+        bar = ('#' * int(percent * 20)).ljust(20)
+        logger.info(f"[{bar}] {percent*100:.1f}% unpouring")
+
     # Release:
     path7=paths["release"]
     for qpos in path7:
