@@ -1549,6 +1549,7 @@ class PathPlannerService(Node):
                 best_parameters = local_best_parameters
                 score_best_path = local_scores
         
+
         best_score/=N
         best_score+=100
         if best_score < delta:
@@ -1563,8 +1564,9 @@ class PathPlannerService(Node):
             response.success=False
             return response
 
-        n_points = len(best_path)
-        time = np.linspace(0, (n_points - 1) * dt, n_points)
+        n_points = len(best_path["all"])
+        time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
+        best_path["time"] = time
 
         best_path=self.to_builtin(best_path)
         best_parameters=self.to_builtin(best_parameters)
@@ -1585,7 +1587,7 @@ class PathPlannerService(Node):
             response.success = False
             return response
 
-        best_path = best_path.tolist()
+        best_path = best_path["all"]
         response.best_path = best_path
         response.time = time
         return response
