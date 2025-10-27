@@ -1565,7 +1565,7 @@ class PathPlannerService(Node):
             return response
 
         exec_path=best_path["all"]
-        n_points = len(best_path["all"])
+        n_points = len(exec_path)
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         best_path["time"] = time
 
@@ -1587,9 +1587,8 @@ class PathPlannerService(Node):
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
             return response
-
-        best_path = best_path["all"]
-        flat_best_path = [x for wp in best_path["all"] for x in wp]
+        
+        flat_best_path = [x for wp in exec_path for x in wp]
         response.best_path = flat_best_path
         response.time = time
         return response
