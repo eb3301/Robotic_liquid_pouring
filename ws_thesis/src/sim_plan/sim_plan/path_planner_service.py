@@ -1564,6 +1564,7 @@ class PathPlannerService(Node):
             response.success=False
             return response
 
+        exec_path=best_path["all"]
         n_points = len(best_path["all"])
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         best_path["time"] = time
