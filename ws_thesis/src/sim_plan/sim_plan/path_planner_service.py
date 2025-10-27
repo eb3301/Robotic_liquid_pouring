@@ -12,6 +12,13 @@ import random
 import torch
 from scipy.spatial.transform import Rotation as R
 from interfaces.srv import Simplan
+import sys
+
+def progress_bar(i, total, length=30):
+    percent = (i + 1) / total
+    bar = '#' * int(percent * length)
+    sys.stdout.write(f"\r[{bar:<{length}}] {percent*100:5.1f}%")
+    sys.stdout.flush()
 
 def to_device_tensor(x):
     """Converte in torch.Tensor solo se Genesis usa GPU."""
@@ -480,9 +487,10 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 dofs_idx_local=dofs_idx,
             )
             scene.step()
-            percent = (i + 1) / n
-            bar = ('#' * int(percent * 20)).ljust(20)
-            logger.info(f"[{bar}] {percent*100:.1f}% completato")
+            # percent = (i + 1) / n
+            # bar = ('#' * int(percent * 20)).ljust(20)
+            # logger.info(f"[{bar}] {percent*100:.1f}% completato")
+            progress_bar(i,n)
                 
             # cam.render()
         print("Scene ready to use (steady state reached)")
@@ -924,8 +932,8 @@ def plan_path(
         # Versamento (4->5)
         CoR3D = np.array([
             parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
-            parameters['pos_cont_goal'][1] + parameters['dCoR'][1], # - 0.01 
-            parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
+            parameters['pos_cont_goal'][1] - 0.01 + parameters['dCoR'][1], # - 0.01 
+            parameters['pos_cont_goal'][2] - 0.01 + parameters['dCoR'][2], # + 0.04
         ])
         p_tcp0 = pos4.copy()
         scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
@@ -1126,7 +1134,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
 
     # Lift:
     path2=paths["lift"]
-    for qpos in path2:
+    for i, qpos in enumerate(path2):
         qpos[-2:]=0.005
         qpos=to_device_tensor(qpos)
         if approach:
@@ -1142,14 +1150,16 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles2) # to be tuned
                         excluded.append(idx)
         scene.step()
-        percent = (i + 1) / len(path2)
-        bar = ('#' * int(percent * 20)).ljust(20)
-        logger.info(f"[{bar}] {percent*100:.1f}% lifting")
+        # percent = (i + 1) / len(path2)
+        # bar = ('#' * int(percent * 20)).ljust(20)
+        # logger.info(f"[{bar}] {percent*100:.1f}% lifting")
+        logger.info(f"Lifting")
+        progress_bar(i,len(path2))
     
     # Trasporto:
     path3=paths["transport"]
     quat_prev=None
-    for wp in path3: 
+    for i, wp in enumerate(path3): 
         wp=to_device_tensor(wp)
         if liq:
             pos_wp, quat_wp = ur5e.forward_kinematics(wp)
@@ -1193,13 +1203,15 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles3) # to be tuned
                         excluded.append(idx)
         scene.step()
-        percent = (i + 1) / len(path3)
-        bar = ('#' * int(percent * 20)).ljust(20)
-        logger.info(f"[{bar}] {percent*100:.1f}% transport")
+        # percent = (i + 1) / len(path3)
+        # bar = ('#' * int(percent * 20)).ljust(20)
+        # logger.info(f"[{bar}] {percent*100:.1f}% transport")
+        logger.info(f"transport")
+        progress_bar(i,len(path3))
 
     # Posizionamento pre pouring:
     path4=paths["pre_pour"]
-    for qpos in path4:
+    for i, qpos in enumerate(path4):
         qpos[-2:]=0.005
         if approach:
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
@@ -1214,9 +1226,11 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles4) # to be tuned
                         excluded.append(idx)
         scene.step()
-        percent = (i + 1) / len(path4)
-        bar = ('#' * int(percent * 20)).ljust(20)
-        logger.info(f"[{bar}] {percent*100:.1f}% lowering")
+        # percent = (i + 1) / len(path4)
+        # bar = ('#' * int(percent * 20)).ljust(20)
+        # logger.info(f"[{bar}] {percent*100:.1f}% lowering")
+        logger.info(f"lowering")
+        progress_bar(i,len(path4))
 
     if approach:
         for _ in range(10):
@@ -1226,7 +1240,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
 
     # Pouring:
     path5=paths["pour"]   
-    for qpos in path5:
+    for i, qpos in enumerate(path5):
         qpos[-2:]=0.005
         if approach:
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
@@ -1241,13 +1255,15 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles5) # to be tuned
                         excluded.append(idx)
         scene.step()
-        percent = (i + 1) / len(path5)
-        bar = ('#' * int(percent * 20)).ljust(20)
-        logger.info(f"[{bar}] {percent*100:.1f}% pouring")
+        # percent = (i + 1) / len(path5)
+        # bar = ('#' * int(percent * 20)).ljust(20)
+        # logger.info(f"[{bar}] {percent*100:.1f}% pouring")
+        logger.info(f"pouring")
+        progress_bar(i,len(path5))
 
     # Unpouring:
     path6=paths["unpour"]   
-    for qpos in path6:
+    for i, qpos in enumerate(path6):
         qpos[-2:]=0.005
         if approach:
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
@@ -1262,13 +1278,15 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
                         score-=5/len(particles5) # to be tuned
                         excluded.append(idx)
         scene.step()
-        percent = (i + 1) / len(path6)
-        bar = ('#' * int(percent * 20)).ljust(20)
-        logger.info(f"[{bar}] {percent*100:.1f}% unpouring")
+        # percent = (i + 1) / len(path6)
+        # bar = ('#' * int(percent * 20)).ljust(20)
+        # logger.info(f"[{bar}] {percent*100:.1f}% unpouring")
+        logger.info(f"unpouring")
+        progress_bar(i,len(path6))
 
     # Release:
     path7=paths["release"]
-    for qpos in path7:
+    for i, qpos in enumerate(path7):
         qpos[-2:]=0.005
         if approach:
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
