@@ -82,10 +82,10 @@ class CallPlannerSrv(Node):
             sftp.close()
             client.close()
 
-            self.node.get_logger().info("File inviato con successo")
+            self.get_logger().info("File inviato con successo")
 
         except Exception as e:
-            self.node.get_logger().error(f"File transfer failed: {str(e)}")
+            self.get_logger().error(f"File transfer failed: {str(e)}")
     
 def main():
     rclpy.init()
