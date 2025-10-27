@@ -1390,16 +1390,29 @@ class PathPlannerService(Node):
         return result
     
     def to_builtin(self, obj):
+        # numpy scalari -> tipo Python
         if isinstance(obj, np.generic):
             return obj.item()
+
+        # numpy array -> lista Python ricorsiva
         if isinstance(obj, np.ndarray):
-            return obj.tolist()
+            return [self.to_builtin(x) for x in obj.tolist()]
+
+        # lista -> lista pulita
         if isinstance(obj, list):
             return [self.to_builtin(x) for x in obj]
+
+        # tupla -> lista (YAML gestisce le liste meglio, ed è ok perdere l'immutabilità)
+        if isinstance(obj, tuple):
+            return [self.to_builtin(x) for x in obj]
+
+        # dict -> dict pulito
         if isinstance(obj, dict):
             return {k: self.to_builtin(v) for k, v in obj.items()}
+
+        # tipi base (int, float, str, bool, None) restano così
         return obj
-    
+
     def plan_path_callback(self, request, response):
 
         N = 1                    # Numero di modelli simulati (iniziale)
