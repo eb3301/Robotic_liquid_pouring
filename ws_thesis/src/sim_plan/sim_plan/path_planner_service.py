@@ -14,10 +14,10 @@ from scipy.spatial.transform import Rotation as R
 from interfaces.srv import Simplan
 import sys
 
-def progress_bar(i, total, length=30):
+def progress_bar(i, total, msg, length=30):
     percent = (i + 1) / total
     bar = '#' * int(percent * length)
-    sys.stdout.write(f"\r[{bar:<{length}}] {percent*100:5.1f}%")
+    sys.stdout.write(f"\r[{bar:<{length}}] {percent*100:5.1f}% [{msg}]")
     sys.stdout.flush()
 
 def to_device_tensor(x):
@@ -490,10 +490,10 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             # percent = (i + 1) / n
             # bar = ('#' * int(percent * 20)).ljust(20)
             # logger.info(f"[{bar}] {percent*100:.1f}% completato")
-            progress_bar(i,n)
+            progress_bar(i,n, "steady state")
                 
             # cam.render()
-        print("Scene ready to use (steady state reached)")
+        #print("Scene ready to use (steady state reached)")
         logger.info("Scene ready to use (steady state reached)")
 
     global init_scene
@@ -1153,8 +1153,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         # percent = (i + 1) / len(path2)
         # bar = ('#' * int(percent * 20)).ljust(20)
         # logger.info(f"[{bar}] {percent*100:.1f}% lifting")
-        logger.info(f"Lifting")
-        progress_bar(i,len(path2))
+        progress_bar(i,len(path2), "Lifting")
     
     # Trasporto:
     path3=paths["transport"]
@@ -1206,8 +1205,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         # percent = (i + 1) / len(path3)
         # bar = ('#' * int(percent * 20)).ljust(20)
         # logger.info(f"[{bar}] {percent*100:.1f}% transport")
-        logger.info(f"transport")
-        progress_bar(i,len(path3))
+        progress_bar(i,len(path3), "Transport")
 
     # Posizionamento pre pouring:
     path4=paths["pre_pour"]
@@ -1229,8 +1227,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         # percent = (i + 1) / len(path4)
         # bar = ('#' * int(percent * 20)).ljust(20)
         # logger.info(f"[{bar}] {percent*100:.1f}% lowering")
-        logger.info(f"lowering")
-        progress_bar(i,len(path4))
+        progress_bar(i,len(path4),"Lowering")
 
     if approach:
         for _ in range(10):
@@ -1258,8 +1255,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         # percent = (i + 1) / len(path5)
         # bar = ('#' * int(percent * 20)).ljust(20)
         # logger.info(f"[{bar}] {percent*100:.1f}% pouring")
-        logger.info(f"pouring")
-        progress_bar(i,len(path5))
+        progress_bar(i,len(path5), "Pouring")
 
     # Unpouring:
     path6=paths["unpour"]   
@@ -1281,8 +1277,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         # percent = (i + 1) / len(path6)
         # bar = ('#' * int(percent * 20)).ljust(20)
         # logger.info(f"[{bar}] {percent*100:.1f}% unpouring")
-        logger.info(f"unpouring")
-        progress_bar(i,len(path6))
+        progress_bar(i,len(path6), "Unpouring")
 
     # Release:
     path7=paths["release"]
