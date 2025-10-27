@@ -1298,32 +1298,53 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         scene.step()
 
     # Valuta successo
+    # if liq:
+    #     particles = np.squeeze(liquid.get_particles())
+    #     contpos = np.array(parameters['pos_cont_goal'])
+    #     err = parameters['err_target']
+    #     target_vol=parameters['vol_target']
+
+    #     # da modificare ass: la media delle particelle prob non coinc con centro del target -> misurare volume effettivo (con bounding box del becher2)
+    #     ck1 = abs(np.mean(particles[:, 0])-contpos[0])< err # err x
+    #     ck2 = abs(np.mean(particles[:, 1])-contpos[1])< err # err y
+    #     ck3 = abs(np.mean(particles[:, 2])-contpos[2])< err # err z
+    #     if ck1 and ck2 and ck3:
+    #         score+=4/len(particles) # to be tuned
+
+    #     mask = (
+    #         (np.abs(particles[:, 0] - contpos[0]) < err) &
+    #         (np.abs(particles[:, 1] - contpos[1]) < err) &
+    #         (np.abs(particles[:, 2] - contpos[2]) < err)
+    #     )
+    #     num_particles_in_target = np.sum(mask)
+    #     vol=num_particles_in_target*liquid.particle_size
+    #     if abs(vol-target_vol)<err:
+    #         score+=1 # to be tuned
+    
     if liq:
         particles = np.squeeze(liquid.get_particles())
         contpos = np.array(parameters['pos_cont_goal'])
-        err = parameters['err_target']
-        target_vol=parameters['vol_target']
-
-        # da modificare ass: la media delle particelle prob non coinc con centro del target -> misurare volume effettivo (con bounding box del becher2)
-        ck1 = abs(np.mean(particles[:, 0])-contpos[0])< err # err x
-        ck2 = abs(np.mean(particles[:, 1])-contpos[1])< err # err y
-        ck3 = abs(np.mean(particles[:, 2])-contpos[2])< err # err z
-        if ck1 and ck2 and ck3:
-            score+=4/len(particles) # to be tuned
+        pos_err = parameters['err_target']
+        target_vol = parameters['vol_target']
+        vol_tol = 0.1 * target_vol  # 10%
 
         mask = (
-            (np.abs(particles[:, 0] - contpos[0]) < err) &
-            (np.abs(particles[:, 1] - contpos[1]) < err) &
-            (np.abs(particles[:, 2] - contpos[2]) < err)
+            (np.abs(particles[:, 0] - contpos[0]) < pos_err) &
+            (np.abs(particles[:, 1] - contpos[1]) < pos_err) &
+            (np.abs(particles[:, 2] - contpos[2]) < pos_err)
         )
-        num_particles_in_target = np.sum(mask)
-        vol=num_particles_in_target*liquid.particle_size
-        if abs(vol-target_vol)<err:
-            score+=1 # to be tuned
+        num_in = np.sum(mask)
+        ratio = num_in / len(particles)
+        vol = num_in * liquid.particle_size
+
+        score += 4 * ratio
+        if abs(vol - target_vol) < vol_tol:
+            score += 1
 
     tf=scene.get_state().scene.t
     Dt=tf-t0
-    score-=1e-2*Dt
+    t_ref = 10 # la sim dovrebbe durare circa 10s
+    score-=1e-2*Dt/t_ref
     print(f"Simulation completed")
     return score
 
@@ -1485,8 +1506,8 @@ class PathPlannerService(Node):
             "vol_init": ( 1.5e-5, 1.5e-5),  # ±1e-5 m^3 (15ml)
             "vol_target": (0.0, 0.0),       # no tol, è scelta
             "err_target": (0.0, 0.0),       # vincolo rigido
-            "theta_f": (15.0, 15.0),        # ±15°
-            "num_wp": ("rel", 0.5, 0.5),    # ±50%
+            "theta_f": (10.0, 10.0),        # ±10°
+            "num_wp": ("rel", 0.2, 0.2),    # ±20%
         }
         parameters_range=self._make_parameters_range(req_parameters,tolerances)
 

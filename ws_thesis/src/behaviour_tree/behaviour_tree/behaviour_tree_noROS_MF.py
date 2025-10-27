@@ -776,11 +776,8 @@ class ExecutePathPublisher(RosLeaf):
         err = np.linalg.norm(goal - current_pos, ord=np.inf)
         return err < self.tol
 
-    def _check_initial_joints_close(self):
+    def _check_initial_joints_close(self,init_q):
         """Verifica che i giunti attuali siano vicini alla prima q della traj"""
-        goal = self.bb.get("goal_joints")
-        if self._last_joint_state is None or goal is None:
-            return False
 
         name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
         current_pos = []
@@ -835,7 +832,7 @@ def create_tree(node: Node, tf_buffer, motion_client):
         policy=py_trees.common.ParallelPolicy.SuccessOnAll()
     )
     par_util.add_children([off, close])
-    params  = SetPlanParams(node, tf_buffer, theta_f=90, num_wp=1000, target_vol=20.0)
+    params  = SetPlanParams(node, tf_buffer, theta_f=90, num_wp=350, target_vol=20.0)
 
     send = SendYamlToVM(node)
     wait_path = WaitForBestPath(node)
