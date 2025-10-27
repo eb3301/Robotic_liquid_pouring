@@ -1588,7 +1588,8 @@ class PathPlannerService(Node):
             return response
 
         best_path = best_path["all"]
-        response.best_path = best_path
+        flat_best_path = [x for wp in best_path["all"] for x in wp]
+        response.best_path = flat_best_path
         response.time = time
         return response
 
