@@ -60,33 +60,33 @@ def save_response(self, resp):
     self.get_logger().info(f"Risultato salvato in {OUTPUT_FILE}")
 
     
-    def send_path(self):
-        local_path = "/tmp/best_path.yaml"
-        remote_path = "/tmp/best_path.yaml"
+def send_path(self):
+    local_path = "/tmp/best_path.yaml"
+    remote_path = "/tmp/best_path.yaml"
 
-        host = "100.110.226.44"
-        user = "edo"
-        key_file = "/home/barutta/.ssh/id_edo"
+    host = "100.110.226.44"
+    user = "edo"
+    key_file = "/home/barutta/.ssh/id_edo"
 
-        # Controllo chiave
-        if not os.path.exists(key_file):
-            self.get_logger().error(f"Chiave SSH non trovata: {key_file}")
-            
-        try:
-            client = paramiko.SSHClient()
-            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            client.connect(host, username=user, key_filename=key_file)
-
-            sftp = client.open_sftp()
-            sftp.put(local_path, remote_path)
-            sftp.close()
-            client.close()
-
-            self.node.get_logger().info("File inviato con successo")
-
-        except Exception as e:
-            self.node.get_logger().error(f"File transfer failed: {str(e)}")
+    # Controllo chiave
+    if not os.path.exists(key_file):
+        self.get_logger().error(f"Chiave SSH non trovata: {key_file}")
         
+    try:
+        client = paramiko.SSHClient()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(host, username=user, key_filename=key_file)
+
+        sftp = client.open_sftp()
+        sftp.put(local_path, remote_path)
+        sftp.close()
+        client.close()
+
+        self.node.get_logger().info("File inviato con successo")
+
+    except Exception as e:
+        self.node.get_logger().error(f"File transfer failed: {str(e)}")
+    
 def main():
     rclpy.init()
     node = CallPlannerSrv()
