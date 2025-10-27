@@ -16,7 +16,7 @@ class CallPlannerSrv(Node):
     def __init__(self):
         super().__init__("call_planner_client")
         self.client = self.create_client(Simplan, "plan_path")
-        while not self.client.wait_for_service(timeout_sec=1.0):
+        while not self.client.wait_for_service(timeout_sec=2.0):
             self.get_logger().info("Servizio plan_path non disponibile, retry...")
 
     def wait_for_init_file(self):
@@ -50,42 +50,42 @@ class CallPlannerSrv(Node):
             raise RuntimeError("Chiamata al planner fallita")
         return future.result()
 
-def save_response(self, resp):
-    out = {
-        "best_path": list(resp.best_path),
-        "time": list(resp.time),
-    }
-    with open(OUTPUT_FILE, "w") as f:
-        yaml.safe_dump(out, f, sort_keys=False)
-    self.get_logger().info(f"Risultato salvato in {OUTPUT_FILE}")
+    def save_response(self, resp):
+        out = {
+            "best_path": list(resp.best_path),
+            "time": list(resp.time),
+        }
+        with open(OUTPUT_FILE, "w") as f:
+            yaml.safe_dump(out, f, sort_keys=False)
+        self.get_logger().info(f"Risultato salvato in {OUTPUT_FILE}")
 
-    
-def send_path(self):
-    local_path = "/tmp/best_path.yaml"
-    remote_path = "/tmp/best_path.yaml"
-
-    host = "100.110.226.44"
-    user = "edo"
-    key_file = "/home/barutta/.ssh/id_edo"
-
-    # Controllo chiave
-    if not os.path.exists(key_file):
-        self.get_logger().error(f"Chiave SSH non trovata: {key_file}")
         
-    try:
-        client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(host, username=user, key_filename=key_file)
+    def send_path(self):
+        local_path = "/tmp/best_path.yaml"
+        remote_path = "/tmp/best_path.yaml"
 
-        sftp = client.open_sftp()
-        sftp.put(local_path, remote_path)
-        sftp.close()
-        client.close()
+        host = "100.110.226.44"
+        user = "edo"
+        key_file = "/home/barutta/.ssh/id_edo"
 
-        self.node.get_logger().info("File inviato con successo")
+        # Controllo chiave
+        if not os.path.exists(key_file):
+            self.get_logger().error(f"Chiave SSH non trovata: {key_file}")
+            
+        try:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect(host, username=user, key_filename=key_file)
 
-    except Exception as e:
-        self.node.get_logger().error(f"File transfer failed: {str(e)}")
+            sftp = client.open_sftp()
+            sftp.put(local_path, remote_path)
+            sftp.close()
+            client.close()
+
+            self.node.get_logger().info("File inviato con successo")
+
+        except Exception as e:
+            self.node.get_logger().error(f"File transfer failed: {str(e)}")
     
 def main():
     rclpy.init()
