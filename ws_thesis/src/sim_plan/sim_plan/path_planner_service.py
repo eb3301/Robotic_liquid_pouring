@@ -1062,7 +1062,51 @@ def plan_path(
         "release": path7,
         "all": path
         }
-    
+
+def compute_reward(liquid, becher2, parameters, t0, scene):
+    particles = np.squeeze(liquid.get_particles())
+    contpos = np.array(parameters['pos_cont_goal'])
+    pos_tol = parameters['err_target']
+    target_vol = parameters['vol_target']
+    vol_tol = 0.1 * target_vol  # ±10%
+
+    #  Bounding box reale del becher target 
+    aabb = becher2.get_AABB().cpu().numpy().squeeze()  # shape (2, 3)
+    lower, upper = aabb[0], aabb[1]
+
+    #  Particelle dentro il volume target (AABB) 
+    inside_mask = np.all((particles >= lower) & (particles <= upper), axis=1)
+    num_inside = np.sum(inside_mask)
+    frac_inside = num_inside / len(particles)
+    actual_vol = num_inside * liquid.particle_size
+    vol_err = abs(actual_vol - target_vol)
+
+    #  Perdite (particelle cadute sotto piano tavolo) 
+    z_table = lower[2] - 0.005
+    loss_frac = np.sum(particles[:, 2] < z_table) / len(particles)
+
+    #  Tempo 
+    Dt = scene.get_state().scene.t - t0
+
+    #  Pesi
+    w_fill, w_vol, w_loss, w_time = 2.0, 3.0, 3.0, 0.5
+    reward = 0.0
+
+    # Frazione riempimento
+    reward += w_fill * frac_inside
+
+    # Volume: esponenziale su errore relativo
+    reward += w_vol * np.exp(-vol_err / (vol_tol + 1e-12))
+    # reward += w_vol * max(0, 1 - vol_err / vol_tol)
+
+    # Perdite
+    reward -= w_loss * loss_frac
+
+    # Penalità tempo (normalizzata)
+    reward -= w_time * Dt / 10.0
+
+    return reward
+
 def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False): 
     # Reset env:
     # reset_sim(scene, ur5e, becher, becher2, liquid, parameters)
@@ -1321,30 +1365,40 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     #     if abs(vol-target_vol)<err:
     #         score+=1 # to be tuned
     
+    # if liq:
+    #     particles = np.squeeze(liquid.get_particles())
+    #     contpos = np.array(parameters['pos_cont_goal'])
+    #     pos_err = parameters['err_target']
+    #     target_vol = parameters['vol_target']
+    #     vol_tol = 0.1 * target_vol  # 10%
+
+    #     mask = (
+    #         (np.abs(particles[:, 0] - contpos[0]) < pos_err) &
+    #         (np.abs(particles[:, 1] - contpos[1]) < pos_err) &
+    #         (np.abs(particles[:, 2] - contpos[2]) < pos_err)
+    #     )
+    #     num_in = np.sum(mask)
+    #     ratio = num_in / len(particles)
+    #     vol = num_in * liquid.particle_size
+
+    #     score += 4 * ratio
+    #     if abs(vol - target_vol) < vol_tol:
+    #         score += 1
+
+    # tf=scene.get_state().scene.t
+    # Dt=tf-t0
+    # t_ref = 10 # la sim dovrebbe durare circa 10s
+    # score-=1e-2*Dt/t_ref
+
     if liq:
-        particles = np.squeeze(liquid.get_particles())
-        contpos = np.array(parameters['pos_cont_goal'])
-        pos_err = parameters['err_target']
-        target_vol = parameters['vol_target']
-        vol_tol = 0.1 * target_vol  # 10%
+        score = compute_reward(liquid, becher2, parameters, t0, scene)
+    else:
+        tf=scene.get_state().scene.t
+        Dt=tf-t0
+        t_ref = 10 # la sim dovrebbe durare circa 10s
+        score+=1
+        score-=1e-2*Dt/t_ref
 
-        mask = (
-            (np.abs(particles[:, 0] - contpos[0]) < pos_err) &
-            (np.abs(particles[:, 1] - contpos[1]) < pos_err) &
-            (np.abs(particles[:, 2] - contpos[2]) < pos_err)
-        )
-        num_in = np.sum(mask)
-        ratio = num_in / len(particles)
-        vol = num_in * liquid.particle_size
-
-        score += 4 * ratio
-        if abs(vol - target_vol) < vol_tol:
-            score += 1
-
-    tf=scene.get_state().scene.t
-    Dt=tf-t0
-    t_ref = 10 # la sim dovrebbe durare circa 10s
-    score-=1e-2*Dt/t_ref
     print(f"Simulation completed")
     return score
 
