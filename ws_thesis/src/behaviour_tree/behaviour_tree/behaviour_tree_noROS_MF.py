@@ -697,6 +697,7 @@ class ExecutePathPublisher(RosLeaf):
         self._last_joint_state = None
         self.tol = tol  # tolleranza in rad
         self.grace_t = grace_t
+        self.motion_client = MotionClient()
 
     def _joint_state_cb(self, msg):
         self._last_joint_state = msg
@@ -725,9 +726,9 @@ class ExecutePathPublisher(RosLeaf):
                 "wrist_2_joint",
                 "wrist_3_joint"
             ]
-
+            self.motion_client.move_to_joint(path[0])
+            print(path[0][:6])
             for t, q in zip(time_arr, path):
-                print(q)
                 pt = JointTrajectoryPoint()
                 pt.positions = q[:6]
                 pt.time_from_start = MsgDuration(sec=int(t), nanosec=int((t % 1.0) * 1e9))
@@ -794,8 +795,122 @@ class ExecutePathPublisher(RosLeaf):
             current_pos.append(self._last_joint_state.position[name_to_idx[j]])
 
         current_pos = np.array(current_pos)
-        goal = np.array(goal)
+        goal = np.array(init_q)
         err = np.linalg.norm(goal - current_pos, ord=np.inf)
+        return err < self.tol
+
+class ExecutePathPublisher(RosLeaf):
+    joint_name_map = [
+        "shoulder_pan_joint",
+        "shoulder_lift_joint",
+        "elbow_joint",
+        "wrist_1_joint",
+        "wrist_2_joint",
+        "wrist_3_joint",
+    ]
+
+    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0):
+        super().__init__(name, node)
+        self.pub = self.node.create_publisher(
+            JointTrajectory,
+            "/scaled_joint_trajectory_controller/joint_trajectory",
+            10
+        )
+        self.sub = self.node.create_subscription(
+            JointState,
+            "/joint_states",
+            self._joint_state_cb,
+            10, 
+        )
+        self._sent = False
+        self._traj_duration = 0.0
+        self._last_joint_state = None
+        self.tol = tol
+        self.grace_t = grace_t
+        self.motion_client = MotionClient()
+
+    def _joint_state_cb(self, msg):
+        self._last_joint_state = msg
+
+    def initialise(self):
+        self._sent = False
+        self._traj_duration = 0.0
+        self.bb.set("traj_start_time", self.node.get_clock().now().nanoseconds / 1e9)
+
+    def update(self):
+        time_arr = self.bb.get("time")
+        path = self.bb.get("best_path")
+
+        if time_arr is None or path is None:
+            self.feedback_message = "Traiettoria non disponibile"
+            self.node.get_logger().warn("Traiettoria non disponibile")
+            return py_trees.common.Status.FAILURE
+
+        if not self._sent:
+            if self._last_joint_state is None:
+                self.feedback_message = "Joint state non ancora ricevuto"
+                return py_trees.common.Status.RUNNING
+
+            # Controlla che la posizione iniziale sia coerente con la traiettoria
+            init_q = path[0][:6]
+            if not self._check_initial_joints_close(init_q):
+                self.feedback_message = "Posizione iniziale non coerente con la traiettoria"
+                self.node.get_logger().warn(self.feedback_message)
+                self.motion_client.move_to_joint(init_q)
+                return py_trees.common.Status.RUNNING
+
+            traj = JointTrajectory()
+            traj.joint_names = self.joint_name_map
+
+            for t, q in zip(time_arr, path):
+                pt = JointTrajectoryPoint()
+                pt.positions = q[:6]
+                pt.time_from_start = MsgDuration(sec=int(t), nanosec=int((t % 1.0) * 1e9))
+                traj.points.append(pt)
+
+            self.pub.publish(traj)
+            self._sent = True
+            self._traj_duration = float(time_arr[-1])
+            self.bb.set("goal_joints", path[-1][:6])
+            return py_trees.common.Status.RUNNING
+
+        elapsed = (self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time")
+        if elapsed >= self._traj_duration + self.grace_t:
+            if self._check_final_joints_close():
+                return py_trees.common.Status.SUCCESS
+            else:
+                self.feedback_message = "Joint finali fuori tolleranza"
+                return py_trees.common.Status.FAILURE
+
+        return py_trees.common.Status.RUNNING
+
+    def _check_final_joints_close(self):
+        goal = self.bb.get("goal_joints")
+        if self._last_joint_state is None or goal is None:
+            return False
+
+        name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
+        current_pos = []
+        for j in self.joint_name_map:
+            if j not in name_to_idx:
+                return False
+            current_pos.append(self._last_joint_state.position[name_to_idx[j]])
+
+        err = np.linalg.norm(np.array(goal) - np.array(current_pos), ord=np.inf)
+        return err < self.tol
+
+    def _check_initial_joints_close(self, init_q):
+        if self._last_joint_state is None:
+            return False
+
+        name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
+        current_pos = []
+        for j in self.joint_name_map:
+            if j not in name_to_idx:
+                return False
+            current_pos.append(self._last_joint_state.position[name_to_idx[j]])
+
+        err = np.linalg.norm(np.array(init_q) - np.array(current_pos), ord=np.inf)
         return err < self.tol
 
 #==============================================================================================================
@@ -803,6 +918,9 @@ class ExecutePathPublisher(RosLeaf):
 
 def create_tree(node: Node, tf_buffer, motion_client):
 
+    #genesis joints = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint', 'hande_left_finger_joint', 'hande_right_finger_joint']
+    #ros2 joints    = [elbow_joint, robotiq_hande_left_finger_joint, shoulder_lift_joint, shoulder_pan_joint, wrist_1_joint, wrist_2_joint, wrist_3_joint,
+    
     #joint_v1= [0.7227166962826039,-1.746930173633286, -2.2322865329350017, -2.046302405379515, 0.738723064687373, 2.948454781562834]
     #joint_v2 = [-3.129748565398613, -2.1683139224910026, -2.134126744414425, -3.519583411401461, -2.9772426124069256, -1.5698350868947821]
 
@@ -855,8 +973,11 @@ def create_tree(node: Node, tf_buffer, motion_client):
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
     #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
     pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
+    joint_c=[0.7406882047653198, -2.323422431945801, -1.8420581817626953, -2.117997884750366, -2.4009978771209717, -3.1415913105010986]
 
-    move_c_test = MoveToPose(node, tf_buffer, pose_list=pose_c, pose_bb="pos_grip_ee", motion_client=motion_client)
+    joint_v1=[0.7012355923652649, -1.7084723911681117, -2.219346523284912, -1.8182255230345667, 0.793083667755127, -3.5496469179736536]
+
+    move_c_test = MoveToPose(node, tf_buffer, pose_list=joint_c, pose_bb="pos_grip_ee", motion_client=motion_client)
 
     seq.add_children([
         open,
@@ -895,3 +1016,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

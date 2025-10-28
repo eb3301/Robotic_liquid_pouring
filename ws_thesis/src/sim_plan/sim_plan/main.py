@@ -1617,7 +1617,7 @@ def main():
     view=True
     liq=True
     record=False
-    debug=False
+    debug=True
 
     parameters_range=obtain_range() # Ottieni range di parametri
     param_real = generate_parameters(parameters_range)  # Simulazione della realtà
