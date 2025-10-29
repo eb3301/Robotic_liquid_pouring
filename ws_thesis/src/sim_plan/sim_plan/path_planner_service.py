@@ -1082,7 +1082,7 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     vol_err = abs(actual_vol - target_vol)
 
     #  Perdite (particelle cadute sotto piano tavolo) 
-    z_table = lower[2] - 0.005
+    z_table = lower[2] - 0.01
     loss_frac = np.sum(particles[:, 2] < z_table) / len(particles)
 
     #  Tempo 
@@ -1398,7 +1398,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         t_ref = 10 # la sim dovrebbe durare circa 10s
         score+=1
         score-=1e-2*Dt/t_ref
-
+    score+=1000
     print(f"Simulation completed")
     return score
 
