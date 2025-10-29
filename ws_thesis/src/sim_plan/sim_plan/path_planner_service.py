@@ -1107,7 +1107,7 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
 
     return reward
 
-def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False): 
+def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False, antisloshing=False): 
     # Reset env:
     # reset_sim(scene, ur5e, becher, becher2, liquid, parameters)
     scene.reset(init_scene)
@@ -1205,27 +1205,30 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     for i, wp in enumerate(path3): 
         wp=to_device_tensor(wp)
         if liq:
-            pos_wp, quat_wp = ur5e.forward_kinematics(wp)
-            pos_wp=pos_wp[7] # ['world', 'shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link', 'tool0', 'hand_e_link', 'hande_left_finger', 'hande_right_finger']
-            quat_wp=quat_wp[7]
-            particles = np.squeeze(liquid.get_particles())
-            quat_np = to_numpy_cpu(quat_wp)
-            quat_new = liq_compensate(particles, quat_np)
-            #print(f"old: {quat_wp}, new: {quat_new}")
+            if antisloshing:
+                pos_wp, quat_wp = ur5e.forward_kinematics(wp)
+                pos_wp=pos_wp[7] # ['world', 'shoulder_link', 'upper_arm_link', 'forearm_link', 'wrist_1_link', 'wrist_2_link', 'wrist_3_link', 'tool0', 'hand_e_link', 'hande_left_finger', 'hande_right_finger']
+                quat_wp=quat_wp[7]
+                particles = np.squeeze(liquid.get_particles())
+                quat_np = to_numpy_cpu(quat_wp)
+                quat_new = liq_compensate(particles, quat_np)
+                #print(f"old: {quat_wp}, new: {quat_new}")
 
-            # filtro cambio e riconversione
-            if quat_prev is None or np.linalg.norm(quat_new - quat_prev) < 0.1:
-                quat_prev = quat_new
-            quat_wp = to_device_tensor(quat_prev)
-            try:
-                qpos = ur5e.inverse_kinematics(
-                    link=ur5e.get_link("tool0"),
-                    pos=pos_wp,
-                    quat=quat_wp
-                )
-                qpos[-2:]=0.005
-            except Exception as e:
-                raise RuntimeError(f"errore nella IK liq ang")
+                # filtro cambio e riconversione
+                if quat_prev is None or np.linalg.norm(quat_new - quat_prev) < 0.1:
+                    quat_prev = quat_new
+                quat_wp = to_device_tensor(quat_prev)
+                try:
+                    qpos = ur5e.inverse_kinematics(
+                        link=ur5e.get_link("tool0"),
+                        pos=pos_wp,
+                        quat=quat_wp
+                    )
+                    qpos[-2:]=0.005
+                except Exception as e:
+                    raise RuntimeError(f"errore nella IK liq ang")
+            else:
+                qpos=wp
             if approach: 
                 ur5e.control_dofs_position(qpos[:-2], motors_dof)
                 ur5e.control_dofs_force(closing_force, fingers_dof)
