@@ -677,130 +677,6 @@ class WaitForBestPath(RosLeaf):
 
         return py_trees.common.Status.RUNNING
 
-# To be tested
-class ExecutePathPublisher1(RosLeaf):
-    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0):
-        super().__init__(name, node)
-        self.pub = self.node.create_publisher(
-            JointTrajectory,
-            "/scaled_joint_trajectory_controller/joint_trajectory",
-            10
-        )
-        # Joint traj message (pochi punti --> interpolaz interna control)
-        # /stream ai giunti diretto
-        self.sub = self.node.create_subscription(
-            JointState,
-            "/joint_states",
-            self._joint_state_cb,
-            10,
-        )
-        self._sent = False
-        self._traj_duration = 0.0
-        self._last_joint_state = None
-        self.tol = tol  # tolleranza in rad
-        self.grace_t = grace_t
-        self.motion_client = MotionClient()
-
-    def _joint_state_cb(self, msg):
-        self._last_joint_state = msg
-
-    def initialise(self):
-        self._sent = False
-        self._traj_duration = 0.0
-        self.bb.set("traj_start_time", self.node.get_clock().now().nanoseconds / 1e9)
-
-    def update(self):
-        time_arr = self.bb.get("time")
-        path = self.bb.get("best_path")
-
-        if time_arr is None or path is None:
-            self.feedback_message = "Traiettoria non disponibile"
-            self.node.get_logger().warn(f"Traiettoria non disponibile")
-            return py_trees.common.Status.FAILURE
-
-        if not self._sent:
-            traj = JointTrajectory()
-            traj.joint_names = [
-                "shoulder_pan_joint",
-                "shoulder_lift_joint",
-                "elbow_joint",
-                "wrist_1_joint",
-                "wrist_2_joint",
-                "wrist_3_joint"
-            ]
-            self.motion_client.move_to_joint(path[0])
-            print(path[0][:6])
-            for t, q in zip(time_arr, path):
-                pt = JointTrajectoryPoint()
-                pt.positions = q[:6]
-                pt.time_from_start = MsgDuration(sec=int(t), nanosec=int((t % 1.0) * 1e9))
-                #pt.time_from_start = rclpy.duration.Duration(seconds=float(t)).to_msg()
-                traj.points.append(pt)
-
-            self.pub.publish(traj)
-            self._sent = True
-            self._traj_duration = float(time_arr[-1])
-            self.bb.set("goal_joints", path[-1][:6])  # salva goal finale
-            return py_trees.common.Status.RUNNING
-
-        elapsed = (self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time")
-        if elapsed >= self._traj_duration + self.grace_t: # SÌ MA DAMMI IL TEMPOOO
-            # Check anche sulla posizione attuale dei giunti
-            if self._check_final_joints_close():
-                return py_trees.common.Status.SUCCESS
-            else:
-                self.feedback_message = "Joint finali fuori tolleranza"
-                return py_trees.common.Status.FAILURE
-
-        return py_trees.common.Status.RUNNING
-
-    def _check_final_joints_close(self):
-        """Verifica che i giunti attuali siano vicini al goal"""
-        goal = self.bb.get("goal_joints")
-        if self._last_joint_state is None or goal is None:
-            return False
-
-        name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
-        current_pos = []
-        for j in [
-            "shoulder_pan_joint",
-            "shoulder_lift_joint",
-            "elbow_joint",
-            "wrist_1_joint",
-            "wrist_2_joint",
-            "wrist_3_joint"
-        ]:
-            if j not in name_to_idx:
-                return False
-            current_pos.append(self._last_joint_state.position[name_to_idx[j]])
-
-        current_pos = np.array(current_pos)
-        goal = np.array(goal)
-        err = np.linalg.norm(goal - current_pos, ord=np.inf)
-        return err < self.tol
-
-    def _check_initial_joints_close(self,init_q):
-        """Verifica che i giunti attuali siano vicini alla prima q della traj"""
-
-        name_to_idx = {n: i for i, n in enumerate(self._last_joint_state.name)}
-        current_pos = []
-        for j in [
-            "shoulder_pan_joint",
-            "shoulder_lift_joint",
-            "elbow_joint",
-            "wrist_1_joint",
-            "wrist_2_joint",
-            "wrist_3_joint"
-        ]:
-            if j not in name_to_idx:
-                return False
-            current_pos.append(self._last_joint_state.position[name_to_idx[j]])
-
-        current_pos = np.array(current_pos)
-        goal = np.array(init_q)
-        err = np.linalg.norm(goal - current_pos, ord=np.inf)
-        return err < self.tol
-
 class ExecutePathPublisher(RosLeaf):
     joint_name_map = [
         "shoulder_pan_joint",
@@ -838,13 +714,16 @@ class ExecutePathPublisher(RosLeaf):
         self._sent = False
         self._traj_duration = 0.0
         self.bb.set("traj_start_time", self.node.get_clock().now().nanoseconds / 1e9)
+        self.time_arr = self.bb.get("time")
+        self.path = self.bb.get("best_path")
+        for p in self.path:
+            p[0]-=np.pi
+
 
     def update(self):
-        time_arr = self.bb.get("time")
-        path = self.bb.get("best_path")
-        # for p in path:
-        #     p[0] -= np.pi
-
+        path=self.path
+        time_arr=self.time_arr
+     
         if time_arr is None or path is None:
             self.feedback_message = "Traiettoria non disponibile"
             self.node.get_logger().warn("Traiettoria non disponibile")
@@ -962,33 +841,33 @@ def create_tree(node: Node, tf_buffer, motion_client):
 
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     
-    seq.add_children([
-        # open,
-        # move_t1, vision_1,
-        # move_t2, vision_2, 
-        # move_t3, move_pre_c,
-        # move_c, par_util, params,
-        # send,
-        wait_path,
-        execp,
-        ])
+    # seq.add_children([
+    #     open,
+    #     move_t1, vision_1,
+    #     move_t2, vision_2, 
+    #     move_t3, move_pre_c,
+    #     move_c, par_util, params,
+    #     send,
+    #     wait_path,
+    #     execp,
+    #     ])
 
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
     #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
     #pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
 
-    #joint_c=[0.7406882047653198-np.pi, -2.323422431945801, -1.83205818176269753, -2.117997884750366, -2.4009978771209717, -3.1415913105010986]
-    #move_c_test = MoveToPose(node, tf_buffer, pose_list=joint_c, pose_bb="pos_grip_ee", motion_client=motion_client)
+    joint_c=[0.7406882047653198-np.pi, -2.323422431945801, -1.83205818176269753, -2.117997884750366, -2.4009978771209717, -3.1415913105010986]
+    move_c_test = MoveToPose(node, tf_buffer, pose_list=joint_c, pose_bb="pos_grip_ee", motion_client=motion_client)
     # 42, -133, -106, -121, -137, -180
-    # seq.add_children([
-    #     # open,
-    #     # move_t1, 
-    #     # move_t2,  
-    #     # move_t3,
-    #     move_c_test,
-    #     # wait_path,
-    #     # execp,
-    #     ])
+    seq.add_children([
+        open,
+        move_t1, 
+        move_t2,  
+        move_t3,
+        move_c_test,
+        wait_path,
+        execp,
+        ])
     return seq
 
 def main():
