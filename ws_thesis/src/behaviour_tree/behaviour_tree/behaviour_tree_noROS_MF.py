@@ -842,7 +842,8 @@ class ExecutePathPublisher(RosLeaf):
     def update(self):
         time_arr = self.bb.get("time")
         path = self.bb.get("best_path")
-        path[:,0]-=np.pi
+        # for p in path:
+        #     p[0] -= np.pi
 
         if time_arr is None or path is None:
             self.feedback_message = "Traiettoria non disponibile"
@@ -962,12 +963,12 @@ def create_tree(node: Node, tf_buffer, motion_client):
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     
     seq.add_children([
-        open,
-        move_t1, vision_1,
-        move_t2, vision_2, 
-        move_t3, move_pre_c,
-        move_c, par_util, params,
-        send,
+        # open,
+        # move_t1, vision_1,
+        # move_t2, vision_2, 
+        # move_t3, move_pre_c,
+        # move_c, par_util, params,
+        # send,
         wait_path,
         execp,
         ])
