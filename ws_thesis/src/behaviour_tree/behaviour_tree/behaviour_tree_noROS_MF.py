@@ -132,6 +132,8 @@ class MoveToPose(RosLeaf):
         self.node.get_logger().info(f"MoveToPose started {self.pose_bb}")
 
     def update(self):
+        # Offset per mancanza base in sim:
+        offset=0.02 # 2cm
         # se pose_list è chiave del blackboard, leggi una sola volta
         if isinstance(self.pose_list, str):
             val = self.bb.get(self.pose_list)    
@@ -188,7 +190,7 @@ class MoveToPose(RosLeaf):
                                                             time)
                             p = t.transform.translation
                             q = t.transform.rotation
-                            pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
+                            pose_val=[p.x, p.y, p.z+offset, q.x, q.y, q.z, q.w]
                             self.bb.set(self.pose_bb, pose_val)
                             self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
                         except Exception as e:
@@ -235,7 +237,7 @@ class MoveToPose(RosLeaf):
                                                             time)
                             p = t.transform.translation
                             q = t.transform.rotation
-                            pose_val=[p.x, p.y, p.z, q.x, q.y, q.z, q.w]
+                            pose_val=[p.x, p.y, p.z+offset, q.x, q.y, q.z, q.w]
                             self.bb.set(self.pose_bb, pose_val)
                             #self.node.get_logger().info(f"pose {self.pose_bb}: {pose_val}")
                         except Exception as e:
@@ -676,7 +678,7 @@ class WaitForBestPath(RosLeaf):
         return py_trees.common.Status.RUNNING
 
 # To be tested
-class ExecutePathPublisher(RosLeaf):
+class ExecutePathPublisher1(RosLeaf):
     def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0):
         super().__init__(name, node)
         self.pub = self.node.create_publisher(
@@ -809,7 +811,7 @@ class ExecutePathPublisher(RosLeaf):
         "wrist_3_joint",
     ]
 
-    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0):
+    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0, motion_client=None):
         super().__init__(name, node)
         self.pub = self.node.create_publisher(
             JointTrajectory,
@@ -827,7 +829,7 @@ class ExecutePathPublisher(RosLeaf):
         self._last_joint_state = None
         self.tol = tol
         self.grace_t = grace_t
-        self.motion_client = MotionClient()
+        self.motion_client = motion_client or MotionClient()
 
     def _joint_state_cb(self, msg):
         self._last_joint_state = msg
@@ -840,6 +842,7 @@ class ExecutePathPublisher(RosLeaf):
     def update(self):
         time_arr = self.bb.get("time")
         path = self.bb.get("best_path")
+        path[:,0]-=np.pi
 
         if time_arr is None or path is None:
             self.feedback_message = "Traiettoria non disponibile"
@@ -951,12 +954,11 @@ def create_tree(node: Node, tf_buffer, motion_client):
     )
     par_util.add_children([off, close])
     params  = SetPlanParams(node, tf_buffer, theta_f=90, num_wp=350, target_vol=20.0)
-
     send = SendYamlToVM(node)
     wait_path = WaitForBestPath(node)
-    execp   = ExecutePathPublisher(node) # ExecutePathPublisher o ExecutePathAction
-   
+    execp   = ExecutePathPublisher(node, motion_client=motion_client)
     pose=PrintPose(node, tf_buffer)
+
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     
     # seq.add_children([
@@ -973,19 +975,18 @@ def create_tree(node: Node, tf_buffer, motion_client):
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
     #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
     pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
-    joint_c=[0.7406882047653198, -2.323422431945801, -1.8420581817626953, -2.117997884750366, -2.4009978771209717, -3.1415913105010986]
 
-    joint_v1=[0.7012355923652649, -1.7084723911681117, -2.219346523284912, -1.8182255230345667, 0.793083667755127, -3.5496469179736536]
-
+    #joint_c=[0.7406882047653198-np.pi, -2.323422431945801, -1.83205818176269753, -2.117997884750366, -2.4009978771209717, -3.1415913105010986]
     move_c_test = MoveToPose(node, tf_buffer, pose_list=joint_c, pose_bb="pos_grip_ee", motion_client=motion_client)
-
+    # 42, -133, -106, -121, -137, -180
     seq.add_children([
-        open,
-        move_t1, 
-        move_t2,  
-        move_t3, move_c_test,
-        wait_path,
-        execp,
+        # open,
+        # move_t1, 
+        # move_t2,  
+        # move_t3,
+        move_c_test,
+        # wait_path,
+        # execp,
         ])
     return seq
 
