@@ -743,7 +743,7 @@ def plan_path(
     ################################# 
     # q2 (sollevam)
     pos2 = pos1
-    pos2[2]+=0.20
+    pos2[2]+=0.15
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
     try:
@@ -765,7 +765,7 @@ def plan_path(
         qpos_goal=q2,
         qpos_start=q1,
         timeout=timeout,
-        num_waypoints=int(num_waypoints/2),
+        num_waypoints=int(num_waypoints/3),
         smooth_path=smooth_path,
         ignore_collision=ignore_collision,
         planner=planner,
@@ -848,7 +848,7 @@ def plan_path(
         qpos_goal=q4,
         qpos_start=q3,
         timeout=timeout,
-        num_waypoints=int(num_waypoints/2),
+        num_waypoints=int(num_waypoints/3),
         smooth_path=smooth_path,
         ignore_collision=ignore_collision,
         planner=planner,
@@ -943,7 +943,7 @@ def plan_path(
         axis_world=tool_x_axis
       
         path5 = []
-        n_steps = int(num_waypoints/2.5)
+        n_steps = int(num_waypoints/2)
         for theta in np.linspace(0, theta_f, n_steps):
             R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
             quat5 = R_theta.as_quat()

@@ -6,8 +6,10 @@ ToDo:
 # SIMULAZIONE
 - definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
 - (P) tuning rewards e penalties (durante test)
+- (P) capire perché planning va in figa
 
 # INTEGRAZIONE
+- (P) sistemare offset
 - (P) testare plan executer con path
 - quando tutto ok crea launch file
 
