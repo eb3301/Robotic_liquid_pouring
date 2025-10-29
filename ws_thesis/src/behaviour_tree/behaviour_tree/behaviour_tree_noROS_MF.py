@@ -841,33 +841,33 @@ def create_tree(node: Node, tf_buffer, motion_client):
 
     seq = py_trees.composites.Sequence("FullCycle",memory=True)
     
-    # seq.add_children([
-    #     open,
-    #     move_t1, vision_1,
-    #     move_t2, vision_2, 
-    #     move_t3, move_pre_c,
-    #     move_c, par_util, params,
-    #     send,
-    #     wait_path,
-    #     execp,
-    #     ])
+    seq.add_children([
+        open,
+        move_t1, vision_1,
+        move_t2, vision_2, 
+        move_t3, move_pre_c,
+        move_c, par_util, params,
+        send,
+        wait_path,
+        execp,
+        ])
 
     #pose_c=[0.231, 0.578, 0.043,-0.762, 0.002, -0.007, 0.647] # x,y,z,x,y,z,w
     #pose_c=[0.261, 0.535, 0.044, -0.730, -0.000, -0.007, 0.683]
     #pose_c=[0.261, 0.535, 0.043, -np.sqrt(2)/2, 0.000, 0.000, np.sqrt(2)/2]
 
-    joint_c=[0.7406882047653198-np.pi, -2.323422431945801, -1.83205818176269753, -2.117997884750366, -2.4009978771209717, -3.1415913105010986]
-    move_c_test = MoveToPose(node, tf_buffer, pose_list=joint_c, pose_bb="pos_grip_ee", motion_client=motion_client)
-    # 42, -133, -106, -121, -137, -180
-    seq.add_children([
-        open,
-        move_t1, 
-        move_t2,  
-        move_t3,
-        move_c_test,
-        wait_path,
-        execp,
-        ])
+    # joint_c=[0.7406882047653198-np.pi, -2.323422431945801, -1.83205818176269753, -2.117997884750366, -2.4009978771209717, -3.1415913105010986]
+    # move_c_test = MoveToPose(node, tf_buffer, pose_list=joint_c, pose_bb="pos_grip_ee", motion_client=motion_client)
+    # # 42, -133, -106, -121, -137, -180
+    # seq.add_children([
+    #     open,
+    #     move_t1, 
+    #     move_t2,  
+    #     move_t3,
+    #     move_c_test,
+    #     wait_path,
+    #     execp,
+    #     ])
     return seq
 
 def main():
