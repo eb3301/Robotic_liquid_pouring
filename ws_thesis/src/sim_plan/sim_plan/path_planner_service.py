@@ -871,7 +871,7 @@ def plan_path(
         l = np.sqrt((y0 - y_c)**2 + (z0 - z_c)**2)
         alpha_start = np.arctan2(z0 - z_c, y0 - y_c)
         path5 = []
-        n_steps = 130 #int(num_waypoints/2.5)
+        n_steps = int(num_waypoints/2.5)
         for theta in np.linspace(0,theta_f,n_steps):
             x = x0 # fixed
             y = y_c + l * np.cos(alpha_start - theta)
