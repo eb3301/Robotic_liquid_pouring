@@ -685,7 +685,7 @@ class ExecutePathPublisher(RosLeaf):
         "wrist_3_joint",
     ]
 
-    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=100.0, motion_client=None):
+    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=10.0, motion_client=None):
         super().__init__(name, node)
         self.pub = self.node.create_publisher(
             JointTrajectory,
@@ -754,8 +754,9 @@ class ExecutePathPublisher(RosLeaf):
             self._traj_duration = float(time_arr[-1])
             self.bb.set("goal_joints", path[-1][:6])
             return py_trees.common.Status.RUNNING
-
-        elapsed = (self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time")
+        
+        speed_scaling=0.32
+        elapsed = ((self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time"))/speed_scaling
         if elapsed >= self._traj_duration + self.grace_t:
             if self._check_final_joints_close():
                 return py_trees.common.Status.SUCCESS
