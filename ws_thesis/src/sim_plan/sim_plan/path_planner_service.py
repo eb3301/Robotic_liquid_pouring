@@ -612,7 +612,7 @@ def plan_path(
         approach=False,
         max_retry=20,
     ):
-
+    logger=get_logger("path logger")
     old=False
     path=np.empty((0, 8))
     print(f"planning started")
@@ -776,6 +776,7 @@ def plan_path(
         raise RuntimeError(f"path di sollevamento è invalido")
     path2=path2.cpu().numpy()
     path = np.concatenate((path, path2))
+    logger.info(f"Pianificazione salita eseguita")
    
     #################################
     # q3 (approach cont target): movimento principale nel piano Y-Z
@@ -816,6 +817,7 @@ def plan_path(
         raise RuntimeError(f"path di trasporto è invalido")
     path3 = path3.cpu().numpy()
     path = np.concatenate((path, path3))
+    logger.info(f"Pianificazione trasporto eseguito")
     #################################
     # q4 (pre vers)
     pos4 = np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
@@ -859,6 +861,7 @@ def plan_path(
         raise RuntimeError(f"path da fine trasporto a preversamento è invalido")
     path4=path4.cpu().numpy()
     path = np.concatenate((path, path4))   
+    logger.info(f"Pianificazione discesa eseguita")
 
     ################################# OLD (TO BE REMOVED IF TESTING OF NEW IS SUCCESSFUL)
     if old:
@@ -1000,7 +1003,7 @@ def plan_path(
         if debug: print(f"Collisioni 6: {collisions6}")
         path6 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path6])
         path = np.concatenate((path, path6))
-
+    logger.info(f"Pianificazione pouring e unpouring eseguita")
     #################################
     # q7
     pos7 = pos6    
@@ -1093,18 +1096,23 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     reward = 0.0
 
     # Frazione riempimento
-    reward += w_fill * frac_inside
+    reward1 = w_fill * frac_inside
+    print(f"reward riempimento: {reward1}")
 
     # Volume: esponenziale su errore relativo
-    reward += w_vol * np.exp(-vol_err / (vol_tol + 1e-12))
+    reward2 = w_vol * np.exp(-vol_err / (vol_tol + 1e-12))
     # reward += w_vol * max(0, 1 - vol_err / vol_tol)
+    print(f"reward errore volume: {reward1}")
 
     # Perdite
-    reward -= w_loss * loss_frac
+    reward3 = w_loss * loss_frac
+    print(f"reward perdite: {reward1}")
 
     # Penalità tempo (normalizzata)
-    reward -= w_time * Dt / 10.0
+    reward4 = w_time * Dt / 10.0
+    print(f"reward tempo: {reward1}")
 
+    reward = reward1 + reward2 + reward3 + reward4
     return reward
 
 def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False, antisloshing=False): 
@@ -1127,7 +1135,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     # Esegui il path
     score=0
     excluded=[]
-    logger=get_logger("path logger")
+    logger=get_logger("sim logger")
     if liq:
         particles = np.squeeze(liquid.get_particles())
         h_min=np.min(particles[:,2])
@@ -1578,6 +1586,7 @@ class PathPlannerService(Node):
 
                 for i in range(len(parameters_set)):
                     parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
+                    print(f"Parameters of iteration {i}: {parameters}")
                     scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
                     
                     for j in range(M):
