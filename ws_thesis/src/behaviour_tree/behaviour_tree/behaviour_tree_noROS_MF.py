@@ -385,11 +385,9 @@ class CloseGripper(RosLeaf):
             result = self._result_future.result().result
             
             if getattr(result, "stalled", True) or getattr(result, "goal_reached", True):
-                self.node.get_logger().info("qualcosa")
                 return py_trees.common.Status.SUCCESS
             else:
                 self.feedback_message = "Gripper non ha raggiunto il goal"
-                self.node.get_logger().info("no")
                 return py_trees.common.Status.FAILURE
 
         return py_trees.common.Status.RUNNING

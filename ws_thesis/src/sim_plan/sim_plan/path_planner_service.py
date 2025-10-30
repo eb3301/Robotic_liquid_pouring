@@ -144,8 +144,8 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         ),
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
-            lower_bound   = (0.3, 0.1, 0.9), 
-            upper_bound   = (1.0, 1.1, 1.3),
+            lower_bound   = (0.5, 0.0, 0.9), 
+            upper_bound   = (1.0, 1.2, 1.2),
             particle_size = 0.01, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
@@ -480,7 +480,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     # Reach steady state of the liquid
     logger = get_logger('steady_state')
     if liq:
-        n=100
+        n=70
         for i in range(n):
             ur5e.control_dofs_position(
                 position=init_qpos,
@@ -765,7 +765,7 @@ def plan_path(
         qpos_goal=q2,
         qpos_start=q1,
         timeout=timeout,
-        num_waypoints=int(num_waypoints/3),
+        num_waypoints= 100, #int(num_waypoints/3),
         smooth_path=smooth_path,
         ignore_collision=ignore_collision,
         planner=planner,
@@ -848,7 +848,7 @@ def plan_path(
         qpos_goal=q4,
         qpos_start=q3,
         timeout=timeout,
-        num_waypoints=int(num_waypoints/3),
+        num_waypoints=100, #int(num_waypoints/3),
         smooth_path=smooth_path,
         ignore_collision=ignore_collision,
         planner=planner,
@@ -871,7 +871,7 @@ def plan_path(
         l = np.sqrt((y0 - y_c)**2 + (z0 - z_c)**2)
         alpha_start = np.arctan2(z0 - z_c, y0 - y_c)
         path5 = []
-        n_steps = int(num_waypoints/2.5)
+        n_steps = 130 #int(num_waypoints/2.5)
         for theta in np.linspace(0,theta_f,n_steps):
             x = x0 # fixed
             y = y_c + l * np.cos(alpha_start - theta)
@@ -1025,7 +1025,7 @@ def plan_path(
         qpos_goal=q7,
         qpos_start=q6,
         timeout=timeout,
-        num_waypoints=int(num_waypoints/10),
+        num_waypoints= 30, #int(num_waypoints/10),
         smooth_path=smooth_path,
         ignore_collision=ignore_collision,
         planner=planner,
