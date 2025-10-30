@@ -23,6 +23,7 @@ class CallPlannerSrv(Node):
         self.get_logger().info(f"Aspetto file {PARAMS_FILE} ...")
         while not os.path.exists(PARAMS_FILE):
             time.sleep(1.0)
+        time.sleep(1.0)
         self.get_logger().info(f"Trovato file {PARAMS_FILE}")
 
     def load_parameters(self):

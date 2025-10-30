@@ -358,11 +358,11 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
             # viscous liquid
             #material=gs.materials.SPH.Liquid(mu=0.02, gamma=0.02),
             material=gs.materials.SPH.Liquid( 
-                rho= parameters['densità'], # 1000.0
-                stiffness=50000.0,
-                exponent=7.0,
-                mu= parameters['viscosità'], # 0.001002       # viscosità dinamica dell'acqua a 20 °C [Pa·s]
-                gamma=parameters['tens_sup'], # 0.0728       # tensione superficiale dell'acqua a 20 °C [N/m]),
+                #rho= parameters['densità'], # 1000.0
+                #stiffness=50000.0,
+                #exponent=7.0,
+                #mu= parameters['viscosità'], # 0.001002       # viscosità dinamica dell'acqua a 20 °C [Pa·s]
+                #gamma=parameters['tens_sup'], # 0.0728       # tensione superficiale dell'acqua a 20 °C [N/m]),
                 sampler='regular'
             ),
             morph=gs.morphs.Cylinder(
