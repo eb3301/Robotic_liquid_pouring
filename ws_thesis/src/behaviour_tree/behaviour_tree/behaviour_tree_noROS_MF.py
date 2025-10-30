@@ -756,7 +756,7 @@ class ExecutePathPublisher(RosLeaf):
             return py_trees.common.Status.RUNNING
         
         speed_scaling=0.32
-        elapsed = ((self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time"))/speed_scaling
+        elapsed = ((self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time"))*speed_scaling
         if elapsed >= self._traj_duration + self.grace_t:
             if self._check_final_joints_close():
                 return py_trees.common.Status.SUCCESS
