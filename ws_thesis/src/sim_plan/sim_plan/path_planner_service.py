@@ -620,7 +620,7 @@ def plan_path(
     #################################
     x_shift=0.15
     z_min=0.967
-    lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.05
+    lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
     if approach:
         # q0 (foto)
@@ -743,7 +743,7 @@ def plan_path(
    
     ################################# 
     # q2 (sollevam)
-    pos2 = pos1
+    pos2 = pos1.copy()
     pos2[2]+=0.10
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
