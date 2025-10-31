@@ -145,7 +145,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         sph_options=gs.options.SPHOptions(
             # position of the bounding box for the liquid
             lower_bound   = (0.5, 0.0, 0.9), 
-            upper_bound   = (1.0, 1.2, 1.2),
+            upper_bound   = (1.0, 1.2, 1.3),
             particle_size = 0.01, #0.002  
         ),
         viewer_options = gs.options.ViewerOptions(
