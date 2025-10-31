@@ -1674,8 +1674,8 @@ class PathPlannerService(Node):
                             planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
                             debug=debug,
                         )
-                        path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
-                        fake_sim(ur5e, paths, scene, path_debug)
+                        # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+                        # fake_sim(ur5e, paths, scene, path_debug)
                         candidate_paths.append(paths)
                             
 
