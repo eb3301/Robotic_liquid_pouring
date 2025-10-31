@@ -1599,13 +1599,13 @@ class PathPlannerService(Node):
         tolerances = {
             "pos_init_cont": [
                 (0.01, 0.01),  # x: ±1.0 cm
-                (0.01, 0.01),  # y: ±1.0 cm
+                (0.0, 0.0),  # y: ±1.0 cm
                 (0.0, 0.0),    # z: ±0.0 cm
             ],
             "pos_cont_goal": [
                 (0.015, 0.015),  # x: ±1.5 cm
                 (0.015, 0.015),  # y: ±1.5 cm
-                (0.01, 0.01),    # z: ±1.0 cm
+                (0.0, 0.0),    # z: ±1.0 cm
             ],
             "pos_init_ee": [
                 (0.005, 0.005),  # x: ±5 mm
@@ -1656,13 +1656,11 @@ class PathPlannerService(Node):
                 for i in range(len(parameters_set)):
                     parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
                     print(f"Parameters of iteration {i}: {parameters}")
-                    print(f"fino a qui tutto bene")
                     scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
                     
                     for j in range(M):
                         theta_f =  np.deg2rad(parameters["theta_f"]) #np.pi * 0.48
                         num_wp = int(parameters["num_wp"]) #int(10/dt)
-                        print(f"fino a qui tutto bene")
                         paths = plan_path(
                             ur5e, 
                             theta_f,
@@ -1674,7 +1672,6 @@ class PathPlannerService(Node):
                             planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
                             debug=debug,
                         )
-                        print(f"fino a qui tutto bene")
                         # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
                         # fake_sim(ur5e, paths, scene, path_debug)
                         candidate_paths.append(paths)
