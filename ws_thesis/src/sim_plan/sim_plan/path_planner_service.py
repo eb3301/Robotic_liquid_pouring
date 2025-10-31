@@ -418,12 +418,12 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
 
     # Set dofs kp:
     ur5e.set_dofs_kp(
-        kp = np.array([4500, 4500, 4500, 3500, 3500, 3500, 20, 20]),
+        kp = np.array([5500, 5500, 5500, 4500, 4500, 4500, 20, 20]),
         dofs_idx_local = dofs_idx,
     )
     # Set dofs kv: (Increase velocity gains for better damping)
     ur5e.set_dofs_kv(
-        kv = np.array([450,450,450,350,350,350,2,2]),
+        kv = np.array([550,550,550,450,450,450,2,2]),
         dofs_idx_local = dofs_idx,
     )
     # Set force limits:
@@ -936,7 +936,7 @@ def plan_path(
         CoR3D = np.array([
             parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
             parameters['pos_cont_goal'][1] - 0.005 + parameters['dCoR'][1], # - 0.01 
-            parameters['pos_cont_goal'][2] - 0.005 + parameters['dCoR'][2], # + 0.04
+            parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
         ])
         p_tcp0 = pos4.copy()
         scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
@@ -1086,8 +1086,8 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     vol_err = abs(actual_vol - target_vol)
 
     #  Perdite (particelle cadute sotto piano tavolo) 
-    z_table = lower[2] - 0.01
-    loss_frac = np.sum(particles[:, 2] < z_table) / len(particles)
+    z_table = lower[2]
+    loss_frac = np.sum(particles[:, 2] <= z_table) / len(particles)
 
     #  Tempo 
     Dt = scene.get_state().scene.t - t0
@@ -1410,12 +1410,84 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
         t_ref = 10 # la sim dovrebbe durare circa 10s
         score+=1
         score-=1e-2*Dt/t_ref
-    score+=1000
+    
     print(f"Simulation completed")
     return score
 
 def is_success(score, threshold=0.5):
     return score > threshold
+
+def fake_sim(ur5e, paths, scene, path_debug, approach=False):
+    """
+    Note that this sim is only for visualization purposes (i.e. we do not call
+    scene.step(), but only update the state and the visualizer) 
+    """
+    scene.reset(init_scene)
+    
+    # Ottieni indici locali dei giunti
+    dofs_idx = []
+    for joint in ur5e.joints:
+        if joint.name not in ["joint_world","flange-tool0","robotiq_hande_base_joint"]:
+            dofs_idx.extend(joint.dofs_idx_local)
+    
+    if approach:
+        # Init to grasp:
+        path1=paths["init_to_grasp"]
+        for qpos in path1:
+            ur5e.set_dofs_position(qpos)
+            scene.visualizer.update(force=True, auto=True)
+        
+    # Grasping
+    # qpos=path1[-1]
+    # motors_dof = dofs_idx[:-2]
+    # fingers_dof = dofs_idx[-2:]
+    # for i in range(100):
+    #     ur5e.set_dofs_position(qpos[:-2], motors_dof)
+    #     ur5e.control_dofs_force(np.array([-0.5*i, 0.5*i]), fingers_dof)
+    #     scene.visualizer.update(force=True, auto=True)
+
+    # Lift:
+    path2=paths["lift"]
+    for qpos in path2:
+        ur5e.set_dofs_position(qpos, dofs_idx_local=dofs_idx) # bisognerebbe aggiungere qui il delay di controllo (delay_control)
+        #ur5e.control_dofs_force(np.array([-0.5, 0.5]), fingers_dof)
+        scene.visualizer.update(force=True, auto=True)
+
+    # Trasporto:
+    path3=paths["transport"]
+    for qpos in path3: 
+        ur5e.set_dofs_position(qpos, dofs_idx_local=dofs_idx) # bisognerebbe aggiungere qui il delay di controllo (delay_control)
+        #ur5e.control_dofs_force(np.array([-0.5, 0.5]), fingers_dof)
+        scene.visualizer.update(force=True, auto=True)
+
+    # Posizionamento pre pouring:
+    path4=paths["pre_pour"]
+    for qpos in path4:
+        ur5e.set_dofs_position(qpos, dofs_idx_local=dofs_idx) # bisognerebbe aggiungere qui il delay di controllo (delay_control)
+        #ur5e.control_dofs_force(np.array([-0.5, 0.5]), fingers_dof)
+        scene.visualizer.update(force=True, auto=True)
+    # Pouring:
+    path5=paths["pour"]   
+    for qpos in path5:
+        ur5e.set_dofs_position(qpos, dofs_idx_local=dofs_idx) # bisognerebbe aggiungere qui il delay di controllo (delay_control)
+        #ur5e.control_dofs_force(np.array([-0.5, 0.5]), fingers_dof)
+        scene.visualizer.update(force=True, auto=True)
+    # Pouring:
+    path6=paths["unpour"]  
+    for qpos in path6:
+        ur5e.set_dofs_position(qpos, dofs_idx_local=dofs_idx) # bisognerebbe aggiungere qui il delay di controllo (delay_control)
+        #ur5e.control_dofs_force(np.array([-0.5, 0.5]), fingers_dof)
+        scene.visualizer.update(force=True, auto=True)
+    # Release:
+    path7=paths["release"]
+    for qpos in path7:
+        ur5e.set_dofs_position(qpos, dofs_idx_local=dofs_idx) # bisognerebbe aggiungere qui il delay di controllo (delay_control)
+        #ur5e.control_dofs_force(np.array([-0.5, 0.5]), fingers_dof)
+        scene.visualizer.update(force=True, auto=True)
+    
+    scene.clear_debug_object(path_debug)
+
+    print(f"Fake simulation completed")
 
 class PathPlannerService(Node):
     def __init__(self):
@@ -1605,6 +1677,8 @@ class PathPlannerService(Node):
                             planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
                             debug=debug,
                         )
+                        path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+                        fake_sim(ur5e, paths, scene, path_debug)
                         candidate_paths.append(paths)
                             
 
