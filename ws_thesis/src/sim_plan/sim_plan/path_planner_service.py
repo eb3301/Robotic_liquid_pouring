@@ -1077,6 +1077,7 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     aabb = becher2.get_AABB().cpu().numpy().squeeze()  # shape (2, 3)
     lower, upper = aabb[0], aabb[1]
 
+    print(f"AABB: {lower} - {upper}")
     #  Particelle dentro il volume target (AABB) 
     inside_mask = np.all((particles >= lower) & (particles <= upper), axis=1)
     num_inside = np.sum(inside_mask)
@@ -1102,15 +1103,15 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     # Volume: esponenziale su errore relativo
     reward2 = w_vol * np.exp(-vol_err / (vol_tol + 1e-12))
     # reward += w_vol * max(0, 1 - vol_err / vol_tol)
-    print(f"reward errore volume: {reward1}")
+    print(f"reward errore volume: {reward2}")
 
     # Perdite
     reward3 = w_loss * loss_frac
-    print(f"reward perdite: {reward1}")
+    print(f"reward perdite: {reward3}")
 
     # Penalità tempo (normalizzata)
     reward4 = w_time * Dt / 10.0
-    print(f"reward tempo: {reward1}")
+    print(f"reward tempo: {reward4}")
 
     reward = reward1 + reward2 + reward3 + reward4
     return reward
@@ -1501,10 +1502,10 @@ class PathPlannerService(Node):
 
     def plan_path_callback(self, request, response):
 
-        N = 3                    # Numero di modelli simulati (iniziale)
-        M = 3                    # Numero di traiettorie
+        N = 1                    # Numero di modelli simulati (iniziale)
+        M = 1                    # Numero di traiettorie
         delta = 0.5              # Threshold di successo
-        view=False
+        view=True
         liq=True
         record=False
         debug=False        
