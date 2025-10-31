@@ -620,6 +620,7 @@ def plan_path(
     #################################
     x_shift=0.15
     z_min=0.967
+    lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.05
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
     if approach:
         # q0 (foto)
@@ -743,7 +744,7 @@ def plan_path(
     ################################# 
     # q2 (sollevam)
     pos2 = pos1
-    pos2[2]+=0.15
+    pos2[2]+=0.10
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
     try:
@@ -829,7 +830,7 @@ def plan_path(
         pos4[1] -= (container2_size[0]/2+0.03)
         pos4[2] += container2_size[2]
     
-    pos4[2]=max(pos4[2],z_min)
+    pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
     try:
         q4 = ur5e.inverse_kinematics(
@@ -952,10 +953,8 @@ def plan_path(
             quat5 = R_theta.as_quat()
             delta_pos=R_theta.apply(l)
             p_tcp = CoR3D - delta_pos
-            p_tcp[2] = max(p_tcp[2], z_min) 
-            lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.05
-            p_tcp[2] = max(p_tcp[2], lip_height)
-
+            p_tcp[2] = max(pos4[2],z_min, lip_height) 
+        
             try:
                 q5 = ur5e.inverse_kinematics(
                     link=ur5e.get_link("tool0"),
@@ -982,9 +981,7 @@ def plan_path(
             quat6 = R_theta.as_quat()
 
             p_tcp = CoR3D - R_theta.apply(l)
-            p_tcp[2] = max(p_tcp[2], z_min)
-            lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.05
-            p_tcp[2] = max(p_tcp[2], lip_height)
+            p_tcp[2] = max(pos4[2],z_min,lip_height)
 
             try:
                 q6 = ur5e.inverse_kinematics(
