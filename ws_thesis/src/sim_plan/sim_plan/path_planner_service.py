@@ -1628,7 +1628,7 @@ class PathPlannerService(Node):
             "offset": [
                 (0.01, 0.01),  # x: ±1 cm (0.15)
                 (0.0, 0.0),  # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
-                (0.005, 0.005),  #  ±1 cm (0.04)
+                (0.00, 0.00),  #  ±1 cm (0.04)
             ],
             "dCoR": [
                 (0.001, 0.001),  # componente 1: ±1 mm
