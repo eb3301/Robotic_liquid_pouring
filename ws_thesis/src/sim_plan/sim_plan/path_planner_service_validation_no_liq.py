@@ -1122,7 +1122,7 @@ def compute_fake_reward(parameters):
         ])
     real_CoR3d=np.array([real_contpos2[0], real_contpos2[1] - 0.005, real_contpos2[2]])
     cor_err = np.linalg.norm(CoR3D - real_CoR3d)
-    cor_tol = 0.05
+    cor_tol = 0.1
 
     w_pos, w_cor = 3, 1
 
@@ -1590,11 +1590,11 @@ class PathPlannerService(Node):
 
     def plan_path_callback(self, request, response):
 
-        N = 1                    # Numero di modelli simulati (iniziale)
-        M = 1                    # Numero di traiettorie
+        N = 20                   # Numero di modelli simulati (iniziale)
+        M = 5                    # Numero di traiettorie
         delta = 0.5              # Threshold di successo
-        view=True
-        liq=True
+        view=False
+        liq=False
         record=False
         debug=False        
     
@@ -1683,14 +1683,14 @@ class PathPlannerService(Node):
 
         for attempt in range(5):
             try:
-                init_sim()
+                #init_sim()
                 candidate_paths = []
 
                 for i in range(len(parameters_set)):
                     parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
                     print(f"Parameters of iteration {i}: {parameters}")
-                    scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
-                    
+                    #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
+                    dt=0.01
                     for j in range(M):
                         theta_f =  np.deg2rad(parameters["theta_f"]) #np.pi * 0.48
                         num_wp = int(parameters["num_wp"]) #int(10/dt)
