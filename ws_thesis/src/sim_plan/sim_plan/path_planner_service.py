@@ -236,7 +236,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
 
     if approach:
         contpos= (parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]) # (0.85,0.2, 0.92) # Initial position
-        container_scale = 0.015
+        container_scale = 0.016
         container_mesh_path = DIR + '/becher/becher1.obj'
 
         becher = scene.add_entity(
@@ -264,7 +264,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         )
     else:
         contpos= (parameters['offset'][0], -parameters['offset'][2], parameters['offset'][1]) # ordine y, (-)z, x # np.array([0.0,-0.04,0.13]) # Offset di presa tool0 --> becher
-        container_scale = 0.015
+        container_scale = 0.016
         container_mesh_path = DIR + '/becher/becher1.obj'
 
         becher = scene.add_entity(
