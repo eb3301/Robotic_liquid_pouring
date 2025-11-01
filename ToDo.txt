@@ -12,6 +12,7 @@ ToDo:
 - implementare correzione depth (?)
 - crea launch file
 - testa update belief senza liq e sim (fake CoR e pos cont goal reward)
+- aggiorna reward tempo (da normalizzare correttamente)
 
 ########################### OVERLEAF:
 1) 3 pagine intro ()

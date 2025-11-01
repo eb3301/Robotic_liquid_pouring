@@ -35,6 +35,7 @@ class CallPlannerSrv(Node):
 
     def call_service(self, params: dict):
         req = Simplan.Request()
+        req.no_params     = False # to use the following params
         req.pos_init_cont = params.get("pos_init_cont", [0.0, 0.0, 0.0])
         req.pos_cont_goal = params.get("pos_cont_goal", [0.0, 0.0, 0.0])
         req.pos_init_ee   = params.get("pos_init_ee", [0.0]*7)

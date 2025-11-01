@@ -1086,7 +1086,7 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     loss_frac = 1 - frac_inside
 
     #  Tempo 
-    Dt = scene.get_state().scene.t - t0
+    Dt = scene.get_state().scene.t - t0 
 
     #  Pesi
     w_vol, w_loss, w_time = 3.0, 3.0, 0.5
@@ -1101,11 +1101,35 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     reward2 = w_loss * (1-loss_frac)
     print(f"reward perdite: {reward2}")
 
-    # Penalità tempo (normalizzata) TODO
-    reward3 = w_time * Dt / 10.0
+    # Penalità tempo (normalizzata) 
+    reward3 = w_time * Dt / 10.0 
     print(f"reward tempo: {reward3}")
 
     reward = reward1 + reward2 + reward3
+    return reward
+
+def compute_fake_reward(parameters):
+    
+    contpos2 = np.array([parameters['pos_cont_goal'][0], parameters['pos_cont_goal'][1], parameters['pos_cont_goal'][2]])
+    real_contpos2 = np.array([0.746, 0.961, 0.960])
+    pos_err = np.linalg.norm(contpos2 - real_contpos2)
+    pos_tol = 0.05
+
+    CoR3D = np.array([
+            parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
+            parameters['pos_cont_goal'][1] - 0.005 + parameters['dCoR'][1], # - 0.01 
+            parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
+        ])
+    real_CoR3d=np.array([real_contpos2[0], real_contpos2[1] - 0.005, real_contpos2[2]])
+    cor_err = np.linalg.norm(CoR3D - real_CoR3d)
+    cor_tol = 0.05
+
+    w_pos, w_cor = 3, 1
+
+    reward1 = w_pos * max(0,1-pos_err/pos_tol)
+    reward2 = w_cor * max(0,1-cor_err/cor_tol)
+    reward = reward1 + reward2
+    
     return reward
 
 def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False, antisloshing=False): 
@@ -1655,7 +1679,7 @@ class PathPlannerService(Node):
             parameters_range=self._make_parameters_range(req_parameters,tolerances)
             parameters_set=[]
             for _ in range(N):
-                parameters_set.append(generate_parameters(parameters_range))
+                parameters_set.append(generate_parameters(parameters_range)) 
 
         for attempt in range(5):
             try:
@@ -1670,17 +1694,18 @@ class PathPlannerService(Node):
                     for j in range(M):
                         theta_f =  np.deg2rad(parameters["theta_f"]) #np.pi * 0.48
                         num_wp = int(parameters["num_wp"]) #int(10/dt)
-                        paths = plan_path(
-                            ur5e, 
-                            theta_f,
-                            parameters,
-                            timeout=5.0, 
-                            smooth_path=True, 
-                            num_waypoints=num_wp, 
-                            ignore_collision=False, 
-                            planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
-                            debug=debug,
-                        )
+                        paths = (0,0,0,0,0,0,0,0)
+                        # paths = plan_path(
+                        #     ur5e, 
+                        #     theta_f,
+                        #     parameters,
+                        #     timeout=5.0, 
+                        #     smooth_path=True, 
+                        #     num_waypoints=num_wp, 
+                        #     ignore_collision=False, 
+                        #     planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
+                        #     debug=debug,
+                        # )
                         # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
                         # fake_sim(ur5e, paths, scene, path_debug)
                         candidate_paths.append(paths)
@@ -1700,7 +1725,8 @@ class PathPlannerService(Node):
                     local_scores = []
                     
                     for parameters in parameters_set:
-                        score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
+                        # score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
+                        score = compute_fake_reward(parameters)
                         print(f"score: {score}")
                         total_score += score
                         local_scores.append((parameters, score))
@@ -1715,7 +1741,7 @@ class PathPlannerService(Node):
                         score_best_path = local_scores
                 
 
-                best_score /= (3 + 3 + 0.5) # max reward
+                best_score /= (3+1) # sum of max reward
 
                 if best_score < delta:
                     self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
