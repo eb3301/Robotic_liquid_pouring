@@ -304,7 +304,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
 
     contpos2= (parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1], parameters['pos_cont_goal'][2])
     container_scale2 = 0.013
-    container_mesh_path2 = DIR + '/becher/becher.obj'
+    container_mesh_path2 = DIR + '/becher/becher1.obj'
 
     becher2 = scene.add_entity(
         gs.morphs.Mesh(
