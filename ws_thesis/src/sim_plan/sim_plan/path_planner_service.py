@@ -237,7 +237,7 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     if approach:
         contpos= (parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]) # (0.85,0.2, 0.92) # Initial position
         container_scale = 0.015
-        container_mesh_path = DIR + '/becher/becher.obj'
+        container_mesh_path = DIR + '/becher/becher1.obj'
 
         becher = scene.add_entity(
             gs.morphs.Mesh(
@@ -1065,8 +1065,6 @@ def plan_path(
 
 def compute_reward(liquid, becher2, parameters, t0, scene):
     particles = np.squeeze(liquid.get_particles())
-    contpos = np.array(parameters['pos_cont_goal'])
-    pos_tol = parameters['err_target']
     target_vol = parameters['vol_target']
     vol_tol = 0.1 * target_vol  # ±10%
 
@@ -1079,38 +1077,35 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     inside_mask = np.all((particles >= lower) & (particles <= upper), axis=1)
     num_inside = np.sum(inside_mask)
     frac_inside = num_inside / len(particles)
+    
+    # Errore volume:
     actual_vol = num_inside * liquid.particle_size
     vol_err = abs(actual_vol - target_vol)
 
     #  Perdite (particelle cadute sotto piano tavolo) 
-    z_table = lower[2]
-    loss_frac = np.sum(particles[:, 2] <= z_table) / len(particles)
+    loss_frac = 1 - frac_inside
 
     #  Tempo 
     Dt = scene.get_state().scene.t - t0
 
     #  Pesi
-    w_fill, w_vol, w_loss, w_time = 2.0, 3.0, 3.0, 0.5
+    w_vol, w_loss, w_time = 3.0, 3.0, 0.5
+
     reward = 0.0
 
-    # Frazione riempimento
-    reward1 = w_fill * frac_inside
-    print(f"reward riempimento: {reward1}")
-
-    # Volume: esponenziale su errore relativo
-    reward2 = w_vol * np.exp(-vol_err / (vol_tol + 1e-12))
-    # reward += w_vol * max(0, 1 - vol_err / vol_tol)
-    print(f"reward errore volume: {reward2}")
+    # Volume
+    reward1 = w_vol * max(0, 1 - vol_err / vol_tol) # Alternativa: reward1 = w_vol * np.exp(-vol_err / (vol_tol + 1e-12))
+    print(f"reward errore volume: {reward1}")
 
     # Perdite
-    reward3 = w_loss * loss_frac
-    print(f"reward perdite: {reward3}")
+    reward2 = w_loss * (1-loss_frac)
+    print(f"reward perdite: {reward2}")
 
     # Penalità tempo (normalizzata)
-    reward4 = w_time * Dt / 10.0
-    print(f"reward tempo: {reward4}")
+    reward3 = w_time * Dt / 10.0
+    print(f"reward tempo: {reward3}")
 
-    reward = reward1 + reward2 + reward3 + reward4
+    reward = reward1 + reward2 + reward3
     return reward
 
 def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False, antisloshing=False): 
@@ -1627,8 +1622,8 @@ class PathPlannerService(Node):
             ],
             "offset": [
                 (0.01, 0.01),  # x: ±1 cm (0.15)
-                (0.0, 0.0),  # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
-                (0.0, 0.0),  #  ±1 cm (0.04)
+                (0.0, 0.0),    # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
+                (0.0, 0.0),    #  ±0 cm (0.04) offset bloccato (le pinze riportano al centro quando chiuse)
             ],
             "dCoR": [
                 (0.001, 0.001),  # componente 1: ±1 mm
