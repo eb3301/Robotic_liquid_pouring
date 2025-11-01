@@ -1599,7 +1599,7 @@ class PathPlannerService(Node):
         tolerances = {
             "pos_init_cont": [
                 (0.01, 0.01),  # x: ±1.0 cm
-                (0.0, 0.0),  # y: ±0.0 cm
+                (0.0, 0.0),    # y: ±0.0 cm
                 (0.0, 0.0),    # z: ±0.0 cm
             ],
             "pos_cont_goal": [
@@ -1608,18 +1608,18 @@ class PathPlannerService(Node):
                 (0.0, 0.0),      # z: ±0.0 cm
             ],
             "pos_init_ee": [
-                (0.00, 0.00),    # x: ±5 mm
-                (0.00, 0.00),    # y: ±5 mm
-                (0.00, 0.00),    # z: ±5 mm
+                (0.00, 0.00),    # x: fisso
+                (0.00, 0.00),    # y: fisso
+                (0.00, 0.00),    # z: fisso
                 (0.00, 0.00),    # w: fisso
                 (0.00, 0.00),    # x: fisso
                 (0.00, 0.00),    # y: fisso
                 (0.00, 0.00),    # z: fisso
             ],
             "pos_grip_ee": [
-                (0.00, 0.00),  # x: ±5 mm
-                (0.00, 0.00),  # y: ±5 mm
-                (0.00, 0.00),  # z: ±5 mm
+                (0.00, 0.00),    # x: fisso
+                (0.00, 0.00),    # y: fisso
+                (0.00, 0.00),    # z: fisso
                 (0.00, 0.00),    # w: fisso
                 (0.00, 0.00),    # x: fisso
                 (0.00, 0.00),    # y: fisso
@@ -1628,7 +1628,7 @@ class PathPlannerService(Node):
             "offset": [
                 (0.01, 0.01),  # x: ±1 cm (0.15)
                 (0.0, 0.0),  # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
-                (0.00, 0.00),  #  ±1 cm (0.04)
+                (0.0, 0.0),  #  ±1 cm (0.04)
             ],
             "dCoR": [
                 (0.001, 0.001),  # componente 1: ±1 mm
