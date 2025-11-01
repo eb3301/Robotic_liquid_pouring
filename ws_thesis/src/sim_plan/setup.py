@@ -23,6 +23,7 @@ setup(
             'path_planner_service = sim_plan.path_planner_service:main',
             'path_planner_client = sim_plan.path_planner_client:main',
             'path_planner_service_paral = sim_plan.path_planner_service_paral:main',
+            'path_planner_service_validation_no_liq = sim_plan.path_planner_service_validation_no_liq:main',
         ],
     },
 )
