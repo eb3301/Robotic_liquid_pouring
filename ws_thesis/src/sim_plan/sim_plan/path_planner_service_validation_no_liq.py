@@ -1833,7 +1833,7 @@ class PathPlannerService(Node):
             with open("/tmp/scores.yaml", "w") as f:
                 yaml.safe_dump({"scores": successes}, f, sort_keys=False)
             with open("/tmp/scores_history.yaml", "a") as f:
-                yaml.safe_dump(scores, f, sort_keys=False)
+                yaml.safe_dump({"scores":scores}, f, sort_keys=False)
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False

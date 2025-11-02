@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 iters = []
 with open("/tmp/scores_history.yaml") as f:
     for block in yaml.safe_load_all(f):
-        iters.append(block if isinstance(block, list) else block["scores"])
+        iters.append(block["scores"])
 
 # scatter points
 xs = []
