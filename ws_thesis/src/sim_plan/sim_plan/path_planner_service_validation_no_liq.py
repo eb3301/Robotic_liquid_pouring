@@ -1785,16 +1785,18 @@ class PathPlannerService(Node):
         # response.time = time
         # return response
 
-        # Valuta ogni traiettoria su ogni set di param
+        # Definisci best path e salva params
         best_path = None
         best_success_rate=0
 
         for i,path in enumerate(candidate_paths):
             success=0
             successes = np.zeros(len(parameters_set))
+            scores = np.zeros(len(parameters_set))
             for j,parameters in enumerate(parameters_set):
                 # score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
                 score = compute_fake_reward(parameters)
+                scores[j]=score
                 if is_success(score,0.1):
                     success+=1
                     successes[j]=1
@@ -1803,6 +1805,7 @@ class PathPlannerService(Node):
             if success_rate > best_success_rate:
                 best_path = path
                 best_successes = successes.copy()
+                best_scores=scores.copy()
                 best_success_rate = success_rate
         
         if best_success_rate < delta:
@@ -1820,6 +1823,7 @@ class PathPlannerService(Node):
         best_path=self.to_builtin(best_path)
         parameters=self.to_builtin(parameters_set)
         successes=self.to_builtin(best_successes)
+        scores=self.to_builtin(best_scores)
 
         try:
             with open("/tmp/best_path.yaml", "w") as f:
@@ -1828,6 +1832,8 @@ class PathPlannerService(Node):
                 yaml.safe_dump({"parameters": parameters}, f, sort_keys=False)
             with open("/tmp/scores.yaml", "w") as f:
                 yaml.safe_dump({"scores": successes}, f, sort_keys=False)
+            with open("/tmp/scores_history.yaml", "a") as f:
+                yaml.safe_dump(scores, f, sort_keys=False)
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
