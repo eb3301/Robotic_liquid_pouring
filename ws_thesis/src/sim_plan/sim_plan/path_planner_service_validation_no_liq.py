@@ -1758,7 +1758,7 @@ class PathPlannerService(Node):
         exec_path=best_path #["all"]
         n_points = len(exec_path)
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
-        best_path["time"] = time
+        #best_path["time"] = time
 
         best_path=self.to_builtin(best_path)
         best_parameters=self.to_builtin(best_parameters)
