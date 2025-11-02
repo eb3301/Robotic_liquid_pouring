@@ -4,8 +4,8 @@ import yaml
 import random
 from interfaces.srv import UpdateBelief  
 
-PARAMS_FILE = "/tmp/parameters_set.yaml"
-SCORES_FILE = "/tmp/score_best_path.yaml"
+PARAMS_FILE = "/tmp/parameters.yaml"
+SCORES_FILE = "/tmp/scores.yaml"
 MAX_MODELS = 30
 
 def is_success(score, threshold=0.5):

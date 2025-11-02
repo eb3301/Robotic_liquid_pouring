@@ -1827,8 +1827,8 @@ class PathPlannerService(Node):
                 yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
             with open("/tmp/parameters.yaml", "w") as f:
                 yaml.safe_dump({"parameters": parameters}, f, sort_keys=False)
-            with open("/tmp/score_best_path.yaml", "w") as f:
-                yaml.safe_dump({"score_best_path": successes}, f, sort_keys=False)
+            with open("/tmp/scores.yaml", "w") as f:
+                yaml.safe_dump({"scores": successes}, f, sort_keys=False)
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
