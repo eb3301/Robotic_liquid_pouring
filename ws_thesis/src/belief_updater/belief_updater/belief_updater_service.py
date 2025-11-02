@@ -7,6 +7,7 @@ from interfaces.srv import UpdateBelief
 PARAMS_FILE = "/tmp/parameters.yaml"
 SCORES_FILE = "/tmp/scores.yaml"
 MAX_MODELS = 30
+MIN_MODELS = 10
 
 def is_success(score, threshold=0.5):
     return score > threshold
@@ -65,16 +66,19 @@ class BeliefUpdater(Node):
             return response
 
         # Resampling
-        new_samples = [update_parameters(p) for p in param_new]
-        updated = param_new + new_samples
-        # Limita a MAX_MODELS
+        updated = list(param_new)
+        while len(updated) < MIN_MODELS:
+            for p in param_new:
+                updated.append(update_parameters(p))
+                if len(updated) >= MIN_MODELS:
+                    break
         if len(updated) > MAX_MODELS:
             updated = random.sample(updated, MAX_MODELS)
 
         # Salva su file
         try:
             with open(PARAMS_FILE, 'w') as f:
-                yaml.safe_dump(updated, f, sort_keys=False)
+                yaml.safe_dump({"parameters": updated}, f, sort_keys=False)
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
