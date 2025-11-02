@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'belief_updater_service = belief_updater.belief_updater_service:main',
             'belief_updater_client = belief_updater.belief_updater_client:main',
+            'belief_updater_client_auto = belief_updater.belief_updater_client_auto:main',
         ],
     },
 )

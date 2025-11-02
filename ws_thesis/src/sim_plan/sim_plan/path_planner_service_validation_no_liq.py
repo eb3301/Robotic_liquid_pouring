@@ -1600,7 +1600,6 @@ class PathPlannerService(Node):
     
         if request.no_params == True:
             PARAMS_FILE = "/tmp/parameters.yaml"
-            TOLS_FILE = "/tmp/tolerances.yaml"
 
             if not os.path.exists(PARAMS_FILE):
                 response.success = False
