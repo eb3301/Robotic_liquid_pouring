@@ -1693,7 +1693,7 @@ class PathPlannerService(Node):
             for j in range(M):
                 theta_f =  np.deg2rad(parameters["theta_f"]) #np.pi * 0.48
                 num_wp = int(parameters["num_wp"]) #int(10/dt)
-                paths = [(0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0), (0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0)]
+                paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
                 # paths = plan_path(
                 #     ur5e, 
                 #     theta_f,
