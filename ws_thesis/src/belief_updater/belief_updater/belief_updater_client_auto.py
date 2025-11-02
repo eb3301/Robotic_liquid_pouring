@@ -50,8 +50,29 @@ class CallPlannerSrv(Node):
                     self.get_logger().info(f"Service call success={result.success}")
                 break
 
-
 def main():
+    rclpy.init()
+    node = CallPlannerSrv()
+    try:
+        for i in range(100):        # 100 iterazioni
+            print(f"iter {i}")
+
+            resp = None
+            while resp is None or not resp.success:
+                resp = node.call_service()
+
+            node.reward_callback()
+            node.spin_until_result()
+            
+            time.sleep(0.1)  # opzionale, evita martellamento
+        
+        print("done")
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+def main1():
     rclpy.init()
     node = CallPlannerSrv()
     try:
