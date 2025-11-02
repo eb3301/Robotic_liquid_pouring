@@ -32,11 +32,9 @@ class BeliefUpdater(Node):
         self.srv = self.create_service(UpdateBelief, 'update_belief', self.updater_callback)
         self.get_logger().info("Belief updater service ready")
 
-    def _load_yaml_list(self, path, what):
+    def _load_yaml(self, path):
         with open(path, 'r') as f:
             data = yaml.safe_load(f)
-        if not isinstance(data, list):
-            raise ValueError(f"{what} in {path} deve essere una lista")
         return data
 
     def updater_callback(self, request, response):
@@ -45,8 +43,11 @@ class BeliefUpdater(Node):
 
         # Carica set di parametri e score
         try:
-            parameters_set = self._load_yaml_list(PARAMS_FILE, "parameters_set")
-            scores = self._load_yaml_list(SCORES_FILE, "scores")
+            data_params = self._load_yaml(PARAMS_FILE)
+            data_scores = self._load_yaml(SCORES_FILE)
+            parameters_set = data_params["parameters"]
+            scores = data_scores["scores"]
+
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")
             response.success = False
