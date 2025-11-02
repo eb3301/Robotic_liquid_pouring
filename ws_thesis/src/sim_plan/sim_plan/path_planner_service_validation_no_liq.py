@@ -1709,51 +1709,109 @@ class PathPlannerService(Node):
                 # fake_sim(ur5e, paths, scene, path_debug)
                 candidate_paths.append(paths)
                     
+        
+        # # Valuta ogni traiettoria su ogni set di param
+        # best_path = None
+        # best_score = -1e30
+        # best_parameters = None
+        # score_best_path=[]
+        
+        
+        # for paths in candidate_paths:
+        #     total_score = 0
+        #     local_best_score = -1e30
+        #     local_best_parameters = None
+        #     local_scores = []
+            
+        #     for parameters in parameters_set:
+        #         # score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
+        #         score = compute_fake_reward(parameters)
+        #         success+=is_success(score,0.1)
+        #         print(f"score: {score}")
+        #         total_score += score
+        #         local_scores.append((parameters, score))
+        #         if score > local_best_score:
+        #             local_best_score = score
+        #             local_best_parameters = parameters
+
+        #     if total_score > best_score:
+        #         best_score = total_score
+        #         best_path = paths
+        #         best_parameters = local_best_parameters
+        #         score_best_path = local_scores
+        
+
+        # best_score /= (3+1) # sum of max reward
+
+        # if best_score < delta:
+        #     self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
+        #     response.success=False
+        #     return response
+        # else:
+        #     delta=best_score
+        #     print("Esiste traj che soddisfa req succ")
+
+        # if best_parameters is None or best_path is None: 
+        #     self.get_logger().info("Nessuna traiettoria o no best params")
+        #     response.success=False
+        #     return response
+
+        # exec_path=best_path #["all"]
+        # n_points = len(exec_path)
+        # time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
+        # #best_path["time"] = time
+
+        # best_path=self.to_builtin(best_path)
+        # best_parameters=self.to_builtin(best_parameters)
+        # tolerances=self.to_builtin(tolerances)
+        # score_best_path=self.to_builtin(score_best_path)
+
+        # try:
+        #     with open("/tmp/best_path.yaml", "w") as f:
+        #         yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
+        #     with open("/tmp/parameters.yaml", "w") as f:
+        #         yaml.safe_dump({"parameters": best_parameters}, f, sort_keys=False)
+        #     with open("/tmp/tolerances.yaml", "w") as f:
+        #         yaml.safe_dump({"tolerances": tolerances}, f, sort_keys=False)
+        #     with open("/tmp/score_best_path.yaml", "w") as f:
+        #         yaml.safe_dump({"score_best_path": score_best_path}, f, sort_keys=False)
+        # except Exception as e:
+        #     self.get_logger().error(f"Errore salvataggio YAML: {e}")
+        #     response.success = False
+        #     return response
+        
+        # response.success = True
+        # flat_best_path = exec_path #[x for wp in exec_path for x in wp]
+        # response.best_path = flat_best_path
+        # response.time = time
+        # return response
 
         # Valuta ogni traiettoria su ogni set di param
         best_path = None
-        best_score = -1e30
-        best_parameters = None
-        score_best_path=[]
-        
-        
-        for paths in candidate_paths:
-            total_score = 0
-            local_best_score = -1e30
-            local_best_parameters = None
-            local_scores = []
-            
-            for parameters in parameters_set:
+        best_success_rate=0
+
+        for i,path in enumerate(candidate_paths):
+            success=0
+            successes = np.zeros(len(parameters_set))
+            for j,parameters in enumerate(parameters_set):
                 # score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
                 score = compute_fake_reward(parameters)
-                print(f"score: {score}")
-                total_score += score
-                local_scores.append((parameters, score))
-                if score > local_best_score:
-                    local_best_score = score
-                    local_best_parameters = parameters
+                if is_success(score,0.1):
+                    success+=1
+                    successes[j]=1
+            success_rate=success/len(parameters_set)
 
-            if total_score > best_score:
-                best_score = total_score
-                best_path = paths
-                best_parameters = local_best_parameters
-                score_best_path = local_scores
+            if success_rate > best_success_rate:
+                best_path = path
+                best_successes = successes.copy()
+                best_success_rate = success_rate
         
-
-        best_score /= (3+1) # sum of max reward
-
-        if best_score < delta:
+        if best_success_rate < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
             response.success=False
             return response
-        else:
-            delta=best_score
-            print("Esiste traj che soddisfa req succ")
-
-        if best_parameters is None or best_path is None: 
-            self.get_logger().info("Nessuna traiettoria o no best params")
-            response.success=False
-            return response
+        delta=best_success_rate
+        print("Esiste traj che soddisfa req succ")
 
         exec_path=best_path #["all"]
         n_points = len(exec_path)
@@ -1761,19 +1819,16 @@ class PathPlannerService(Node):
         #best_path["time"] = time
 
         best_path=self.to_builtin(best_path)
-        best_parameters=self.to_builtin(best_parameters)
-        tolerances=self.to_builtin(tolerances)
-        score_best_path=self.to_builtin(score_best_path)
+        parameters=self.to_builtin(parameters_set)
+        successes=self.to_builtin(best_successes)
 
         try:
             with open("/tmp/best_path.yaml", "w") as f:
                 yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
             with open("/tmp/parameters.yaml", "w") as f:
-                yaml.safe_dump({"parameters": best_parameters}, f, sort_keys=False)
-            with open("/tmp/tolerances.yaml", "w") as f:
-                yaml.safe_dump({"tolerances": tolerances}, f, sort_keys=False)
+                yaml.safe_dump({"parameters": parameters}, f, sort_keys=False)
             with open("/tmp/score_best_path.yaml", "w") as f:
-                yaml.safe_dump({"score_best_path": score_best_path}, f, sort_keys=False)
+                yaml.safe_dump({"score_best_path": successes}, f, sort_keys=False)
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
