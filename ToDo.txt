@@ -7,6 +7,7 @@ ToDo:
 - definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
 - (P) tuning rewards e penalties (durante test)
 - (P) antisloshing (?)
+- (P) aggiorna sistema scelta best path
 
 # INTEGRAZIONE
 - implementare correzione depth (?)
