@@ -1828,9 +1828,8 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
-        new_threshold=np.mean(best_scores)
-        print(f"GESÙ BARACCA: {new_threshold}")
-
+        new_threshold=np.mean(best_scores) if np.mean(best_scores)>threshold else threshold 
+        
         best_path=self.to_builtin(best_path)
         parameters=self.to_builtin(parameters_set)
         successes=self.to_builtin(best_successes)
