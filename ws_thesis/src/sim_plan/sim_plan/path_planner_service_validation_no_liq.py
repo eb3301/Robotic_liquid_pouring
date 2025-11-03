@@ -1789,6 +1789,12 @@ class PathPlannerService(Node):
         best_path = None
         best_success_rate=0
 
+        if not os.path.exists("/tmp/threshold.yaml"):
+            threshold=0.1
+        else:
+            with open("/tmp/threshold.yaml", "r") as f:
+                threshold = yaml.safe_load(f)
+
         for i,path in enumerate(candidate_paths):
             success=0
             successes = np.zeros(len(parameters_set))
@@ -1797,7 +1803,7 @@ class PathPlannerService(Node):
                 # score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
                 score = compute_fake_reward(parameters)
                 scores[j]=score
-                if is_success(score,0.1):
+                if is_success(score,threshold):
                     success+=1
                     successes[j]=1
             success_rate=success/len(parameters_set)
@@ -1820,11 +1826,14 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
+        new_threshold=np.mean(best_scores)
+
         best_path=self.to_builtin(best_path)
         parameters=self.to_builtin(parameters_set)
         successes=self.to_builtin(best_successes)
         scores=self.to_builtin(best_scores)
 
+        
         try:
             with open("/tmp/best_path.yaml", "w") as f:
                 yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
@@ -1834,6 +1843,8 @@ class PathPlannerService(Node):
                 yaml.safe_dump({"scores": successes}, f, sort_keys=False)
             with open("/tmp/scores_history.yaml", "a") as f:
                 yaml.dump({"scores": scores}, f, explicit_start=True, sort_keys=False)
+            with open("/tmp/threshold.yaml", "w") as f:
+                yaml.safe_dump(new_threshold, f, sort_keys=False)   
 
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")

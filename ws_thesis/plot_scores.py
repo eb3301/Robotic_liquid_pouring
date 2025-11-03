@@ -19,7 +19,7 @@ plt.scatter(xs, ys)
 
 # trend = media per iter
 trend_y = [np.mean(scores) for scores in iters]
-plt.plot(range(len(trend_y)), trend_y)
+plt.plot(range(len(trend_y)), trend_y, color='red', linewidth=2)
 
 plt.xlabel("iterazione")
 plt.ylabel("score")
