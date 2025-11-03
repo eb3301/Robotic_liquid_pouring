@@ -1835,6 +1835,7 @@ class PathPlannerService(Node):
         parameters=self.to_builtin(parameters_set)
         successes=self.to_builtin(best_successes)
         scores=self.to_builtin(best_scores)
+        new_threshold=self.to_builtin(new_threshold)
 
         
         try:
