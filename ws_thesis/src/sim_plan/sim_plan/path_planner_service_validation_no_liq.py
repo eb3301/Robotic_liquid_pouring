@@ -1794,6 +1794,8 @@ class PathPlannerService(Node):
         else:
             with open("/tmp/threshold.yaml", "r") as f:
                 threshold = yaml.safe_load(f)
+                if threshold is None:
+                    threshold=0.1
 
         for i,path in enumerate(candidate_paths):
             success=0
@@ -1827,6 +1829,7 @@ class PathPlannerService(Node):
         #best_path["time"] = time
 
         new_threshold=np.mean(best_scores)
+        print(f"GESÙ BARACCA: {new_threshold}")
 
         best_path=self.to_builtin(best_path)
         parameters=self.to_builtin(parameters_set)
