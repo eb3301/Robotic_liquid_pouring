@@ -1828,7 +1828,7 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
-        new_threshold=np.mean(best_scores) if np.mean(best_scores)>threshold else threshold 
+        new_threshold = max(np.mean(best_scores), threshold)
         
         best_path=self.to_builtin(best_path)
         parameters=self.to_builtin(parameters_set)

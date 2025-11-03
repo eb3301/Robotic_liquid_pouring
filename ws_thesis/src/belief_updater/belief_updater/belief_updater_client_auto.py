@@ -54,7 +54,7 @@ def main():
     rclpy.init()
     node = CallPlannerSrv()
     try:
-        for i in range(100):        # 100 iterazioni
+        for i in range(10000):        # 100 iterazioni
             print(f"iter {i}")
 
             resp = None
