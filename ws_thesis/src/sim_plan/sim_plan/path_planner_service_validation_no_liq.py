@@ -1687,6 +1687,16 @@ class PathPlannerService(Node):
             for _ in range(N):
                 parameters_set.append(generate_parameters(parameters_range)) 
 
+            tolerances_save=self.to_builtin(tolerances.copy())
+
+        
+            try:
+                with open("/tmp/tolerances.yaml", "w") as f:
+                    yaml.safe_dump({"tolerances":tolerances_save}, f, sort_keys=False)
+            except Exception as e:
+                self.get_logger().error(f"Errore salvataggio YAML: {e}")
+                response.success = False
+                return response
 
         #init_sim()
         candidate_paths = []
