@@ -1609,7 +1609,13 @@ class PathPlannerService(Node):
                     data = yaml.safe_load(f)
                 if "parameters" not in data:
                     raise RuntimeError("File init_parameters.yaml non contiene chiave 'parameters'")
-                parameters_set=data["parameters"]            
+                parameters_set=data["parameters"]
+                if request.target_vol is not None:
+                    for p in parameters_set:
+                        p["vol_target"]=request.target_vol
+                for p in parameters_set:
+                    p["err_target"]=5e-6
+                    # TODO sistemare aggiornamento params
         else:
             req_parameters = {
                 "pos_init_cont": list(request.pos_init_cont),
@@ -1828,8 +1834,8 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
-        new_threshold = max(np.mean(best_scores), threshold)
-        
+        new_threshold = max(np.mean(best_scores), threshold+0.00001)
+
         best_path=self.to_builtin(best_path)
         parameters=self.to_builtin(parameters_set)
         successes=self.to_builtin(best_successes)
