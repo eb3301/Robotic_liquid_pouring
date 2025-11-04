@@ -30,6 +30,10 @@ def update_parameters1(param, scale=0.1):
     return new_param
 
 def sample_param(value, tol):
+    
+    if isinstance(tol, list):
+        return tuple(tol)
+    
     # tol = (neg,pos)  oppure ("rel",neg%,pos%)
     # caso assoluto
     if isinstance(tol, tuple) and isinstance(tol[0], (int, float)):
