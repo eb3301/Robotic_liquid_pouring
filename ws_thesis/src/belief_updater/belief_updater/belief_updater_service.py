@@ -143,13 +143,13 @@ class BeliefUpdater(Node):
             # Fattore shrinking
             # k = iterazione corrente, H = orizzonte previsto
             # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
-            H=1000
+            H=500
             f0, f_min = 1.0, 0.0001
             tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
             factor = max(f_min, f0 * np.exp(-k / tau))
             # Re-heating per avere + esploraz 
-            boost_every, boost = 500, 1.4
-            factor = min(1.0, factor * boost) if k % boost_every == 0 else factor
+            #boost_every, boost = 500, 1.4
+            #factor = min(1.0, factor * boost) if k % boost_every == 0 else factor
 
 
             # Applica scaling
