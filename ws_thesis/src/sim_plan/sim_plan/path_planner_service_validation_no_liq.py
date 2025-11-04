@@ -1816,7 +1816,7 @@ class PathPlannerService(Node):
                     successes[j]=1
             success_rate=success/len(parameters_set)
 
-            if success_rate > best_success_rate:
+            if success_rate >= best_success_rate:
                 best_path = path
                 best_successes = successes.copy()
                 best_scores=scores.copy()
@@ -1834,7 +1834,7 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
-        new_threshold = max(np.mean(best_scores), threshold+0.00001)
+        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),3.98)
 
         best_path=self.to_builtin(best_path)
         parameters=self.to_builtin(parameters_set)
