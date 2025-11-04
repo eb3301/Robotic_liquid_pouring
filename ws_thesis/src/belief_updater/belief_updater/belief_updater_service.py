@@ -138,6 +138,14 @@ class BeliefUpdater(Node):
             parameters_set = data_params["parameters"]
             scores = data_scores["scores"]
             tolerances = data_tolerances["tolerances"]
+            k = data_tolerances.get("iteration", 0)
+
+            # Fattore shrinking
+            # esempio: parte da 1 e scende fino a min 0.2 in 50 step
+            factor = max(0.2, 1.0 - k/50.0)
+
+            # Applica scaling
+            tolerances_scaled = scale_tolerances(tolerances, factor)
 
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")
@@ -159,7 +167,7 @@ class BeliefUpdater(Node):
         updated = list(param_new)
         while len(updated) < MIN_MODELS:
             for p in param_new:
-                updated.append(update_parameters(p,tolerances))
+                updated.append(update_parameters(p,tolerances_scaled))
                 if len(updated) >= MIN_MODELS:
                     break
         if len(updated) > MAX_MODELS:
@@ -169,6 +177,10 @@ class BeliefUpdater(Node):
         try:
             with open(PARAMS_FILE, 'w') as f:
                 yaml.safe_dump({"parameters": updated}, f, sort_keys=False)
+                data_tolerances["iteration"] = k + 1
+            with open(TOLERANCES_FILE, 'w') as f:
+                yaml.safe_dump(data_tolerances, f, sort_keys=False)
+
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
             response.success = False
