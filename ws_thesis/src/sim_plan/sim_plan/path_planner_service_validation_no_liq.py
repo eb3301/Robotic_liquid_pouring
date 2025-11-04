@@ -1681,6 +1681,7 @@ class PathPlannerService(Node):
                 "theta_f": (10.0, 10.0),        # ±10°
                 "num_wp": ("rel", 0.2, 0.2),    # ±20%
             }
+            
             parameters_range=self._make_parameters_range(req_parameters,tolerances)
             parameters_set=[]
             for _ in range(N):

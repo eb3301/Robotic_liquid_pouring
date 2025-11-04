@@ -3,16 +3,19 @@ from rclpy.node import Node
 import yaml
 import random
 from interfaces.srv import UpdateBelief  
+import numpy as np
+import copy
 
 PARAMS_FILE = "/tmp/parameters.yaml"
 SCORES_FILE = "/tmp/scores.yaml"
+TOLERANCES_FILE = "/tmp/tolerances.yaml"
 MAX_MODELS = 30
 MIN_MODELS = 20
 
 def is_success(score, threshold=0.5):
     return score > threshold
 
-def update_parameters(param, scale=0.1):
+def update_parameters1(param, scale=0.1):
     new_param = {}
     for key, val in param.items():
         if isinstance(val, float):
@@ -25,6 +28,87 @@ def update_parameters(param, scale=0.1):
         else:
             new_param[key] = val
     return new_param
+
+def sample_param(value, tol):
+    # tol = (neg,pos)  oppure ("rel",neg%,pos%)
+    # caso assoluto
+    if isinstance(tol, tuple) and isinstance(tol[0], (int, float)):
+        neg, pos = tol
+        if neg == 0 and pos == 0:
+            return value
+        sigma = (neg + pos) / 6.0  # 3σ = tol
+        sample = np.random.normal(value, sigma)
+        return float(np.clip(sample, value - neg, value + pos))
+
+    # caso relativo
+    if isinstance(tol, tuple) and tol[0] == "rel":
+        _, neg_r, pos_r = tol
+        neg = abs(value) * neg_r
+        pos = abs(value) * pos_r
+        if neg == 0 and pos == 0:
+            return value
+        sigma = (neg + pos) / 6.0
+        sample = np.random.normal(value, sigma)
+        return float(np.clip(sample, value - neg, value + pos))
+
+    raise ValueError(f"Tolleranza non valida: {tol}")
+    
+
+def update_parameters(params, tolerances):
+    new = copy.deepcopy(params)
+
+    for key, val in params.items():
+        if key not in tolerances:
+            continue
+        
+        tol = tolerances[key]
+
+        # vettori
+        if isinstance(val, list):
+            if not isinstance(tol, list) or len(val) != len(tol):
+                raise ValueError(f"Mismatch tolleranze per {key}: {len(val)} vs {len(tol)}")
+
+            out = [sample_param(v, t) for v, t in zip(val, tol)]
+
+            # normalizza quaternion se 7 componenti: [x,y,z, qw,qx,qy,qz]
+            if key in ("pos_init_ee", "pos_grip_ee") and len(out) == 7:
+                q = np.array(out[3:], dtype=float)
+                norm = np.linalg.norm(q)
+                if norm > 0:
+                    q = q / norm
+                out[3:] = q.tolist()
+
+            new[key] = out
+
+        # scalari
+        else:
+            v = sample_param(val, tol)
+            # cast a int per num_wp
+            if key == "num_wp":
+                v = int(round(v))
+            new[key] = v
+
+    return new
+
+def scale_tolerances(tolerances, factor):
+    new_tol = {}
+    for key, tol in tolerances.items():
+        if isinstance(tol, list):
+            new_tol[key] = []
+            for t in tol:
+                if isinstance(t, tuple) and isinstance(t[0], (int,float)):
+                    neg, pos = t
+                    new_tol[key].append((neg*factor, pos*factor))
+                else:
+                    new_tol[key].append(t)
+        elif isinstance(t, tuple) and isinstance(t[0], (int,float)):
+            neg, pos = tol
+            new_tol[key] = (neg*factor, pos*factor)
+        else:
+            new_tol[key] = tol
+    return new_tol
+
+
 # ------------------------------------------------------
 
 class BeliefUpdater(Node):
@@ -46,8 +130,10 @@ class BeliefUpdater(Node):
         try:
             data_params = self._load_yaml(PARAMS_FILE)
             data_scores = self._load_yaml(SCORES_FILE)
+            data_tolerances = self._load_yaml(TOLERANCES_FILE)
             parameters_set = data_params["parameters"]
             scores = data_scores["scores"]
+            tolerances = data_tolerances["tolerances"]
 
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")
@@ -69,7 +155,7 @@ class BeliefUpdater(Node):
         updated = list(param_new)
         while len(updated) < MIN_MODELS:
             for p in param_new:
-                updated.append(update_parameters(p))
+                updated.append(update_parameters(p,tolerances))
                 if len(updated) >= MIN_MODELS:
                     break
         if len(updated) > MAX_MODELS:
