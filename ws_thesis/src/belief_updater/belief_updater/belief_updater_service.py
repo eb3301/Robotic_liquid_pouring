@@ -141,8 +141,16 @@ class BeliefUpdater(Node):
             k = data_tolerances.get("iteration", 0)
 
             # Fattore shrinking
-            # esempio: parte da 1 e scende fino a min 0.2 in 50 step
-            factor = max(0.2, 1.0 - k/50.0)
+            # k = iterazione corrente, H = orizzonte previsto
+            # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
+            H=1000
+            f0, f_min = 1.0, 0.001
+            tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
+            factor = max(f_min, f0 * np.exp(-k / tau))
+            # Re-heating per avere + esploraz 
+            boost_every, boost = 150, 1.4
+            #factor = min(1.0, factor * boost) if k % boost_every == 0 else factor
+
 
             # Applica scaling
             tolerances_scaled = scale_tolerances(tolerances, factor)
