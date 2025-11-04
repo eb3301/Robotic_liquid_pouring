@@ -143,7 +143,7 @@ class BeliefUpdater(Node):
             # Fattore shrinking
             # k = iterazione corrente, H = orizzonte previsto
             # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
-            H=2000
+            H=1000
             f0, f_min = 1.0, 0.0001
             tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
             factor = max(f_min, f0 * np.exp(-k / tau))
