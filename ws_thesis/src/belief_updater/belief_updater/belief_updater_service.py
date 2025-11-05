@@ -94,23 +94,39 @@ def update_parameters(params, tolerances):
 
     return new
 
-def scale_tolerances(tolerances, factor):
-    new_tol = {}
-    for key, tol in tolerances.items():
-        if isinstance(tol, list):
-            new_tol[key] = []
-            for t in tol:
-                if isinstance(t, tuple) and isinstance(t[0], (int,float)):
-                    neg, pos = t
-                    new_tol[key].append((neg*factor, pos*factor))
-                else:
-                    new_tol[key].append(t)
-        elif isinstance(t, tuple) and isinstance(t[0], (int,float)):
-            neg, pos = tol
-            new_tol[key] = (neg*factor, pos*factor)
-        else:
-            new_tol[key] = tol
-    return new_tol
+def scale_tolerances(tol, factor):
+    """
+    Scala tolleranze di qualsiasi struttura ricorsiva.
+    Gestisce:
+      - [neg,pos] -> (neg*factor,pos*factor)
+      - ("rel",neg%,pos%) -> invariato
+      - scalari -> scalati
+      - liste annidate -> ricorsive
+    """
+    # tuple/liste di 3 elementi: caso relativo ["rel", neg_r, pos_r]
+    if (isinstance(tol, (list, tuple))
+        and len(tol) == 3
+        and tol[0] == "rel"):
+        # non scalare percentuali
+        return ("rel", tol[1], tol[2])
+
+    # coppia numerica [neg,pos]
+    if (isinstance(tol, (list, tuple))
+        and len(tol) == 2
+        and all(isinstance(x, (int,float)) for x in tol)):
+        neg, pos = tol
+        return (neg * factor, pos * factor)
+
+    # lista generica -> ricorsione su elementi
+    if isinstance(tol, list):
+        return [scale_tolerances(t, factor) for t in tol]
+
+    # numero singolo
+    if isinstance(tol, (int, float)):
+        return tol * factor
+
+    # stringa o altro → lascia invariato
+    return tol
 
 
 # ------------------------------------------------------
