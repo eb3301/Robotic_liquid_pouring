@@ -212,11 +212,11 @@ class BeliefUpdater(Node):
             k = data_tolerances.get("iteration", 0)
 
             print(type(tolerances))
-            print(f"pos cont goal: {type(tolerances["pos_cont_goal"])}")
-            print(f"pos_init_ee: {type(tolerances["pos_init_ee"])}")
-            print(f"pos_init_ee: {type(tolerances["pos_init_ee"])}")
-            print(f"theta_f: {type(tolerances["theta_f"])}")
-            print(f"num_wp: {type(tolerances["num_wp"])}")
+            print(f"pos cont goal: {type(tolerances['pos_cont_goal'])}")
+            print(f"pos_init_ee: {type(tolerances['pos_init_ee'])}")
+            print(f"pos_init_ee: {type(tolerances['pos_init_ee'])}")
+            print(f"theta_f: {type(tolerances['theta_f'])}")
+            print(f"num_wp: {type(tolerances['num_wp'])}")
             # Fattore shrinking
             # k = iterazione corrente, H = orizzonte previsto
             # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
