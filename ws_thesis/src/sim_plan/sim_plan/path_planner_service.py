@@ -1891,8 +1891,7 @@ class PathPlannerService(Node):
             scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             for j in range(M):
                 theta_f =  np.deg2rad(parameters["theta_f"])
-                num_wp = int(parameters["num_wp"]) 
-                paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+                num_wp = int(parameters["num_wp"])
                 paths = plan_path(
                     ur5e, 
                     theta_f,
@@ -1976,7 +1975,7 @@ class PathPlannerService(Node):
             return response
         
         response.success = True
-        flat_best_path = exec_path #[x for wp in exec_path for x in wp]
+        flat_best_path = [x for wp in exec_path for x in wp]
         response.best_path = flat_best_path
         response.time = time
         return response
