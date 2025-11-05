@@ -1837,7 +1837,7 @@ class PathPlannerService(Node):
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
             response.success=False
             return response
-        delta=best_success_rate
+        #delta=best_success_rate
         print("Esiste traj che soddisfa req succ")
 
         exec_path=best_path #["all"]

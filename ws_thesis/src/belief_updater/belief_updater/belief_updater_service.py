@@ -136,7 +136,7 @@ class BeliefUpdater(Node):
             data_scores = self._load_yaml(SCORES_FILE)
             data_tolerances = self._load_yaml(TOLERANCES_FILE)
             parameters_set = data_params["parameters"]
-            scores = data_scores["scores"]
+            scores = data_scores["scores"] # CONTIENE IN REALTÀ SUCCESS (BINARIO 0/1)
             tolerances = data_tolerances["tolerances"]
             k = data_tolerances.get("iteration", 0)
 
@@ -147,7 +147,6 @@ class BeliefUpdater(Node):
             f0, f_min = 1.0, 0.0001
             tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
             factor = max(f_min, f0 * np.exp(-k / tau))
-            print(factor)
             # Re-heating per avere + esploraz 
             #boost_every, boost = 500, 1.4
             #factor = min(1.0, factor * boost) if k % boost_every == 0 else factor
@@ -155,6 +154,7 @@ class BeliefUpdater(Node):
 
             # Applica scaling
             tolerances_scaled = scale_tolerances(tolerances, factor)
+            print(tolerances_scaled["pos_cont_goal"])
 
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")
