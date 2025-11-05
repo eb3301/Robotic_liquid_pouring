@@ -154,7 +154,7 @@ class BeliefUpdater(Node):
 
             # Applica scaling
             tolerances_scaled = scale_tolerances(tolerances, factor)
-            print(tolerances_scaled["pos_cont_goal"])
+            print(tolerances_scaled)
 
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")
