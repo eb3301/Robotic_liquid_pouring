@@ -1592,7 +1592,7 @@ class PathPlannerService(Node):
 
         N = 20                   # Numero di modelli simulati (iniziale)
         M = 5                    # Numero di traiettorie
-        delta = 0.1              # Threshold di successo
+        delta = 1/N              # Threshold di successo
         view=False
         liq=False
         record=False
