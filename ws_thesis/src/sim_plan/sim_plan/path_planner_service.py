@@ -1116,7 +1116,7 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     reward = reward1 + reward2 + reward3
     return reward
 
-def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, dt, approach=False, antisloshing=False): 
+def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, liq, dt, approach=False, antisloshing=False): 
     # Reset env:
     # reset_sim(scene, ur5e, becher, becher2, liquid, parameters)
     scene.reset(init_scene)
@@ -1403,7 +1403,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     # score-=1e-2*Dt/t_ref
 
     if liq:
-        score = compute_reward(liquid, becher2, parameters, t0, dt, scene)
+        score = compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene)
     else:
         tf=scene.get_state().scene.t
         Dt=tf-t0
