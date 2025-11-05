@@ -15,20 +15,6 @@ MIN_MODELS = 20
 def is_success(score, threshold=0.5):
     return score > threshold
 
-def update_parameters1(param, scale=0.1):
-    new_param = {}
-    for key, val in param.items():
-        if isinstance(val, float):
-            import numpy as np
-            noise = np.random.normal(0, scale * abs(val))
-            new_param[key] = float(val + noise)
-        elif isinstance(val, list) and all(isinstance(v, float) for v in val):
-            import numpy as np
-            new_param[key] = [float(v + np.random.normal(0, scale * abs(v))) for v in val]
-        else:
-            new_param[key] = val
-    return new_param
-
 def sample_param(value, tol):
     
     if isinstance(tol, list):
@@ -57,7 +43,6 @@ def sample_param(value, tol):
 
     raise ValueError(f"Tolleranza non valida: {tol}")
     
-
 def update_parameters(params, tolerances):
     new = copy.deepcopy(params)
 
@@ -183,7 +168,6 @@ def scale_tol(obj, factor):
     # qualsiasi altro tipo -> invariato
     return obj
 
-
 # ------------------------------------------------------
 
 class BeliefUpdater(Node):
@@ -210,17 +194,11 @@ class BeliefUpdater(Node):
             scores = data_scores["scores"] # CONTIENE IN REALTÀ SUCCESS (BINARIO 0/1)
             tolerances = data_tolerances["tolerances"]
             k = data_tolerances.get("iteration", 0)
-
-            print(type(tolerances))
-            print(f"pos cont goal: {type(tolerances['pos_cont_goal'])}")
-            print(f"pos_init_ee: {type(tolerances['pos_init_ee'])}")
-            print(f"pos_init_ee: {type(tolerances['pos_init_ee'])}")
-            print(f"theta_f: {type(tolerances['theta_f'])}")
-            print(f"num_wp: {type(tolerances['num_wp'])}")
+           
             # Fattore shrinking
             # k = iterazione corrente, H = orizzonte previsto
             # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
-            H=300
+            H=1000
             f0, f_min = 1.0, 0.0001
             tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
             factor = max(f_min, f0 * np.exp(-k / tau))
