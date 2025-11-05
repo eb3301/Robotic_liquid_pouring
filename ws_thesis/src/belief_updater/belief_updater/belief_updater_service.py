@@ -9,8 +9,8 @@ import copy
 PARAMS_FILE = "/tmp/parameters.yaml"
 SCORES_FILE = "/tmp/scores.yaml"
 TOLERANCES_FILE = "/tmp/tolerances.yaml"
-MAX_MODELS = 30
-MIN_MODELS = 20
+MAX_MODELS = 10
+MIN_MODELS = 5
 
 def is_success(score, threshold=0.5):
     return score > threshold
