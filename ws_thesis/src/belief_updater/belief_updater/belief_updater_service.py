@@ -128,6 +128,61 @@ def scale_tolerances(tol, factor):
     # stringa o altro → lascia invariato
     return tol
 
+def scale_tol(obj, factor):
+    """
+    Ricorsiva, robusta, ordina i casi in modo logico.
+    Scala solo:
+      - liste/tuple [neg,pos]
+      - scalari numerici
+    Non scala:
+      - ["rel", a, b]
+      - stringhe e dati non numerici
+    """
+
+    # numpy scalari -> Python scalari
+    if isinstance(obj, np.generic):
+        return scale_tol(obj.item(), factor)
+
+    # numpy array -> lista ricorsiva
+    if isinstance(obj, np.ndarray):
+        return [scale_tol(x, factor) for x in obj.tolist()]
+
+    # caso relativo: ["rel", neg%, pos%]
+    if (
+        isinstance(obj, (list, tuple))
+        and len(obj) == 3
+        and isinstance(obj[0], str)
+        and obj[0] == "rel"
+    ):
+        return ["rel", obj[1], obj[2]]  # invariato
+
+    # caso coppia numerica [neg,pos]
+    if (
+        isinstance(obj, (list, tuple))
+        and len(obj) == 2
+        and all(isinstance(x, (int, float, np.generic)) for x in obj)
+    ):
+        return [float(obj[0]) * factor, float(obj[1]) * factor]
+
+    # singolo numero
+    if isinstance(obj, (int, float, np.generic)):
+        return float(obj) * factor
+
+    # lista -> ricorsione
+    if isinstance(obj, list):
+        return [scale_tol(x, factor) for x in obj]
+
+    # tupla -> ricorsione + ritorno lista
+    if isinstance(obj, tuple):
+        return [scale_tol(x, factor) for x in obj]
+
+    # dict -> ricorsione
+    if isinstance(obj, dict):
+        return {k: scale_tol(v, factor) for k, v in obj.items()}
+
+    # qualsiasi altro tipo -> invariato
+    return obj
+
 
 # ------------------------------------------------------
 
@@ -156,6 +211,12 @@ class BeliefUpdater(Node):
             tolerances = data_tolerances["tolerances"]
             k = data_tolerances.get("iteration", 0)
 
+            print(type(tolerances))
+            print(f"pos cont goal: {type(tolerances["pos_cont_goal"])}")
+            print(f"pos_init_ee: {type(tolerances["pos_init_ee"])}")
+            print(f"pos_init_ee: {type(tolerances["pos_init_ee"])}")
+            print(f"theta_f: {type(tolerances["theta_f"])}")
+            print(f"num_wp: {type(tolerances["num_wp"])}")
             # Fattore shrinking
             # k = iterazione corrente, H = orizzonte previsto
             # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
@@ -169,7 +230,7 @@ class BeliefUpdater(Node):
 
 
             # Applica scaling
-            tolerances_scaled = scale_tolerances(tolerances, factor)
+            tolerances_scaled = scale_tol(tolerances, factor)
             print(tolerances_scaled)
 
         except Exception as e:
