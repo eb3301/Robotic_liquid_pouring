@@ -1063,57 +1063,65 @@ def plan_path(
         "all": path
         }
 
-def compute_reward(liquid, becher2, parameters, t0, scene):
+def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     particles = np.squeeze(liquid.get_particles())
     target_vol = parameters['vol_target']
-    vol_tol = 0.1 * target_vol  # ±10%
+    vol_tol = 0.15 * target_vol  # ±15% tolleranza entro al quale l'errore è accettato
 
-    #  Bounding box reale del becher target 
-    aabb = becher2.get_AABB().cpu().numpy().squeeze()  # shape (2, 3)
-    lower, upper = aabb[0], aabb[1]
+    # Bounding box dei contenitori 
+    aabb1 = becher1.get_AABB().cpu().numpy().squeeze()  # shape (2, 3)
+    lower1, upper1 = aabb1[0], aabb1[1]
+    aabb2 = becher2.get_AABB().cpu().numpy().squeeze()  # shape (2, 3)
+    lower2, upper2 = aabb2[0], aabb2[1]
 
-    print(f"AABB: {lower} - {upper}")
-    #  Particelle dentro il volume target (AABB) 
-    inside_mask = np.all((particles >= lower) & (particles <= upper), axis=1)
-    num_inside = np.sum(inside_mask)
-    frac_inside = num_inside / len(particles)
+    print(f"AABB: {lower2} - {upper2}")
+    # Particelle dentro al contenitore iniziale (AABB)
+    inside_mask1 = np.all((particles >= lower1) & (particles <= upper1), axis=1)
+    num_inside1 = np.sum(inside_mask1)
+    # Particelle dentro al contenitore target (AABB) 
+    inside_mask2 = np.all((particles >= lower2) & (particles <= upper2), axis=1)
+    num_inside2 = np.sum(inside_mask2)
+
+    # Frazione di particelle in uno dei contenitori
+    frac_inside = (num_inside1 + num_inside2) / len(particles)
     
     # Errore volume:
-    actual_vol = num_inside * liquid.particle_size
+    actual_vol = num_inside2 * liquid.particle_size
     vol_err = abs(actual_vol - target_vol)
 
-    #  Perdite (particelle cadute sotto piano tavolo) 
+    # Perdite (particelle cadute fuori) 
     loss_frac = 1 - frac_inside
 
-    #  Tempo 
-    Dt = scene.get_state().scene.t - t0
+    # Tempo 
+    #Dt = scene.get_state().scene.t - t0
+    Dt = (100 + 100 + 30 + int(0.5*int(parameters["num_wp"]))*2 + int(parameters["num_wp"]))*dt
 
-    #  Pesi
+    # Pesi
     w_vol, w_loss, w_time = 3.0, 3.0, 0.5
 
     reward = 0.0
 
     # Volume
-    reward1 = w_vol * max(0, 1 - vol_err / vol_tol) # Alternativa: reward1 = w_vol * np.exp(-vol_err / (vol_tol + 1e-12))
+    reward1 = w_vol * max(0, 1 - vol_err / vol_tol) # se l'errore è maggiore della tolleranza --> reward nullo
     print(f"reward errore volume: {reward1}")
 
     # Perdite
-    reward2 = w_loss * (1-loss_frac)
+    reward2 = w_loss * (1-loss_frac) # reward minore se tante particelle perse durante il movimento
     print(f"reward perdite: {reward2}")
 
-    # Penalità tempo (normalizzata) TODO
-    reward3 = w_time * Dt / 10.0
+    # Rempo
+    reward3 = w_time * max(0, min(1, 1 - (Dt - 8) / (12 - 8))) # equiv a range 285-485 wp (min 8 sec max 12 sec)
     print(f"reward tempo: {reward3}")
 
     reward = reward1 + reward2 + reward3
     return reward
 
-def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False, antisloshing=False): 
+def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, dt, approach=False, antisloshing=False): 
     # Reset env:
     # reset_sim(scene, ur5e, becher, becher2, liquid, parameters)
     scene.reset(init_scene)
     print("Simulation started")
-    t0=scene.get_state().scene.t
+    t0=scene.get_state().scene.t 
 
     # Ottieni indici locali dei giunti
     dofs_idx = []
@@ -1395,7 +1403,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq
     # score-=1e-2*Dt/t_ref
 
     if liq:
-        score = compute_reward(liquid, becher2, parameters, t0, scene)
+        score = compute_reward(liquid, becher2, parameters, t0, dt, scene)
     else:
         tf=scene.get_state().scene.t
         Dt=tf-t0
@@ -1881,7 +1889,6 @@ class PathPlannerService(Node):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
             scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
-            dt=0.01
             for j in range(M):
                 theta_f =  np.deg2rad(parameters["theta_f"])
                 num_wp = int(parameters["num_wp"]) 
@@ -1918,7 +1925,7 @@ class PathPlannerService(Node):
             successes = np.zeros(len(parameters_set))
             scores = np.zeros(len(parameters_set))
             for j,parameters in enumerate(parameters_set):
-                score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
+                score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, dt)
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1
