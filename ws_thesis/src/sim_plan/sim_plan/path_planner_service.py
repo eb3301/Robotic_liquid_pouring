@@ -1073,8 +1073,9 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     lower1, upper1 = aabb1[0], aabb1[1]
     aabb2 = becher2.get_AABB().cpu().numpy().squeeze()  # shape (2, 3)
     lower2, upper2 = aabb2[0], aabb2[1]
+    
+    # print(f"AABB 2: {lower2} - {upper2}")
 
-    print(f"AABB: {lower2} - {upper2}")
     # Particelle dentro al contenitore iniziale (AABB)
     inside_mask1 = np.all((particles >= lower1) & (particles <= upper1), axis=1)
     num_inside1 = np.sum(inside_mask1)
@@ -1112,7 +1113,7 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     # Rempo
     reward3 = w_time * max(0, min(1, 1 - (Dt - 8) / (12 - 8))) # equiv a range 285-485 wp (min 8 sec max 12 sec)
     print(f"reward tempo: {reward3}")
-
+    
     reward = reward1 + reward2 + reward3
     return reward
 
@@ -1401,6 +1402,9 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
     # Dt=tf-t0
     # t_ref = 10 # la sim dovrebbe durare circa 10s
     # score-=1e-2*Dt/t_ref
+    print(f" ")
+    print(f" ")
+    print(f"Simulation completed")
 
     if liq:
         score = compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene)
@@ -1411,7 +1415,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
         score+=1
         score-=1e-2*Dt/t_ref
     
-    print(f"Simulation completed")
+    
     return score
 
 def is_success(score, threshold=0.5):
@@ -1771,7 +1775,7 @@ class PathPlannerService(Node):
         liq=True
         record=False
         debug=False   
-        view=True
+        view=False
 
         if view:
             N = 1                    # Numero di modelli simulati (iniziale)
@@ -1890,8 +1894,11 @@ class PathPlannerService(Node):
             print(f"Parameters of iteration {i}: {parameters}")
             scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             for j in range(M):
-                theta_f =  np.deg2rad(parameters["theta_f"])
-                num_wp = int(parameters["num_wp"])
+                theta_f =  np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
+                # def int - distrib unif --> campionamento uniforme (M) valuto traj 
+                # aggiornamento alternato       
+                # aggiornamento con distrib beta
+                num_wp = int(parameters["num_wp"]) # 300 - 500 passo 10 (20)
                 paths = plan_path(
                     ur5e, 
                     theta_f,
