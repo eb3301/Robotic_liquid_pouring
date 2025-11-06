@@ -1518,6 +1518,20 @@ def sample_x_TS(w_mean, w_cov, x_min, x_max, M, n_grid=50):
         scores = expit(ws[0] + ws[1]*thetas)
         x_nexts.append(thetas[np.argmax(scores)])
     return np.array(x_nexts)
+
+def best_theta_greedy(w_mean, x_min, x_max, n_grid=200):
+    grid = np.linspace(x_min, x_max, n_grid)
+    p = expit(w_mean[0] + w_mean[1]*grid)
+    return float(grid[np.argmax(p)])
+
+def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
+    grid = np.linspace(x_min, x_max, n_grid)
+    acc = np.zeros_like(grid)
+    ws = np.random.multivariate_normal(w_mean, w_cov, size=M)
+    for w in ws:
+        acc += expit(w[0] + w[1]*grid)
+    return float(grid[np.argmax(acc / M)])
+
 class PathPlannerService(Node):
     def __init__(self):
         super().__init__('path_planner_service')
@@ -1914,44 +1928,44 @@ class PathPlannerService(Node):
             k=0
         else:
             with open(iter_file, "r") as f:
-                    k = yaml.safe_load(f)
+                k = yaml.safe_load(f)
 
-        if k % 2==0:
-            file = "/tmp/TStheta.yaml"
-            if not os.path.exists(file):
-                x_hist = []
-                current_x =  90
-                y_hist = []
-                w_mean = np.zeros(2)
-                w_cov = np.eye(2)*10.0 
-            else:
-                with open(file, "r") as f:
-                    data = yaml.safe_load(f)
-                x_hist = data["history"] or []
-                current_x = data["new_x"] or 90
-                y_hist = data["success"] or [] # lista di 1=success,0=failure
-                w_mean = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
-                w_cov = data["w_cov"] or np.eye(2)*10.0 # Prior inizializzato come N(0,metà intervallo)
-                w_mean = np.array(w_mean)
-                w_cov  = np.array(w_cov)
+        file_theta = "/tmp/TStheta.yaml"
+        if not os.path.exists(file_theta):
+            x_hist_theta = []
+            current_x_theta =  (80,90,100)
+            y_hist_theta = []
+            w_mean_theta = np.zeros(2)
+            w_cov_theta = np.eye(2)*10.0 
         else:
-            file = "/tmp/TSnum_wp.yaml"
-            if not os.path.exists(file):
-                x_hist = []
-                current_x =  350
-                y_hist = []
-                w_mean = np.zeros(2)
-                w_cov = np.eye(2)*50.0 
-            else:
-                with open(file, "r") as f:
-                    data = yaml.safe_load(f)
-                x_hist = data["history"] or []
-                current_x = data["new_x"] or 350
-                y_hist = data["success"] or [] # lista di 1=success,0=failure
-                w_mean = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
-                w_cov = data["w_cov"] or np.eye(2)*50.0 # Prior inizializzato come N(0,metà intervallo)
-                w_mean = np.array(w_mean)
-                w_cov  = np.array(w_cov)
+            with open(file_theta, "r") as f:
+                data = yaml.safe_load(f)
+            x_hist_theta = data["x_hist"] or []
+            current_x_theta = tuple(data["new_x"]) or (80,90,100)
+            y_hist_theta = data["y_hist"] or [] # lista di 1=success,0=failure
+            w_mean_theta = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
+            w_cov_theta = data["w_cov"] or np.eye(2)*10.0 # Prior inizializzato come N(0,metà intervallo)
+            w_mean_theta = np.array(w_mean_theta)
+            w_cov_theta  = np.array(w_cov_theta)
+
+        file_num_wp = "/tmp/TSnum_wp.yaml"
+        if not os.path.exists(file_num_wp):
+            x_hist_num_wp = []
+            current_x_num_wp =  (300, 350, 400)
+            y_hist_num_wp = []
+            w_mean_num_wp = np.zeros(2)
+            w_cov_num_wp = np.eye(2)*50.0 
+        else:
+            with open(file_num_wp, "r") as f:
+                data = yaml.safe_load(f)
+            x_hist_num_wp = data["x_hist"] or []
+            current_x_num_wp = tuple(data["new_x"]) or (300, 350, 400)
+            y_hist_num_wp = data["y_hist"] or [] # lista di 1=success,0=failure
+            w_mean_num_wp = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
+            w_cov_num_wp = data["w_cov"] or np.eye(2)*50.0 # Prior inizializzato come N(0,metà intervallo)
+            w_mean_num_wp = np.array(w_mean_num_wp)
+            w_cov_num_wp  = np.array(w_cov_num_wp)
+
 
         init_sim()
         candidate_paths = []
@@ -1961,11 +1975,14 @@ class PathPlannerService(Node):
             print(f"Parameters of iteration {i}: {parameters}")
             scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             for j in range(M):
-                theta_f =  np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
-                # def int - distrib unif --> campionamento uniforme (M) valuto traj 
-                # aggiornamento alternato       
-                # aggiornamento con distrib beta
-                num_wp = int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
+                
+                if k % 2 == 0:
+                    theta_f = np.deg2rad(current_x_theta[j]) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
+                    num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400)) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
+                else:
+                    theta_f = np.deg2rad(best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100)) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
+                    num_wp = int(current_x_num_wp[j]) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
+
                 paths = plan_path(
                     ur5e, 
                     theta_f,
@@ -1998,21 +2015,61 @@ class PathPlannerService(Node):
             successes = np.zeros(len(parameters_set))
             scores = np.zeros(len(parameters_set))
             for j,parameters in enumerate(parameters_set):
-                score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, dt)
+                scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
+                score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1
                     successes[j]=1
             success_rate=success/len(parameters_set)
-
+            
             if success_rate >= best_success_rate:
                 best_path = path
                 best_successes = successes.copy()
                 best_scores=scores.copy()
                 best_success_rate = success_rate
-        
-        # usa success_rate> soglia (0.7) per definire successo o insuccesso per TS
-        
+            
+            success_path=1 if success_rate > 0.7 else 0
+
+            if k % 2 == 0:
+                # Append liste
+                y_hist_theta.append(success_path) 
+                x_hist_theta.append(current_x_theta[i])
+                # update posterior
+                w_mean_theta_new, w_cov_theta_new = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
+                # new sample
+                x_next_theta = sample_x_TS(w_mean_theta_new, w_cov_theta_new, x_min=80, x_max=100, M=M)
+                state = {
+                    "x_hist": x_hist_theta,
+                    "y_hist": y_hist_theta,
+                    "w_mean": w_mean_theta_new.tolist(),
+                    "w_cov":  w_cov_theta_new.tolist(),
+                    "new_x": list(x_next_theta),
+                }
+                with open(file_theta, "w") as f:
+                    yaml.safe_dump(state, f, sort_keys=False)
+            else:
+                # Append liste
+                y_hist_num_wp.append(success_path) 
+                x_hist_num_wp.append(current_x_num_wp[i])
+                # update posterior
+                w_mean_num_wp_new, w_cov_num_wp_new = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
+                # new sample
+                x_next_num_wp = sample_x_TS(w_mean_num_wp_new, w_cov_num_wp_new, x_min=300, x_max=400, M=M)
+                state = {
+                    "x_hist": x_hist_num_wp,
+                    "y_hist": y_hist_num_wp,
+                    "w_mean": w_mean_num_wp_new.tolist(),
+                    "w_cov":  w_cov_num_wp_new.tolist(),
+                    "new_x": list(x_next_num_wp),
+                }
+                with open(file_num_wp, "w") as f:
+                    yaml.safe_dump(state, f, sort_keys=False)
+                
+            k+=1
+            with open("/tmp/iter.yaml", "w") as f:
+                yaml.safe_dump(k, f)
+                
         if best_success_rate < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
             response.success=False

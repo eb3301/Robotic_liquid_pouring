@@ -1698,6 +1698,50 @@ class PathPlannerService(Node):
                 response.success = False
                 return response
 
+        iter_file = "/tmp/iter.yaml"
+        if not os.path.exists(iter_file):
+            k=0
+        else:
+            with open(iter_file, "r") as f:
+                    k = yaml.safe_load(f)
+
+        if k % 2==0:
+            file = "/tmp/TStheta.yaml"
+            if not os.path.exists(file):
+                x_hist = []
+                current_x =  90
+                y_hist = []
+                w_mean = np.zeros(2)
+                w_cov = np.eye(2)*10.0 
+            else:
+                with open(file, "r") as f:
+                    data = yaml.safe_load(f)
+                x_hist = data["history"] or []
+                current_x = data["new_x"] or 90
+                y_hist = data["success"] or [] # lista di 1=success,0=failure
+                w_mean = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
+                w_cov = data["w_cov"] or np.eye(2)*10.0 # Prior inizializzato come N(0,metà intervallo)
+                w_mean = np.array(w_mean)
+                w_cov  = np.array(w_cov)
+        else:
+            file = "/tmp/TSnum_wp.yaml"
+            if not os.path.exists(file):
+                x_hist = []
+                current_x =  350
+                y_hist = []
+                w_mean = np.zeros(2)
+                w_cov = np.eye(2)*50.0 
+            else:
+                with open(file, "r") as f:
+                    data = yaml.safe_load(f)
+                x_hist = data["history"] or []
+                current_x = data["new_x"] or 350
+                y_hist = data["success"] or [] # lista di 1=success,0=failure
+                w_mean = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
+                w_cov = data["w_cov"] or np.eye(2)*50.0 # Prior inizializzato come N(0,metà intervallo)
+                w_mean = np.array(w_mean)
+                w_cov  = np.array(w_cov)
+                
         #init_sim()
         candidate_paths = []
 

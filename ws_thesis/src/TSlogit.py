@@ -1,10 +1,13 @@
 import numpy as np
-from scipy.special import expit
 import yaml
 import os
 
-def update_w(theta, y, w_mean, w_cov):
-    X = np.vstack([np.ones(len(theta)), theta]).T # modello logistico lineare (lin logit)
+from scipy.special import expit
+
+M=3
+
+def update_w(x, y, w_mean, w_cov):
+    X = np.vstack([np.ones(len(x)), x]).T # modello logistico lineare (lin logit)
     w = w_mean.copy()
     # Laplace approx of posterior using Newton 
     for _ in range(5):
@@ -39,7 +42,7 @@ if k % 2==0:
     file = "/tmp/TStheta.yaml"
     if not os.path.exists(file):
         x_hist = []
-        current_x =  90
+        current_x =  (80,90,100)
         y_hist = []
         w_mean = np.zeros(2)
         w_cov = np.eye(2)*10.0 
@@ -47,7 +50,7 @@ if k % 2==0:
         with open(file, "r") as f:
             data = yaml.safe_load(f)
         x_hist = data["history"] or []
-        current_x = data["new_x"] or 90
+        current_x = tuple(data["new_x"]) or (80,90,100)
         y_hist = data["success"] or [] # lista di 1=success,0=failure
         w_mean = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
         w_cov = data["w_cov"] or np.eye(2)*10.0 # Prior inizializzato come N(0,metà intervallo)
@@ -57,7 +60,7 @@ else:
     file = "/tmp/TSnum_wp.yaml"
     if not os.path.exists(file):
         x_hist = []
-        current_x =  350
+        current_x =  (300, 350, 400)
         y_hist = []
         w_mean = np.zeros(2)
         w_cov = np.eye(2)*50.0 
@@ -65,7 +68,7 @@ else:
         with open(file, "r") as f:
             data = yaml.safe_load(f)
         x_hist = data["history"] or []
-        current_x = data["new_x"] or 350
+        current_x = tuple(data["new_x"]) or (300, 350, 400)
         y_hist = data["success"] or [] # lista di 1=success,0=failure
         w_mean = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
         w_cov = data["w_cov"] or np.eye(2)*50.0 # Prior inizializzato come N(0,metà intervallo)
@@ -78,13 +81,13 @@ else:
 
 # update liste
 y_hist.append(success) 
-x_hist.append(float(current_x))
+x_hist.append(list(current_x))
 
 # update posterior
 w_mean, w_cov = update_w(np.array(x_hist), np.array(y_hist), w_mean, w_cov)
 
 # new sample
-x_next = sample_x_TS(w_mean, w_cov, theta_min=0.5, theta_max=2.0)
+x_next = sample_x_TS(w_mean, w_cov, theta_min=0.5, theta_max=2.0, M=M)
 
 # salva 
 state = {
@@ -97,4 +100,3 @@ state = {
 
 with open(file, "w") as f:
     yaml.safe_dump(state, f)
-
