@@ -4,16 +4,12 @@ ToDo:
 -fine tuning se non funziona --> aggiunta volume contenitore
 
 # SIMULAZIONE
-- definire angolo/i per theta finale versamento (test con qualche contenitore/volume e poi interpolaz per avere first guess)
-- (P) tuning rewards e penalties (durante test)
 - (P) antisloshing (?)
-- (P) aggiorna sistema scelta best path
+- aggiornare pos_cont_goal spawn (issue perché non c'è feedback corretto da realtà)
 
 # INTEGRAZIONE
-- implementare correzione depth (?)
 - crea launch file
-- testa update belief senza liq e sim (fake CoR e pos cont goal reward)
-- aggiorna reward tempo (da normalizzare correttamente)
+- testa update belief con doppio update
 
 ########################### OVERLEAF:
 1) 3 pagine intro ()
