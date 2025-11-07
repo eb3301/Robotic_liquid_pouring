@@ -1970,6 +1970,9 @@ class PathPlannerService(Node):
         init_sim()
         candidate_paths = []
 
+        num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400))
+        theta_f = np.deg2rad(best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100))
+
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
@@ -1978,9 +1981,9 @@ class PathPlannerService(Node):
                 
                 if k % 2 == 0:
                     theta_f = np.deg2rad(current_x_theta[j]) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
-                    num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400)) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
+                    #num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400)) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
                 else:
-                    theta_f = np.deg2rad(best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100)) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
+                    #theta_f = np.deg2rad(best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100)) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
                     num_wp = int(current_x_num_wp[j]) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
 
                 paths = plan_path(
@@ -2022,19 +2025,20 @@ class PathPlannerService(Node):
                     success+=1
                     successes[j]=1
             success_rate=success/len(parameters_set)
-            
+            # def di miglior path
             if success_rate >= best_success_rate:
                 best_path = path
                 best_successes = successes.copy()
                 best_scores=scores.copy()
                 best_success_rate = success_rate
-            
+            # se il path è buono su threshold traj allora è buono davvero
             success_path=1 if success_rate > 0.7 else 0
-
+            
+            # Aggiornamento TS 
             if k % 2 == 0:
                 # Append liste
                 y_hist_theta.append(success_path) 
-                x_hist_theta.append(current_x_theta[i])
+                x_hist_theta.append(current_x_theta[i % M])
                 # update posterior
                 w_mean_theta_new, w_cov_theta_new = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
                 # new sample
@@ -2051,7 +2055,7 @@ class PathPlannerService(Node):
             else:
                 # Append liste
                 y_hist_num_wp.append(success_path) 
-                x_hist_num_wp.append(current_x_num_wp[i])
+                x_hist_num_wp.append(current_x_num_wp[i % M])
                 # update posterior
                 w_mean_num_wp_new, w_cov_num_wp_new = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
                 # new sample
