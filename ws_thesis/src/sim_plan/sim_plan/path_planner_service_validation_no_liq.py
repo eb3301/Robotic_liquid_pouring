@@ -1134,7 +1134,7 @@ def compute_fake_reward(parameters, theta_f, num_wp):
     err_max_num_wp=50
 
     w_pos, w_cor = 3, 1
-    w_theta, w_num_wp = 2,2
+    w_theta, w_num_wp = 1,1
 
     reward1 = w_pos * max(0,1-pos_err/pos_tol)
     reward2 = w_cor * max(0,1-cor_err/cor_tol)
@@ -2177,7 +2177,7 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
-        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),3.98)
+        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),5.98)
 
         # Converti in formato compatibile con .yaml e salva
         best_path=self.to_builtin(best_path)
