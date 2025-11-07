@@ -1906,9 +1906,9 @@ class PathPlannerService(Node):
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 4                    # Numero di modelli simulati (iniziale)
-            M = 2                    # Numero di traiettorie
-            delta = 1/N              # Threshold di successo
+            N = 15                    # Numero di modelli simulati (iniziale)
+            M = 3                     # Numero di traiettorie
+            delta = 1/N               # Threshold di successo
     
         if request.no_params == True:
             PARAMS_FILE = "/tmp/parameters.yaml"
