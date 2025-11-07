@@ -2044,11 +2044,11 @@ class PathPlannerService(Node):
                 # new sample
                 x_next_theta = sample_x_TS(w_mean_theta_new, w_cov_theta_new, x_min=80, x_max=100, M=M)
                 state = {
-                    "x_hist": x_hist_theta,
-                    "y_hist": y_hist_theta,
-                    "w_mean": w_mean_theta_new.tolist(),
-                    "w_cov":  w_cov_theta_new.tolist(),
-                    "new_x": list(x_next_theta),
+                    "x_hist": self.to_builtin(x_hist_theta),
+                    "y_hist": self.to_builtin(y_hist_theta),
+                    "w_mean": self.to_builtin(w_mean_theta_new),
+                    "w_cov":  self.to_builtin(w_cov_theta_new),
+                    "new_x": self.to_builtin(x_next_theta),
                 }
                 with open(file_theta, "w") as f:
                     yaml.safe_dump(state, f, sort_keys=False)
@@ -2061,11 +2061,11 @@ class PathPlannerService(Node):
                 # new sample
                 x_next_num_wp = sample_x_TS(w_mean_num_wp_new, w_cov_num_wp_new, x_min=300, x_max=400, M=M)
                 state = {
-                    "x_hist": x_hist_num_wp,
-                    "y_hist": y_hist_num_wp,
-                    "w_mean": w_mean_num_wp_new.tolist(),
-                    "w_cov":  w_cov_num_wp_new.tolist(),
-                    "new_x": list(x_next_num_wp),
+                    "x_hist": self.to_builtin(x_hist_num_wp),
+                    "y_hist": self.to_builtin(y_hist_num_wp),
+                    "w_mean": self.to_builtin(w_mean_num_wp_new),
+                    "w_cov":  self.to_builtin(w_cov_num_wp_new),
+                    "new_x": self.to_builtin(x_next_num_wp),
                 }
                 with open(file_num_wp, "w") as f:
                     yaml.safe_dump(state, f, sort_keys=False)
