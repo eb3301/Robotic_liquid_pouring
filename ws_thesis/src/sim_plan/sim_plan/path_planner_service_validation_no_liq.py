@@ -1109,7 +1109,7 @@ def compute_reward(liquid, becher2, parameters, t0, scene):
     reward = reward1 + reward2 + reward3
     return reward
 
-def compute_fake_reward(parameters):
+def compute_fake_reward(parameters, theta_f, num_wp):
     
     contpos2 = np.array([parameters['pos_cont_goal'][0], parameters['pos_cont_goal'][1], parameters['pos_cont_goal'][2]])
     real_contpos2 = np.array([0.746, 0.961, 0.960])
@@ -1125,11 +1125,23 @@ def compute_fake_reward(parameters):
     cor_err = np.linalg.norm(CoR3D - real_CoR3d)
     cor_tol = 0.1
 
+    theta_opt=90
+    err_theta=np.linalg.norm(theta_f-theta_opt)
+    err_max_theta=10
+
+    num_wp_opt=320
+    err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
+    err_max_num_wp=50
+
     w_pos, w_cor = 3, 1
+    w_theta, w_num_wp = 2,2
 
     reward1 = w_pos * max(0,1-pos_err/pos_tol)
     reward2 = w_cor * max(0,1-cor_err/cor_tol)
-    reward = reward1 + reward2
+    reward3 = w_theta * max (0,1-err_theta/err_max_theta)
+    reward4 = w_num_wp * max (0,1-err_num_wp/err_max_num_wp)
+
+    reward = reward1 + reward2 + reward3 + reward4
     
     return reward
 
@@ -2094,9 +2106,9 @@ class PathPlannerService(Node):
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
                 
                 if k % 2 == 0:
-                    theta_f=current_x_theta[i % M]
+                    theta_f=np.deg2rad(current_x_theta[i % M])
                 else:
-                    num_wp=current_x_num_wp[i % M]
+                    num_wp=int(current_x_num_wp[i % M])
                 score = compute_fake_reward(parameters, theta_f, num_wp)
 
                 scores[j]=score
