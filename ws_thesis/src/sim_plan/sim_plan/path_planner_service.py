@@ -1095,7 +1095,7 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     loss_frac = 1 - frac_inside
 
     # Tempo 
-    #Dt = scene.get_state().scene.t - t0
+    #Dt = scene.get_state().scene.t - t0 
     Dt = (100 + 100 + 30 + int(0.5*int(parameters["num_wp"]))*2 + int(parameters["num_wp"]))*dt
 
     # Pesi
@@ -2012,7 +2012,7 @@ class PathPlannerService(Node):
                 threshold = yaml.safe_load(f)
                 if threshold is None:
                     threshold=0.1
-
+        
         for i,path in enumerate(candidate_paths):
             success=0
             successes = np.zeros(len(parameters_set))
@@ -2031,9 +2031,13 @@ class PathPlannerService(Node):
                 best_successes = successes.copy()
                 best_scores=scores.copy()
                 best_success_rate = success_rate
+            # simula con param reali la migliore traj
+            #  
             # se il path è buono su threshold traj allora è buono davvero
             success_path=1 if success_rate > 0.7 else 0
-            
+            # if success_real== success_rate > 0.7
+            #   success_path=1 if success_rate > 0.7 else 0
+            # aggiornamento TS solo se c'è corrispondenza tra reale e virtuale
             # Aggiornamento TS 
             if k % 2 == 0:
                 # Append liste
