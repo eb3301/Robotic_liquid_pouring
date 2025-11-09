@@ -1127,14 +1127,14 @@ def compute_fake_reward(parameters, theta_f, num_wp):
 
     theta_opt=90
     err_theta=np.linalg.norm(theta_f-theta_opt)
-    err_max_theta=10
+    err_max_theta=20
 
     num_wp_opt=320
     err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
-    err_max_num_wp=50
+    err_max_num_wp=100
 
     w_pos, w_cor = 3, 1
-    w_theta, w_num_wp = 1,1
+    w_theta, w_num_wp = 3,3
 
     reward1 = w_pos * max(0,1-pos_err/pos_tol)
     reward2 = w_cor * max(0,1-cor_err/cor_tol)
@@ -1147,7 +1147,8 @@ def compute_fake_reward(parameters, theta_f, num_wp):
     print(f"reward num_wp: {reward4}")
 
     reward = reward1 + reward2 + reward3 + reward4
-    
+    w_tot = w_pos + w_cor + w_theta + w_num_wp
+    reward/=w_tot
     return reward
 
 def simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq, approach=False, antisloshing=False): 
@@ -2186,7 +2187,7 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
-        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),5.98)
+        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),0.98)
 
         # Converti in formato compatibile con .yaml e salva
         best_path=self.to_builtin(best_path)
