@@ -2135,42 +2135,46 @@ class PathPlannerService(Node):
                 # Append liste
                 y_hist_theta.append(success_path) 
                 x_hist_theta.append(current_x_theta[i % M])
-                # update posterior
-                w_mean_theta_new, w_cov_theta_new = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
-                # new sample
-                x_next_theta = sample_x_TS(w_mean_theta_new, w_cov_theta_new, x_min=80, x_max=100, M=M)
-                
-                state = {
-                    "x_hist": self.to_builtin(x_hist_theta),
-                    "y_hist": self.to_builtin(y_hist_theta),
-                    "w_mean": self.to_builtin(w_mean_theta_new),
-                    "w_cov":  self.to_builtin(w_cov_theta_new),
-                    "new_x": self.to_builtin(x_next_theta),
-                }
-                with open(file_theta, "w") as f:
-                    yaml.safe_dump(state, f, sort_keys=False)
+               
             else:
                 # Append liste
                 y_hist_num_wp.append(success_path) 
                 x_hist_num_wp.append(current_x_num_wp[i % M])
-                # update posterior
-                w_mean_num_wp_new, w_cov_num_wp_new = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
-                # new sample
-                x_next_num_wp = sample_x_TS(w_mean_num_wp_new, w_cov_num_wp_new, x_min=300, x_max=400, M=M)
-                state = {
-                    "x_hist": self.to_builtin(x_hist_num_wp),
-                    "y_hist": self.to_builtin(y_hist_num_wp),
-                    "w_mean": self.to_builtin(w_mean_num_wp_new),
-                    "w_cov":  self.to_builtin(w_cov_num_wp_new),
-                    "new_x": self.to_builtin(x_next_num_wp),
-                }
-                with open(file_num_wp, "w") as f:
-                    yaml.safe_dump(state, f, sort_keys=False)
-                
-            k+=1
-            with open("/tmp/iter.yaml", "w") as f:
-                yaml.safe_dump(k, f)
-                
+                                
+        k+=1
+        with open("/tmp/iter.yaml", "w") as f:
+            yaml.safe_dump(k, f)
+        
+        if k % 2 ==0:
+            # update posterior
+            w_mean_theta_new, w_cov_theta_new = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
+            # new sample
+            x_next_theta = sample_x_TS(w_mean_theta_new, w_cov_theta_new, x_min=80, x_max=100, M=M)
+            
+            state = {
+                "x_hist": self.to_builtin(x_hist_theta),
+                "y_hist": self.to_builtin(y_hist_theta),
+                "w_mean": self.to_builtin(w_mean_theta_new),
+                "w_cov":  self.to_builtin(w_cov_theta_new),
+                "new_x": self.to_builtin(x_next_theta),
+            }
+            with open(file_theta, "w") as f:
+                yaml.safe_dump(state, f, sort_keys=False)
+        else:
+            # update posterior
+            w_mean_num_wp_new, w_cov_num_wp_new = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
+            # new sample
+            x_next_num_wp = sample_x_TS(w_mean_num_wp_new, w_cov_num_wp_new, x_min=300, x_max=400, M=M)
+            state = {
+                "x_hist": self.to_builtin(x_hist_num_wp),
+                "y_hist": self.to_builtin(y_hist_num_wp),
+                "w_mean": self.to_builtin(w_mean_num_wp_new),
+                "w_cov":  self.to_builtin(w_cov_num_wp_new),
+                "new_x": self.to_builtin(x_next_num_wp),
+            }
+            with open(file_num_wp, "w") as f:
+                yaml.safe_dump(state, f, sort_keys=False)
+
         if best_success_rate < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
             response.success=False
