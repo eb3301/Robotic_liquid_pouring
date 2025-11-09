@@ -2141,11 +2141,7 @@ class PathPlannerService(Node):
                 # Append liste
                 y_hist_num_wp.append(success_path) 
                 x_hist_num_wp.append(current_x_num_wp[i % M])
-                                
-        k+=1
-        with open("/tmp/iter.yaml", "w") as f:
-            yaml.safe_dump(k, f)
-        
+                                        
         if k % 2 ==0:
             # update posterior
             w_mean_theta_new, w_cov_theta_new = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
@@ -2175,6 +2171,11 @@ class PathPlannerService(Node):
             }
             with open(file_num_wp, "w") as f:
                 yaml.safe_dump(state, f, sort_keys=False)
+
+        k+=1
+        with open("/tmp/iter.yaml", "w") as f:
+            yaml.safe_dump(k, f)
+        print(f"iter: {k}")
 
         if best_success_rate < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
