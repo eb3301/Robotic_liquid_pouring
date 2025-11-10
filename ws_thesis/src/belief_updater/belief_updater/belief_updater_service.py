@@ -439,7 +439,30 @@ class BeliefUpdater(Node):
             }
             with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
                 yaml.safe_dump(state_current_plan_params, f, sort_keys=False)            
+        else:
+            try:
+                if not os.path.exists(FILE_CURRENT_PLAN_PARAMS):
+                    self.get_logger().error("no file planning parameters")
+                    response.success = False
+                    return response
+                else:
+                    with open(FILE_CURRENT_PLAN_PARAMS, "r") as f:
+                        data_current_plan_params = yaml.safe_load(f) 
+                    current_theta = data_current_plan_params["current_theta"]
+                    current_num_wp = data_current_plan_params["current_num_wp"]
+                    x_next_theta = current_theta*np.ones(PATH_NUM)
+                    x_next_num_wp = current_num_wp**np.ones(PATH_NUM)
+                    state_current_plan_params = {
+                    "current_theta": self.to_builtin(x_next_theta),
+                    "current_num_wp": self.to_builtin(x_next_num_wp),
+                    }
+                    with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
+                        yaml.safe_dump(state_current_plan_params, f, sort_keys=False) 
 
+            except Exception as e:
+                self.get_logger().error(f"Errore YAML: {e}")
+                response.success = False
+                return response
         self.get_logger().info(f"Belief set aggiornato: {len(updated)} modelli")
         response.success = True
         return response
