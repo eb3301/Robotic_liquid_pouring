@@ -1103,6 +1103,8 @@ class RealSystemService(Node):
         #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
         score = compute_fake_reward(parameters, theta_f, num_wp)
         success = is_success(score,threshold)
+        
+        print(f"success: {success}")
 
         response.success=True if success==1 else False
         return response   
