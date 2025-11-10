@@ -1134,7 +1134,7 @@ def compute_fake_reward(parameters, theta_f, num_wp):
     err_max_num_wp=100
 
     w_pos, w_cor = 3, 1
-    w_theta, w_num_wp = 3,3
+    w_theta, w_num_wp = 0.5,0.5
 
     reward1 = w_pos * max(0,1-pos_err/pos_tol)
     reward2 = w_cor * max(0,1-cor_err/cor_tol)
