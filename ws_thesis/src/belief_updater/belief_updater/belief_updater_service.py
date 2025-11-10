@@ -175,7 +175,7 @@ def scale_tol(obj, factor):
     # qualsiasi altro tipo -> invariato
     return obj
 
-def update_w(theta, y, w_mean, w_cov):
+def update_w_old(theta, y, w_mean, w_cov):
     X = np.vstack([np.ones(len(theta)), theta]).T # modello logistico lineare (lin logit)
     w = w_mean.copy()
     # Laplace approx of posterior using Newton 
@@ -183,6 +183,24 @@ def update_w(theta, y, w_mean, w_cov):
         p = expit(X @ w) # funzione sigmoide di scipy ottimizzata
         W = np.diag(p*(1-p))
         H = X.T @ W @ X + np.linalg.inv(w_cov)
+        g = X.T @ (y - p) - np.linalg.inv(w_cov) @ (w - w_mean)
+        try:
+            w = w + np.linalg.solve(H, g)
+        except np.linalg.LinAlgError:
+            break
+    w_cov_post = np.linalg.inv(H)
+    return w, w_cov_post
+
+def update_w(theta, y, w_mean, w_cov):
+    X = np.vstack([np.ones(len(theta)), theta]).T # modello logistico lineare (lin logit)
+    w = w_mean.copy()
+    # Laplace approx of posterior using Newton 
+    for _ in range(5):
+        p = expit(X @ w) # funzione sigmoide di scipy ottimizzata
+        W = np.diag(p*(1-p))
+        #H = X.T @ W @ X + np.linalg.inv(w_cov)
+        eps = 1e-6
+        H = X.T @ W @ X + np.linalg.inv(w_cov) + eps*np.eye(H.shape[0])
         g = X.T @ (y - p) - np.linalg.inv(w_cov) @ (w - w_mean)
         try:
             w = w + np.linalg.solve(H, g)
@@ -323,7 +341,7 @@ class BeliefUpdater(Node):
         ##################################################################################
         ##################################################################################
         ##################################################################################
-        
+
         # Planning Parameters Update:
         try:
             data_success_path = self._load_yaml(FILE_CURRENT_PLAN_PARAMS)
@@ -449,6 +467,14 @@ class BeliefUpdater(Node):
             with open(FILE_TS, "w") as f:
                 yaml.safe_dump(state_TS, f, sort_keys=False)
 
+            # Add jitter to diversify plan params in case of collapse:
+            theta_new = float(x_next_theta[0]) + np.random.uniform(-1.0, 1.0)*1/k
+            num_wp_new = int(x_next_num_wp[0] + np.random.uniform(-10, 10))*1/k
+
+            theta_new = np.clip(theta_new, 80, 100)
+            num_wp_new = int(np.clip(num_wp_new, 300, 400))
+            
+            # save plan params
             state_current_plan_params = {
                 "current_theta": self.to_builtin(x_next_theta),
                 "current_num_wp": self.to_builtin(x_next_num_wp),
