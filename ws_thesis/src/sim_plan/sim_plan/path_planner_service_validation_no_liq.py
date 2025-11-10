@@ -1781,8 +1781,8 @@ class PathPlannerService(Node):
             #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             dt=0.01
             for j in range(M):   
-                theta_f = theta_f_arr[j]
-                num_wp = num_wp_arr[j]
+                theta_f = np.deg2rad(theta_f_arr[j])
+                num_wp = int(num_wp_arr[j])
         
                 paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
                 # paths = plan_path(
@@ -1820,8 +1820,8 @@ class PathPlannerService(Node):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
                 
-                theta_f = theta_f_arr[i % M]
-                num_wp = num_wp_arr[i % M]
+                theta_f = theta_f_arr[i % M] # il reward è in gradi per comodità
+                num_wp = int(num_wp_arr[i % M])
 
                 score = compute_fake_reward(parameters, theta_f, num_wp)
 
