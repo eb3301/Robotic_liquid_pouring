@@ -1054,11 +1054,11 @@ class RealSystemService(Node):
 
         parameters = {
                 "pos_init_cont": (0.8021465039268282, 0.2847160024669491, 0.9564999991059303),
-                "pos_cont_goal": (0.837326238153434, 0.9863513333825724, 0.9607816689610481),
+                "pos_cont_goal": (0.746, 0.961, 0.960),
                 "pos_init_ee":  (0.12394027698787038, 0.2665910764094347, 1.1638763741892955, -0.5837257860699608, 0.5925713099055904, -0.388471134978874, 0.3965017359886389),
                 "pos_grip_ee": (0.6509734785173125, 0.2847438888358813, 0.9764986855761588, -0.5000033337808922, 0.49998929956451965, -0.4999940109139501, 0.5000133554007884),
-                "offset": (2.7886369672436295e-05, 0.1511730254095156, -0.01999868647022847),
-                "dCoR": [0.0, -0.015, 0.04],
+                "offset": (0, 0.15, -0.02),
+                "dCoR": [0.0, 0.0, 0.0],
                 "vol_init": 40.0, #2e-5, +-MAE
                 "densità": 998.0,
                 "viscosità": 0.001,
@@ -1103,7 +1103,7 @@ class RealSystemService(Node):
         #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
         score = compute_fake_reward(parameters, theta_f, num_wp)
         success = is_success(score,threshold)
-        
+
         print(f"success: {success}")
 
         response.success=True if success==1 else False
