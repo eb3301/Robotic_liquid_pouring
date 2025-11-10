@@ -468,8 +468,8 @@ class BeliefUpdater(Node):
                 yaml.safe_dump(state_TS, f, sort_keys=False)
 
             # Add jitter to diversify plan params in case of collapse:
-            theta_new = float(x_next_theta[0]) + np.random.uniform(-1.0, 1.0)*1/k
-            num_wp_new = int(x_next_num_wp[0] + np.random.uniform(-10, 10))*1/k
+            theta_new = float(x_next_theta[0]) + np.random.uniform(-1.0, 1.0)/k
+            num_wp_new = int(x_next_num_wp[0] + np.random.uniform(-10, 10))/k
 
             theta_new = np.clip(theta_new, 80, 100)
             num_wp_new = int(np.clip(num_wp_new, 300, 400))

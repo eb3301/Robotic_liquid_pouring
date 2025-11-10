@@ -1773,6 +1773,9 @@ class PathPlannerService(Node):
                 threshold = yaml.safe_load(f)
                 if threshold is None:
                     threshold=0.1
+                    
+        with open("/tmp/threshold_old.yaml", "w") as f:
+                yaml.safe_dump(threshold, f, sort_keys=False) 
 
         for i,path in enumerate(candidate_paths):
             success=0

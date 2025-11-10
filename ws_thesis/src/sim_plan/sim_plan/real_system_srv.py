@@ -1078,7 +1078,7 @@ class RealSystemService(Node):
             theta_f = data_plan["current_theta"]
             num_wp = data_plan["current_num_wp"]
 
-        if not os.path.exists("/tmp/threshold.yaml"):
+        if not os.path.exists("/tmp/threshold_old.yaml"):
             threshold=0.1
         else:
             with open("/tmp/threshold.yaml", "r") as f:
