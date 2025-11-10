@@ -27,6 +27,7 @@ setup(
             'belief_updater_service = belief_updater.belief_updater_service:main',
             'belief_updater_client = belief_updater.belief_updater_client:main',
             'belief_updater_client_auto = belief_updater.belief_updater_client_auto:main',
+            'omni_client_auto = belief_updater.omni_client_auto_main',
         ],
     },
 )
