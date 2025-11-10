@@ -345,7 +345,7 @@ class BeliefUpdater(Node):
                     w_mean_theta = np.zeros(2)
                     w_cov_theta = np.eye(2)*10.0 
 
-                    x_hist_num_wp = [300,325,350,375,400]
+                    x_hist_num_wp = [300,320,340,360,380,400]
                     y_hist_num_wp = [0,1,0,1,0,1]
                     w_mean_num_wp = np.zeros(2)
                     w_cov_num_wp = np.eye(2)*50.0 
@@ -467,7 +467,7 @@ class BeliefUpdater(Node):
                     current_theta = data_current_plan_params["current_theta"]
                     current_num_wp = data_current_plan_params["current_num_wp"]
                     x_next_theta = current_theta*np.ones(PATH_NUM)
-                    x_next_num_wp = current_num_wp*np.ones(PATH_NUM)
+                    x_next_num_wp = current_num_wp  *np.ones(PATH_NUM)
                     state_current_plan_params = {
                     "current_theta": self.to_builtin(x_next_theta),
                     "current_num_wp": self.to_builtin(x_next_num_wp),
