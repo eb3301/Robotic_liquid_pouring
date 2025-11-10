@@ -323,7 +323,6 @@ class BeliefUpdater(Node):
         ##################################################################################
         ##################################################################################
         ##################################################################################
-        print("Cipolle arrosto")
         # Planning Parameters Update:
         try:
             data_success_path = self._load_yaml(FILE_CURRENT_PLAN_PARAMS)
@@ -340,13 +339,13 @@ class BeliefUpdater(Node):
                 if not os.path.exists(FILE_TS):
                     k=0
 
-                    x_hist_theta = [80,84,88,92,96,100]
-                    y_hist_theta = [0,1,0,1,0,1]
+                    x_hist_theta = [80,84,88,92,96,100] # seed per evitare collasso immediato distribuzione
+                    y_hist_theta = [0,1,0,1,0,1] # seed per evitare collasso immediato distribuzione
                     w_mean_theta = np.zeros(2)
                     w_cov_theta = np.eye(2)*10.0 
 
-                    x_hist_num_wp = [300,320,340,360,380,400]
-                    y_hist_num_wp = [0,1,0,1,0,1]
+                    x_hist_num_wp = [300,320,340,360,380,400] # seed per evitare collasso immediato distribuzione
+                    y_hist_num_wp = [0,1,0,1,0,1] # seed per evitare collasso immediato distribuzione
                     w_mean_num_wp = np.zeros(2)
                     w_cov_num_wp = np.eye(2)*50.0 
 

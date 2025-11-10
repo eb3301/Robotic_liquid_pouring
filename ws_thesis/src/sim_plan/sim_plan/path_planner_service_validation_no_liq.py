@@ -1657,8 +1657,8 @@ class PathPlannerService(Node):
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 15                    # Numero di modelli simulati (iniziale)
-            M = 3                     # Numero di traiettorie
+            N = 2                    # Numero di modelli simulati (iniziale)
+            M = 2                     # Numero di traiettorie
             delta = 1/N               # Threshold di successo
 
         # Carica parametri simulazione:
@@ -1852,7 +1852,7 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         #best_path["time"] = time
 
-        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),0.98)
+        new_threshold = min(max(np.mean(best_scores)/2, threshold+0.0001),0.98)
 
         # Converti in formato compatibile con .yaml e salva
         best_path=self.to_builtin(best_path)
