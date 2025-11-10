@@ -233,6 +233,68 @@ def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
         acc += expit(w[0] + w[1]*grid)
     return float(grid[np.argmax(acc / M)])
 
+def update_w_robust(theta, y, w_mean, w_cov,
+                    tau=0.25,          # tempering della verosimiglianza
+                    pclip=1e-4,        # evita saturazione sigmoide
+                    eps=1e-2,          # ridge forte nella Hessiana
+                    iters=10,          # più Newton step iniziali
+                    cov_floor=1e-8):   # pavimento sulla varianza
+    """
+    Logistic TS update robusto a lunghi run di soli successi.
+    - Tempera l'update (tau < 1) per non far collassare w_cov.
+    - Clippa p per tenere W = p(1-p) > 0.
+    - Aggiunge ridge eps*I alla Hessiana per condizionarla.
+    - Impone un floor alla covarianza posteriore.
+    """
+    theta = np.asarray(theta, dtype=float).ravel()
+    y     = np.asarray(y,     dtype=float).ravel()
+
+    # Design matrix per logit lineare: [bias, theta]
+    X = np.vstack([np.ones(len(theta)), theta]).T
+
+    # Copie locali
+    w = np.array(w_mean, dtype=float).copy()
+    P = np.linalg.inv(w_cov)
+
+    for _ in range(iters):
+        z = X @ w
+        p = expit(z)
+        # eviti saturazione p≈0/1
+        p = np.clip(p, pclip, 1.0 - pclip)
+
+        # peso della verosimiglianza ridotto (tempering)
+        W = np.diag(p * (1.0 - p))
+        H = tau * (X.T @ W @ X) + P + eps * np.eye(len(w))
+        g = tau * (X.T @ (y - p)) - P @ (w - w_mean)
+
+        try:
+            step = np.linalg.solve(H, g)
+        except np.linalg.LinAlgError:
+            # fallback più conservativo
+            step = np.linalg.lstsq(H + 1e-3*np.eye(len(w)), g, rcond=None)[0]
+
+        # damping semplice sul passo per stabilità
+        w += 0.8 * step
+
+    try:
+        w_cov_post = np.linalg.inv(H)
+    except np.linalg.LinAlgError:
+        w_cov_post = np.linalg.pinv(H)
+
+    # pavimento sulla varianza per evitare degenerazione
+    eigvals, eigvecs = np.linalg.eigh(w_cov_post)
+    eigvals = np.maximum(eigvals, cov_floor)
+    w_cov_post = (eigvecs * eigvals) @ eigvecs.T
+
+    return w, w_cov_post
+
+def sample_x_TS_robust(w_mean, w_cov, x_min, x_max, M, n_grid=50, infl=0.05):
+    thetas = np.linspace(x_min, x_max, n_grid)
+    w_cov_infl = w_cov + infl * np.eye(len(w_mean))
+    w_samples = np.random.multivariate_normal(w_mean, w_cov_infl, size=M)
+    scores = [expit(ws[0] + ws[1]*thetas) for ws in w_samples]
+    return np.array([thetas[np.argmax(s)] for s in scores])
+
 # ------------------------------------------------------
 
 class BeliefUpdater(Node):
