@@ -1657,8 +1657,8 @@ class PathPlannerService(Node):
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 2                    # Numero di modelli simulati (iniziale)
-            M = 2                     # Numero di traiettorie
+            N = 15                    # Numero di modelli simulati (iniziale)
+            M = 3                     # Numero di traiettorie
             delta = 1/N               # Threshold di successo
 
         # Carica parametri simulazione:
