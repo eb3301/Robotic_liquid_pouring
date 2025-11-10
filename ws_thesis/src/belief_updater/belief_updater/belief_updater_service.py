@@ -200,7 +200,7 @@ def update_w(theta, y, w_mean, w_cov):
         W = np.diag(p*(1-p))
         #H = X.T @ W @ X + np.linalg.inv(w_cov)
         eps = 1e-6
-        H = X.T @ W @ X + np.linalg.inv(w_cov) + eps*np.eye(H.shape[0])
+        H = X.T @ W @ X + np.linalg.inv(w_cov) + eps*np.eye(2)
         g = X.T @ (y - p) - np.linalg.inv(w_cov) @ (w - w_mean)
         try:
             w = w + np.linalg.solve(H, g)
