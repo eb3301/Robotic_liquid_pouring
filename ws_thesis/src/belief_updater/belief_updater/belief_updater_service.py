@@ -175,7 +175,7 @@ def scale_tol(obj, factor):
     # qualsiasi altro tipo -> invariato
     return obj
 
-def update_w_old(theta, y, w_mean, w_cov):
+def update_w_oldold(theta, y, w_mean, w_cov):
     X = np.vstack([np.ones(len(theta)), theta]).T # modello logistico lineare (lin logit)
     w = w_mean.copy()
     # Laplace approx of posterior using Newton 
@@ -191,7 +191,7 @@ def update_w_old(theta, y, w_mean, w_cov):
     w_cov_post = np.linalg.inv(H)
     return w, w_cov_post
 
-def update_w(x, y, w_mean, w_cov):
+def update_w_old(x, y, w_mean, w_cov):
     X = np.vstack([np.ones(len(x)), x]).T # modello logistico lineare (lin logit)
     w = w_mean.copy()
     # Laplace approx of posterior using Newton 
@@ -211,7 +211,7 @@ def update_w(x, y, w_mean, w_cov):
     w_cov_post = np.linalg.inv(H)
     return w, w_cov_post
 
-def sample_x_TS(w_mean, w_cov, x_min, x_max, M, n_grid=50):
+def sample_x_TS_old(w_mean, w_cov, x_min, x_max, M, n_grid=50):
     thetas = np.linspace(x_min, x_max, n_grid)
     w_samples = np.random.multivariate_normal(w_mean, w_cov, size=M)
     x_nexts = []
@@ -233,7 +233,7 @@ def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
         acc += expit(w[0] + w[1]*grid)
     return float(grid[np.argmax(acc / M)])
 
-def update_w_robust(theta, y, w_mean, w_cov,
+def update_w(theta, y, w_mean, w_cov,
                     tau=0.25,          # tempering della verosimiglianza
                     pclip=1e-4,        # evita saturazione sigmoide
                     eps=1e-2,          # ridge forte nella Hessiana
@@ -288,7 +288,7 @@ def update_w_robust(theta, y, w_mean, w_cov,
 
     return w, w_cov_post
 
-def sample_x_TS_robust(w_mean, w_cov, x_min, x_max, M, n_grid=50, infl=0.05):
+def sample_x_TS(w_mean, w_cov, x_min, x_max, M, n_grid=50, infl=0.05):
     thetas = np.linspace(x_min, x_max, n_grid)
     w_cov_infl = w_cov + infl * np.eye(len(w_mean))
     w_samples = np.random.multivariate_normal(w_mean, w_cov_infl, size=M)
