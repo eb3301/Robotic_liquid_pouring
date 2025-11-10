@@ -1773,7 +1773,7 @@ class PathPlannerService(Node):
                 threshold = yaml.safe_load(f)
                 if threshold is None:
                     threshold=0.1
-                    
+
         with open("/tmp/threshold_old.yaml", "w") as f:
                 yaml.safe_dump(threshold, f, sort_keys=False) 
 
@@ -1788,7 +1788,9 @@ class PathPlannerService(Node):
                 theta_f = theta_f_arr[i % M] # il reward è in gradi per comodità
                 num_wp = int(num_wp_arr[i % M])
 
+                print(f"path {i}")
                 score = compute_fake_reward(parameters, theta_f, num_wp)
+                print(" ")
 
                 scores[j]=score
                 if is_success(score,threshold):
