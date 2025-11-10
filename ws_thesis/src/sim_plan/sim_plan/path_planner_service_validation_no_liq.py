@@ -1915,7 +1915,8 @@ class PathPlannerService(Node):
             N = 15                    # Numero di modelli simulati (iniziale)
             M = 3                     # Numero di traiettorie
             delta = 1/N               # Threshold di successo
-    
+
+        # Carica parametri simulazione:
         if request.no_params == True:
             PARAMS_FILE = "/tmp/parameters.yaml"
 
@@ -2013,68 +2014,31 @@ class PathPlannerService(Node):
                 self.get_logger().error(f"Errore salvataggio YAML: {e}")
                 response.success = False
                 return response
-
-        iter_file = "/tmp/iter.yaml"
-        if not os.path.exists(iter_file):
-            k=0
+        # Carica parametri planning:
+        FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
+        if not os.path.exists(FILE_CURRENT_PLAN_PARAMS):
+                theta_f_arr = np.array([80,90,100])
+                num_wp_arr = np.array([300, 350, 400])
         else:
-            with open(iter_file, "r") as f:
-                k = yaml.safe_load(f)
-
-        file_theta = "/tmp/TStheta.yaml"
-        if not os.path.exists(file_theta):
-            x_hist_theta = []
-            current_x_theta =  (80,90,100)
-            y_hist_theta = []
-            w_mean_theta = np.zeros(2)
-            w_cov_theta = np.eye(2)*10.0 
-        else:
-            with open(file_theta, "r") as f:
-                data = yaml.safe_load(f)
-            x_hist_theta = data["x_hist"] or []
-            current_x_theta = tuple(data["new_x"]) or (80,90,100)
-            y_hist_theta = data["y_hist"] or [] # lista di 1=success,0=failure
-            w_mean_theta = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
-            w_cov_theta = data["w_cov"] or np.eye(2)*10.0 # Prior inizializzato come N(0,metà intervallo)
-            w_mean_theta = np.array(w_mean_theta)
-            w_cov_theta  = np.array(w_cov_theta)
-
-        file_num_wp = "/tmp/TSnum_wp.yaml"
-        if not os.path.exists(file_num_wp):
-            x_hist_num_wp = []
-            current_x_num_wp =  (300, 350, 400)
-            y_hist_num_wp = []
-            w_mean_num_wp = np.zeros(2)
-            w_cov_num_wp = np.eye(2)*50.0 
-        else:
-            with open(file_num_wp, "r") as f:
-                data = yaml.safe_load(f)
-            x_hist_num_wp = data["x_hist"] or []
-            current_x_num_wp = tuple(data["new_x"]) or (300, 350, 400)
-            y_hist_num_wp = data["y_hist"] or [] # lista di 1=success,0=failure
-            w_mean_num_wp = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
-            w_cov_num_wp = data["w_cov"] or np.eye(2)*50.0 # Prior inizializzato come N(0,metà intervallo)
-            w_mean_num_wp = np.array(w_mean_num_wp)
-            w_cov_num_wp  = np.array(w_cov_num_wp)
-
-
+            with open(FILE_CURRENT_PLAN_PARAMS, "r") as f:
+                    data_plan = yaml.safe_load(f)
+            theta_f_arr = data_plan["current_theta"]
+            num_wp_arr = data_plan["current_num_wp"]
+        
+        #################################################################################à
+        # Simulazione
         #init_sim()
         candidate_paths = []
-        num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400))
-        theta_f = np.deg2rad(best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100))
 
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
             #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             dt=0.01
-            for j in range(M):
-                
-                if k % 2 == 0:
-                    theta_f = np.deg2rad(current_x_theta[j]) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
-                else:
-                    num_wp = int(current_x_num_wp[j]) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
-
+            for j in range(M):   
+                theta_f = theta_f_arr[j]
+                num_wp = num_wp_arr[j]
+        
                 paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
                 # paths = plan_path(
                 #     ur5e, 
@@ -2111,10 +2075,9 @@ class PathPlannerService(Node):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
                 
-                if k % 2 == 0:
-                    theta_f=np.deg2rad(current_x_theta[i % M])
-                else:
-                    num_wp=int(current_x_num_wp[i % M])
+                theta_f = theta_f_arr[i % M]
+                num_wp = num_wp_arr[i % M]
+
                 score = compute_fake_reward(parameters, theta_f, num_wp)
 
                 scores[j]=score
@@ -2128,60 +2091,16 @@ class PathPlannerService(Node):
                 best_successes = successes.copy()
                 best_scores=scores.copy()
                 best_success_rate = success_rate
-            # se il path è buono su threshold traj allora è buono davvero
-            success_path=1 if success_rate > 0.7 else 0
-            
-            # Aggiornamento TS 
-            if k % 2 == 0:
-                # Append liste
-                y_hist_theta.append(success_path) 
-                x_hist_theta.append(current_x_theta[i % M])
-               
-            else:
-                # Append liste
-                y_hist_num_wp.append(success_path) 
-                x_hist_num_wp.append(current_x_num_wp[i % M])
-                                        
-        if k % 2 ==0:
-            # update posterior
-            w_mean_theta_new, w_cov_theta_new = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
-            # new sample
-            x_next_theta = sample_x_TS(w_mean_theta_new, w_cov_theta_new, x_min=80, x_max=100, M=M)
-            
-            state = {
-                "x_hist": self.to_builtin(x_hist_theta),
-                "y_hist": self.to_builtin(y_hist_theta),
-                "w_mean": self.to_builtin(w_mean_theta_new),
-                "w_cov":  self.to_builtin(w_cov_theta_new),
-                "new_x": self.to_builtin(x_next_theta),
-            }
-            with open(file_theta, "w") as f:
-                yaml.safe_dump(state, f, sort_keys=False)
-        else:
-            # update posterior
-            w_mean_num_wp_new, w_cov_num_wp_new = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
-            # new sample
-            x_next_num_wp = sample_x_TS(w_mean_num_wp_new, w_cov_num_wp_new, x_min=300, x_max=400, M=M)
-            state = {
-                "x_hist": self.to_builtin(x_hist_num_wp),
-                "y_hist": self.to_builtin(y_hist_num_wp),
-                "w_mean": self.to_builtin(w_mean_num_wp_new),
-                "w_cov":  self.to_builtin(w_cov_num_wp_new),
-                "new_x": self.to_builtin(x_next_num_wp),
-            }
-            with open(file_num_wp, "w") as f:
-                yaml.safe_dump(state, f, sort_keys=False)
-
-        k+=1
-        with open("/tmp/iter.yaml", "w") as f:
-            yaml.safe_dump(k, f)
-        print(f"iter: {k}")
-
+                success_path=1 if success_rate > 0.7 else 0
+                state_current_plan_params = {"current_theta": self.to_builtin(theta_f), "current_num_wp": self.to_builtin(num_wp)}
+                        
+        
         if best_success_rate < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
             response.success=False
             return response
         print("Esiste traj che soddisfa req succ")
+                                        
 
         exec_path=best_path #["all"]
         n_points = len(exec_path)
@@ -2196,7 +2115,8 @@ class PathPlannerService(Node):
         successes=self.to_builtin(best_successes)
         scores=self.to_builtin(best_scores)
         new_threshold=self.to_builtin(new_threshold)
-
+        success_path=self.to_builtin(success_path)
+        
         try:
             with open("/tmp/best_path.yaml", "w") as f:
                 yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
@@ -2208,6 +2128,10 @@ class PathPlannerService(Node):
                 yaml.dump({"scores": scores}, f, explicit_start=True, sort_keys=False)
             with open("/tmp/threshold.yaml", "w") as f:
                 yaml.safe_dump(new_threshold, f, sort_keys=False)   
+            with open("/tmp/success_path.yaml", "w") as f:
+                yaml.safe_dump(success_path, f, sort_keys=False)   
+            with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
+                yaml.safe_dump(state_current_plan_params, f, sort_keys=False)  
 
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
