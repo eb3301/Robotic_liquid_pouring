@@ -19,8 +19,8 @@ class CallPlannerSrv(Node):
         while not self.client_upd.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Servizio update_belief non disponibile, retry...')
         
-        self.client_real_sys = self.create_client(Simplan, 'real_system_service')
-        while not self.client_real_sys.wait_for_service(timeout_sec=1.0):
+        self.client_real_sys = self.create_client(Simplan, 'real_system')
+        while not self.client_real_sys.wait_for_service(timeout_sec=2.0):
             self.get_logger().info('Real system non disponibile, retry...')
 
         self.future = None
