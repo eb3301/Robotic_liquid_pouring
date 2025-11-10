@@ -1524,44 +1524,6 @@ def fake_sim(ur5e, paths, scene, path_debug, approach=False):
 
     print(f"Fake simulation completed")
 
-def update_w(theta, y, w_mean, w_cov):
-    X = np.vstack([np.ones(len(theta)), theta]).T # modello logistico lineare (lin logit)
-    w = w_mean.copy()
-    # Laplace approx of posterior using Newton 
-    for _ in range(5):
-        p = expit(X @ w) # funzione sigmoide di scipy ottimizzata
-        W = np.diag(p*(1-p))
-        H = X.T @ W @ X + np.linalg.inv(w_cov)
-        g = X.T @ (y - p) - np.linalg.inv(w_cov) @ (w - w_mean)
-        try:
-            w = w + np.linalg.solve(H, g)
-        except np.linalg.LinAlgError:
-            break
-    w_cov_post = np.linalg.inv(H)
-    return w, w_cov_post
-
-def sample_x_TS(w_mean, w_cov, x_min, x_max, M, n_grid=50):
-    thetas = np.linspace(x_min, x_max, n_grid)
-    w_samples = np.random.multivariate_normal(w_mean, w_cov, size=M)
-    x_nexts = []
-    for ws in w_samples:
-        scores = expit(ws[0] + ws[1]*thetas)
-        x_nexts.append(thetas[np.argmax(scores)])
-    return np.array(x_nexts)
-
-def best_theta_greedy(w_mean, x_min, x_max, n_grid=200):
-    grid = np.linspace(x_min, x_max, n_grid)
-    p = expit(w_mean[0] + w_mean[1]*grid)
-    return float(grid[np.argmax(p)])
-
-def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
-    grid = np.linspace(x_min, x_max, n_grid)
-    acc = np.zeros_like(grid)
-    ws = np.random.multivariate_normal(w_mean, w_cov, size=M)
-    for w in ws:
-        acc += expit(w[0] + w[1]*grid)
-    return float(grid[np.argmax(acc / M)])
-
 class PathPlannerService(Node):
     def __init__(self):
         super().__init__('path_planner_service')
