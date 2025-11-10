@@ -69,8 +69,9 @@ def main():
         for i in range(10000):        # 100 iterazioni
             print(f"iter {i}")
 
-
-            node.call_service()
+            resp = None
+            while resp is None or not resp.success:
+                resp = node.call_service()
 
             resp_real = node.call_real_sym()
             success = 1 if resp_real.success else 0
