@@ -191,15 +191,17 @@ def update_w_old(theta, y, w_mean, w_cov):
     w_cov_post = np.linalg.inv(H)
     return w, w_cov_post
 
-def update_w(theta, y, w_mean, w_cov):
-    X = np.vstack([np.ones(len(theta)), theta]).T # modello logistico lineare (lin logit)
+def update_w(x, y, w_mean, w_cov):
+    X = np.vstack([np.ones(len(x)), x]).T # modello logistico lineare (lin logit)
     w = w_mean.copy()
     # Laplace approx of posterior using Newton 
     for _ in range(5):
-        p = expit(X @ w) # funzione sigmoide di scipy ottimizzata
+        p = np.clip(expit(X @ w), 1e-4, 1-1e-4) # funzione sigmoide di scipy ottimizzata
         W = np.diag(p*(1-p))
         #H = X.T @ W @ X + np.linalg.inv(w_cov)
         eps = 1e-6
+        eps = max(min(1e-2, 1.0 / len(x)),eps)
+
         H = X.T @ W @ X + np.linalg.inv(w_cov) + eps*np.eye(2)
         g = X.T @ (y - p) - np.linalg.inv(w_cov) @ (w - w_mean)
         try:
