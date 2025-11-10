@@ -279,7 +279,7 @@ class BeliefUpdater(Node):
 
             # Applica scaling
             tolerances_scaled = scale_tol(tolerances, factor)
-            print(tolerances_scaled)
+            #print(tolerances_scaled)
 
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")
@@ -323,10 +323,10 @@ class BeliefUpdater(Node):
         ##################################################################################
         ##################################################################################
         ##################################################################################
-        
+        print("Cipolle arrosto")
         # Planning Parameters Update:
         try:
-            data_success_path = self._load_yaml(SUCCESS_PATH_FILE)
+            data_success_path = self._load_yaml(FILE_CURRENT_PLAN_PARAMS)
             success_path = data_success_path["success_path"]
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")

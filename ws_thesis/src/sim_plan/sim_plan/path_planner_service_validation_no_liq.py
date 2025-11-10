@@ -1837,7 +1837,7 @@ class PathPlannerService(Node):
                 best_scores=scores.copy()
                 best_success_rate = success_rate
                 success_path=1 if success_rate > 0.7 else 0
-                state_current_plan_params = {"current_theta": self.to_builtin(theta_f), "current_num_wp": self.to_builtin(num_wp)}
+                state_current_plan_params = {"current_theta": self.to_builtin(theta_f), "current_num_wp": self.to_builtin(num_wp), "success_path": success_path}
                         
         
         if best_success_rate < delta:
@@ -1872,9 +1872,7 @@ class PathPlannerService(Node):
             with open("/tmp/scores_history.yaml", "a") as f:
                 yaml.dump({"scores": scores}, f, explicit_start=True, sort_keys=False)
             with open("/tmp/threshold.yaml", "w") as f:
-                yaml.safe_dump(new_threshold, f, sort_keys=False)   
-            with open("/tmp/success_path.yaml", "w") as f:
-                yaml.safe_dump(success_path, f, sort_keys=False)   
+                yaml.safe_dump(new_threshold, f, sort_keys=False)     
             with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
                 yaml.safe_dump(state_current_plan_params, f, sort_keys=False)  
 
