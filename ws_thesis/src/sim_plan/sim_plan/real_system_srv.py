@@ -648,8 +648,8 @@ def compute_fake_reward(parameters, theta_f, num_wp):
     err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
     err_max_num_wp=100
 
-    w_pos, w_cor = 2, 1
-    w_theta, w_num_wp = 5, 5
+    w_pos, w_cor = 0.5, 0.5
+    w_theta, w_num_wp = 10, 10
 
     reward1 = w_pos * max(0,1-pos_err/pos_tol)
     reward2 = w_cor * max(0,1-cor_err/cor_tol)
