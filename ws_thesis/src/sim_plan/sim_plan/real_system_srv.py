@@ -1097,8 +1097,8 @@ class RealSystemService(Node):
         #init_sim()
         #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
            
-        theta_f = np.deg2rad(theta_f)
-        num_wp = int(num_wp)
+        #theta_f = np.deg2rad(theta_f)
+        #num_wp = int(num_wp)
         
         #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
         score = compute_fake_reward(parameters, theta_f, num_wp)
