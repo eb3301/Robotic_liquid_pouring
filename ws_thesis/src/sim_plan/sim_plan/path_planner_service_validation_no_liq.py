@@ -1107,6 +1107,37 @@ def remap_trajectory(trj: JointTrajectory, joint_name_map, dt):
 
     return q_new
 
+# def convert_pose_world_to_baselink(self, pose_stamped_in):
+#     """Converte una PoseStamped da world → base_link."""
+#     from_frame = pose_stamped_in.header.frame_id
+#     to_frame = "base_link"
+
+#     if not self.tf_buffer.can_transform(
+#         to_frame,
+#         from_frame,
+#         Time(),
+#         timeout=Duration(seconds=0.5)
+#     ):
+#         self.node.get_logger().warn(f"No transform {from_frame} → {to_frame}")
+#         return None
+
+#     try:
+#         t = self.tf_buffer.lookup_transform(
+#             to_frame,
+#             from_frame,
+#             Time()
+#         )
+#         pose_out = tf2_geometry_msgs.do_transform_pose_stamped(
+#             pose_stamped_in,
+#             t
+#         )
+#         pose_out.header.frame_id = to_frame
+#         return pose_out
+
+#     except Exception as e:
+#         self.node.get_logger().warn(f"Transform failed: {e}")
+#         return None
+    
 def plan_path_moveit(
         ur5e,
         theta_f,
@@ -1151,7 +1182,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.z = quat1[3]
     
     result, trj1 = motion_client.plan_to_pose(pose=pose_msg, joint_start=None, cartesian_motion=False)
-
+    print(result)
     if getattr(result,"val")==1:
         path1=remap_trajectory(trj1, joint_name_map, dt)
         q1=path1[-1]
@@ -2033,7 +2064,7 @@ class PathPlannerService(Node):
         # Simulazione
         init_sim()
         candidate_paths = []
-        scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq,debug,record) # genera l'ambiente di simulazione
+        scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
