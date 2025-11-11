@@ -1909,7 +1909,7 @@ class PathPlannerService(Node):
         liq=True
         record=False
         debug=False   
-        view=False
+        view=True
 
         if view:
             N = 1                    # Numero di modelli simulati (iniziale)
@@ -2031,19 +2031,19 @@ class PathPlannerService(Node):
         
         #################################################################################à
         # Simulazione
-        #init_sim()
+        init_sim()
         candidate_paths = []
-
+        scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq,debug,record) # genera l'ambiente di simulazione
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
-            #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
-            dt=0.01
+            
+            #dt=0.01
             for j in range(M):   
                 theta_f = np.deg2rad(theta_f_arr[j])
                 num_wp = int(num_wp_arr[j])
         
-                paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+                #paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
                 # paths = plan_path(
                 #     ur5e, 
                 #     theta_f,
@@ -2056,19 +2056,17 @@ class PathPlannerService(Node):
                 #     debug=debug,
                 # )
                
-                # paths = plan_path(
-                #     ur5e, 
-                #     theta_f,
-                #     parameters,
-                #     motion_client=self.motion_client
-                #     timeout=5.0, 
-                #     smooth_path=True, 
-                #     num_waypoints=num_wp, 
-                #     ignore_collision=False, 
-                #     planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
-                #     debug=debug,
-                # )
-                # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+                paths = plan_path_moveit(
+                    ur5e,
+                    theta_f,
+                    parameters,
+                    motion_client=self.motion_client,
+                    num_waypoints=1000,
+                    debug=False,
+                    approach=False,
+                    dt=0.01,
+                )
+                path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
                 # fake_sim(ur5e, paths, scene, path_debug)
                 candidate_paths.append(paths)
 
