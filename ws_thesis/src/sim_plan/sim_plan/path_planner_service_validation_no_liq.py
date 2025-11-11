@@ -1593,11 +1593,11 @@ def compute_fake_reward(parameters, theta_f, num_wp):
 
     theta_opt=90
     err_theta=np.linalg.norm(theta_f-theta_opt)
-    err_max_theta=20
+    err_max_theta=10
 
     num_wp_opt=320
     err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
-    err_max_num_wp=100
+    err_max_num_wp=50
 
     w_pos, w_cor = 0.5, 0.5
     w_theta, w_num_wp = 10, 10
