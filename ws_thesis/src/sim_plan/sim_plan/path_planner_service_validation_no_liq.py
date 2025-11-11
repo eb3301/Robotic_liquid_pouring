@@ -16,6 +16,7 @@ import sys
 from scipy.special import expit
 from drims2_motion_server.motion_client import MotionClient
 from geometry_msgs.msg import PoseStamped
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 def progress_bar(i, total, msg, length=30):
     percent = (i + 1) / total
@@ -1066,444 +1067,273 @@ def plan_path(
         "all": path
         }
 
+def remap_trajectory(trj: JointTrajectory, joint_name_map, dt):
+    name_to_idx  = {n:i for i,n in enumerate(trj.joint_names)}
+    order        = [name_to_idx[n] for n in joint_name_map]
+    
+    new=[]
+    time=[]
+    for p in trj.points:
+        q = [p.positions[i] for i in order]
+        time_from_start = p.time_from_start
+        t = time_from_start.sec + time_from_start.nanosec * 1e-9
+
+        new.append(q)
+        time.append(t)
+    
+    # Funziona anche così ma è meno ottimizzato
+    # new=[]
+    # time=[]
+    # if getattr(result, "val") == 1:
+    #     for pt in trj.points:
+    #         q=np.zeros(7)
+    #         for i,q_trj in enumerate(pt.positions):
+    #             for j,name in enumerate(joint_name_map):
+    #                 if name == trj.joint_names[i]:
+    #                     q[j]=q_trj
+    #         t=p.time_from_start.sec+p.time_from_start.nanosec*1e-9
+    #         time.append(t)
+    #         new.append(q)
+
+    t = np.asarray(time, dtype=float)
+    Q = np.asarray(new, dtype=float)  # shape: (N, n_joints)
+
+    # Interpolazione lineare per ogni giunto
+    t_new = np.arange(0.0, t[-1] + dt, dt)
+    q_new = np.zeros((len(t_new), Q.shape[1]))
+
+    for j in range(Q.shape[1]):
+        q_new[:, j] = np.interp(t_new, t, Q[:, j])
+
+    return q_new
+
 def plan_path_moveit(
         ur5e,
         theta_f,
         parameters,
         motion_client,
-        timeout=5.0,
-        smooth_path=True,
         num_waypoints=1000,
-        ignore_collision=False,
-        planner= "RRTstar", # "RRTConnect"
-        return_valid_mask=True,
         debug=False,
         approach=False,
-        max_retry=20,
+        dt=0.01,
     ):
     logger=get_logger("path logger")
-    
-    old=False
     path=np.empty((0, 8))
     print(f"planning started")
     
+    joint_name_map = [
+        "shoulder_pan_joint",
+        "shoulder_lift_joint",
+        "elbow_joint",
+        "wrist_1_joint",
+        "wrist_2_joint",
+        "wrist_3_joint",
+    ]
     #################################
     x_shift=0.15
     z_min=0.967
     lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
-    if approach:
-        # q0 (foto)
-        q0 = ur5e.get_qpos()
-        collisions0 = ur5e.detect_collision()
-        if debug: print(f"Collisioni 0: {collisions0}")
-        pos0=np.array([parameters['pos_init_ee'][0], parameters['pos_init_ee'][1],parameters['pos_init_ee'][2]])
-        quat0=np.array([parameters['pos_init_ee'][3], parameters['pos_init_ee'][4], parameters['pos_init_ee'][5], parameters['pos_init_ee'][6]])
-
-        q0_test = ur5e.inverse_kinematics(
-                    link=ur5e.get_link("tool0"),
-                    pos=pos0,
-                    quat=quat0,
-            )
+    
         
-        links_p0, _ = ur5e.forward_kinematics(q0)      
-        p0 = links_p0[-1]
-        links_p0_test, _ = ur5e.forward_kinematics(q0_test)
-        p0_test = links_p0_test[-1]
-        pos_error = np.linalg.norm(p0 - p0_test)
-        if pos_error>5e-2:
-            print(f"Errore: {pos_error}")
-            raise RuntimeError(f"Errore nella posizione iniziale troppo grosso")
-        
-        # q01 (pregrasp)
-        pos01 = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
-        pos01[0]-=x_shift 
-        pos01[2]+=container_size[2]+0.05
-        pos01[2]=max(pos01[2],z_min)
-        quat01 = quat_orizz
-        try:
-            q01 = ur5e.inverse_kinematics(
-                link=ur5e.get_link("tool0"),
-                pos=pos01,
-                quat=quat01
-            ) 
-        except Exception as e:
-            raise RuntimeError(f"errore nella IK q1")
-        ur5e.set_qpos(q01)
-        scene.visualizer.update(force=True, auto=True)
-        collisions01 = ur5e.detect_collision()
-        if debug: print(f"Collisioni 01: {collisions01}")
+    pos1=np.array([parameters['pos_grip_ee'][0], parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
+    quat1=np.array([parameters['pos_grip_ee'][6], parameters['pos_grip_ee'][3], parameters['pos_grip_ee'][4], parameters['pos_grip_ee'][5]]) # xyzw-> wxyz
 
-        # Pianifica da posizione iniziale ee a posizione grasping contenitore (0->1): movimento principale nel piano X-Z
-        path01, valid = ur5e.plan_path(
-            #ee_link_name="tool0",
-            qpos_goal=q01,
-            qpos_start=q0,
-            timeout=timeout,
-            num_waypoints=int(num_waypoints*0.8),
-            smooth_path=smooth_path,
-            ignore_collision=ignore_collision,
-            planner=planner,
-            return_valid_mask=return_valid_mask,
-            max_retry=max_retry,
-        )
-        if not valid:  # se invalido
-            raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
-        path01=path01.cpu().numpy()
+    # la pose si riferisce al base link o a world? nel primo caso serve tf
+    pose_msg = PoseStamped()
+    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    pose_msg.pose.position.x = pos1[0]
+    pose_msg.pose.position.y = pos1[1]
+    pose_msg.pose.position.z = pos1[2]
+    pose_msg.pose.orientation.w = quat1[0]
+    pose_msg.pose.orientation.x = quat1[1]
+    pose_msg.pose.orientation.y = quat1[2]
+    pose_msg.pose.orientation.z = quat1[3]
+    
+    result, trj1 = motion_client.plan_to_pose(pose=pose_msg, joint_start=None, cartesian_motion=False)
 
-        # q1 (grasp)
-        pos1 = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
-        pos1[0]-=x_shift 
-        pos1[2]+=container_size[2]-0.01
-        pos1[2]=max(pos1[2],z_min)
-        quat1 = quat_orizz
-        try:
-            q1 = ur5e.inverse_kinematics(
-                link=ur5e.get_link("tool0"),
-                pos=pos1,
-                quat=quat1
-            ) 
-        except Exception as e:
-            raise RuntimeError(f"errore nella IK q1")
-        ur5e.set_qpos(q1)
-        scene.visualizer.update(force=True, auto=True)
-        collisions1 = ur5e.detect_collision()
-        if debug: print(f"Collisioni 1: {collisions1}")
-
-        # Pianifica da posizione iniziale ee a posizione grasping contenitore (0->1): movimento principale nel piano X-Z
-        path1, valid = ur5e.plan_path(
-            #ee_link_name="tool0",
-            qpos_goal=q1,
-            qpos_start=q01,
-            timeout=timeout,
-            num_waypoints=int(num_waypoints*0.1),
-            smooth_path=smooth_path,
-            ignore_collision=ignore_collision,
-            planner=planner,
-            return_valid_mask=return_valid_mask,
-            max_retry=max_retry,
-        )
-        if not valid:  # se invalido
-            raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
-        path1=path1.cpu().numpy()
-        path1=np.concatenate((path01,path1))
-        path = np.concatenate((path, path1))
-    else:
-        
-        pos1=np.array([parameters['pos_grip_ee'][0], parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
-        quat1=np.array([parameters['pos_grip_ee'][6], parameters['pos_grip_ee'][3], parameters['pos_grip_ee'][4], parameters['pos_grip_ee'][5]]) # xyzw-> wxyz
-
-        # la pose si riferisce al base link o a world? nel primo caso serve tf
-        pose_msg = PoseStamped()
-        pose_msg.header.frame_id = "tool0" # relative motion wrt tool0 frame
-        pose_msg.pose.position.x = pos1[0]
-        pose_msg.pose.position.y = pos1[1]
-        pose_msg.pose.position.z = pos1[2]
-        pose_msg.pose.orientation.w = quat1[0]
-        pose_msg.pose.orientation.x = quat1[1]
-        pose_msg.pose.orientation.y = quat1[2]
-        pose_msg.pose.orientation.z = quat1[3]
-        
-
-        result, trj = motion_client.plan_to_pose(pose=pose_msg, joint_start=None, cartesian_motion=True)
-        
-   
+    if getattr(result,"val")==1:
+        path1=remap_trajectory(trj1, joint_name_map, dt)
+        q1=path1[-1]
+    
     ################################# 
     # q2 (sollevam)
     pos2 = pos1.copy()
     pos2[2]+=0.10
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
-    try:
-        q2 = ur5e.inverse_kinematics(
-            link=ur5e.get_link("tool0"),
-            pos=pos2,
-            quat=quat2
-        ) 
-    except Exception as e:
-        raise RuntimeError(f"errore nella IK q2")
-    ur5e.set_qpos(q2)
-    scene.visualizer.update(force=True, auto=True)
-    collisions2 = ur5e.detect_collision()
-    if debug: print(f"Collisioni 2: {collisions2}")
+    
+    pose_msg = PoseStamped()
+    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    pose_msg.pose.position.x = pos2[0]
+    pose_msg.pose.position.y = pos2[1]
+    pose_msg.pose.position.z = pos2[2]
+    pose_msg.pose.orientation.w = quat2[0]
+    pose_msg.pose.orientation.x = quat2[1]
+    pose_msg.pose.orientation.y = quat2[2]
+    pose_msg.pose.orientation.z = quat2[3]
+    
+    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q1, cartesian_motion=True)
 
-    # Sollevamento (1->2): movimento verticale lungo Z
-    path2, valid = ur5e.plan_path(
-        #ee_link_name="tool0",
-        qpos_goal=q2,
-        qpos_start=q1,
-        timeout=timeout,
-        num_waypoints= 100, #int(num_waypoints/3),
-        smooth_path=smooth_path,
-        ignore_collision=ignore_collision,
-        planner=planner,
-        return_valid_mask=return_valid_mask,
-        max_retry=max_retry,
-    )
-    if not valid:  
-        raise RuntimeError(f"path di sollevamento è invalido")
-    path2=path2.cpu().numpy()
-    path = np.concatenate((path, path2))
-    logger.info(f"Pianificazione salita eseguita")
-   
+    if getattr(result,"val")==1:
+        path2=remap_trajectory(trj2, joint_name_map, dt)
+        q2=path2[-1]
+        path = np.concatenate((path, path2))
+        logger.info(f"Pianificazione salita eseguita")
+    else:
+        logger.info(f"Pianificazione salita fallita")
+
     #################################
     # q3 (approach cont target): movimento principale nel piano Y-Z
     pos3 = np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
-    pos3[0]-=x_shift
-    pos3[1] -= (0.01+container2_size[0]/2+container_size[0]/2)
+    pos3[0]-= x_shift
+    pos3[1]-= (0.01+container2_size[0]/2+container_size[0]/2)
     pos3[2] = pos2[2]
     pos3[2]=max(pos3[2],z_min)
     quat3 = quat_orizz
-    try:
-        q3 = ur5e.inverse_kinematics(
-            link=ur5e.get_link("tool0"),
-            pos=pos3,
-            quat=quat3
-        ) 
-    except Exception as e:
-        raise RuntimeError(f"errore nella IK q3")
-    ur5e.set_qpos(q3)
-    scene.visualizer.update(force=True, auto=True)
-    collisions3 = ur5e.detect_collision()
-    if debug: print(f"Collisioni 3: {collisions3}")
+    
+    pose_msg = PoseStamped()
+    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    pose_msg.pose.position.x = pos3[0]
+    pose_msg.pose.position.y = pos3[1]
+    pose_msg.pose.position.z = pos3[2]
+    pose_msg.pose.orientation.w = quat3[0]
+    pose_msg.pose.orientation.x = quat3[1]
+    pose_msg.pose.orientation.y = quat3[2]
+    pose_msg.pose.orientation.z = quat3[3]
+    
+    result, trj3 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q2, cartesian_motion=False)
 
-    # Trasporto liquido (2->3) ((modificato in simulazione per cambio orientaz in funzione del liquido))
-    path3, valid = ur5e.plan_path(
-        #ee_link_name="tool0",
-        qpos_goal=q3,
-        qpos_start=q2,
-        timeout=timeout*10,
-        max_nodes=10000,
-        num_waypoints=num_waypoints,
-        smooth_path=smooth_path,
-        ignore_collision=ignore_collision,
-        planner=planner,
-        return_valid_mask=return_valid_mask,
-        max_retry=max_retry,
-    )
-    if not valid:  
-        raise RuntimeError(f"path di trasporto è invalido")
-    path3 = path3.cpu().numpy()
-    path = np.concatenate((path, path3))
-    logger.info(f"Pianificazione trasporto eseguito")
+    if getattr(result,"val")==1:
+        path3=remap_trajectory(trj3, joint_name_map, dt)
+        q3=path3[-1]
+        # Interpolate with new duration
+        tf=dt*(len(path3)-1)
+        t=np.arange(0.0, tf + 1e-12, dt)
+        tf_new=num_waypoints*dt
+        t_new = np.arange(0.0, tf_new + dt, dt)
+        new = np.zeros((len(t_new), path3.shape[1]))
+        for j in range(path3.shape[1]):
+            new[:, j] = np.interp(t_new, t, path3[:, j])
+        path3 = new
+
+        path = np.concatenate((path, path3))
+        logger.info(f"Pianificazione trasporto eseguita")
+    else:
+        logger.info(f"Pianificazione trasporto fallita")
     #################################
     # q4 (pre vers)
     pos4 = np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
     pos4[0]-=x_shift
-    if old: 
-        pos4[1] -= (0.01+container2_size[0]/2+container_size[0]/2)
-        pos4[2] += container2_size[2]+0.05
-    else:
-        pos4[1] -= (container2_size[0]/2+0.03)
-        pos4[2] += container2_size[2]
-    
+    pos4[1] -= (container2_size[0]/2+0.03)
+    pos4[2] += container2_size[2]
     pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
-    try:
-        q4 = ur5e.inverse_kinematics(
-            link=ur5e.get_link("tool0"),
-            pos=pos4,
-            quat=quat4
-        ) 
-    except Exception as e:
-        raise RuntimeError(f"errore nella IK q4")
-    ur5e.set_qpos(q4)
-    scene.visualizer.update(force=True, auto=True)
-    collisions4 = ur5e.detect_collision()
-    if debug: print(f"Collisioni 4: {collisions4}")
 
-    # Posizione pre versamento (3->4): movimento verticale lungo Z
-    path4, valid = ur5e.plan_path(
-        #ee_link_name="tool0",
-        qpos_goal=q4,
-        qpos_start=q3,
-        timeout=timeout,
-        num_waypoints=100, #int(num_waypoints/3),
-        smooth_path=smooth_path,
-        ignore_collision=ignore_collision,
-        planner=planner,
-        return_valid_mask=return_valid_mask,
-        max_retry=max_retry,
-    )
-    if not valid:  
-        raise RuntimeError(f"path da fine trasporto a preversamento è invalido")
-    path4=path4.cpu().numpy()
-    path = np.concatenate((path, path4))   
-    logger.info(f"Pianificazione discesa eseguita")
+    pose_msg = PoseStamped()
+    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    pose_msg.pose.position.x = pos4[0]
+    pose_msg.pose.position.y = pos4[1]
+    pose_msg.pose.position.z = pos4[2]
+    pose_msg.pose.orientation.w = quat4[0]
+    pose_msg.pose.orientation.x = quat4[1]
+    pose_msg.pose.orientation.y = quat4[2]
+    pose_msg.pose.orientation.z = quat4[3]
+    
+    result, trj4 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q3, cartesian_motion=True)
 
-    ################################# OLD (TO BE REMOVED IF TESTING OF NEW IS SUCCESSFUL)
-    if old:
-        # Versamento (4->5) [Da paper: Vision-based robot manipulation of transparent liquid containers in a laboratory setting]
-        # La rotazione avviene nel piano Y-Z
-        CoR3D = np.array([parameters['pos_cont_goal'][0]-x_shift,parameters['pos_cont_goal'][1]-container2_size[0]/4,parameters['pos_cont_goal'][2]+container2_size[2]/2])    
-        _, y_c, z_c = CoR3D
-        x0, y0, z0 = pos4
-        yaw,pitch,roll=quaternion_to_euler(quat4)
-        l = np.sqrt((y0 - y_c)**2 + (z0 - z_c)**2)
-        alpha_start = np.arctan2(z0 - z_c, y0 - y_c)
-        path5 = []
-        n_steps = int(num_waypoints/2.5)
-        for theta in np.linspace(0,theta_f,n_steps):
-            x = x0 # fixed
-            y = y_c + l * np.cos(alpha_start - theta)
-            z = z_c + l * np.sin(alpha_start - theta)
-            z = max(z, z_min)
-        
-            pos5 = [x, y, z]
-            quat5 = R.from_euler('zxy', [yaw + theta, pitch, roll]).as_quat()
-            try:
-                q5 = ur5e.inverse_kinematics(
-                    link=ur5e.get_link("tool0"),
-                    pos=pos5,
-                    quat=quat5
-                ) 
-            except Exception as e:
-                raise RuntimeError(f"errore nella IK q5")
-            path5.append(q5)
-        
-        ur5e.set_qpos(q5)
-        scene.visualizer.update(force=True, auto=True)
-        collisions5 = ur5e.detect_collision()
-        if debug: print(f"Collisioni 5: {collisions5}")
-        path5 = np.array(path5)
-        path5 = path5.cpu().numpy()
-        path = np.concatenate((path, path5))    
-
-        #################################
-        path6 = []
-        for theta in np.linspace(theta_f, 0, n_steps):
-            x = x0  # fisso
-            y = y_c + 1.5 * l * np.cos(alpha_start - theta)  
-            z = z_c + 1.0 * l * np.sin(alpha_start - theta)
-            z = max(z, z_min)
-
-            pos6 = [x, y, z]
-            quat6 = R.from_euler('zxy', [yaw + theta, pitch, roll]).as_quat()
-            try:
-                q6 = ur5e.inverse_kinematics(
-                    link=ur5e.get_link("tool0"),
-                    pos=pos6,
-                    quat=quat6
-                )
-            except Exception:
-                raise RuntimeError("errore nella IK q6")
-            path6.append(q6)
-
-        ur5e.set_qpos(q6)
-        scene.visualizer.update(force=True, auto=True)
-        collisions6 = ur5e.detect_collision()
-        if debug:
-            print(f"Collisioni 6: {collisions6}")
-        path6 = np.array(path6)
-        path6 = path6.cpu().numpy()
-        path = np.concatenate((path, path6))
-
+    if getattr(result,"val")==1:
+        path4 = remap_trajectory(trj4, joint_name_map, dt)
+        q4 = path4[-1]
+        path = np.concatenate((path, path4))
+        logger.info(f"Pianificazione discesa eseguita")
     else:
-        ######################################
-        # Versamento (4->5)
-        CoR3D = np.array([
-            parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
-            parameters['pos_cont_goal'][1] - 0.005 + parameters['dCoR'][1], # - 0.01 
-            parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
-        ])
-        p_tcp0 = pos4.copy()
-        scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
-        R0 = R.from_quat(quat4) # matrice rot init
-        l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
-        tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
-        axis_world=tool_x_axis
-      
-        path5 = []
-        n_steps = int(num_waypoints/2)
-        for theta in np.linspace(0, theta_f, n_steps):
-            R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
-            quat5 = R_theta.as_quat()
-            delta_pos=R_theta.apply(l)
-            p_tcp = CoR3D - delta_pos
-            p_tcp[2] = max(pos4[2],z_min, lip_height) 
-        
-            try:
-                q5 = ur5e.inverse_kinematics(
-                    link=ur5e.get_link("tool0"),
-                    pos=p_tcp,
-                    quat=quat5
-                )
-            except Exception:
-                raise RuntimeError("errore nella IK q5 (pour)")
+        logger.info(f"Pianificazione discesa fallita")
 
-            path5.append(q5)
+    ######################################
+    # Versamento (4->5)
+    CoR3D = np.array([
+        parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
+        parameters['pos_cont_goal'][1] - 0.005 + parameters['dCoR'][1], # - 0.01 
+        parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
+    ])
+    p_tcp0 = pos4.copy()
+    scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
+    R0 = R.from_quat(quat4) # matrice rot init
+    l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
+    tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
+    axis_world=tool_x_axis
+    
+    path5 = []
+    n_steps = int(num_waypoints/2)
+    for theta in np.linspace(0, theta_f, n_steps):
+        R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
+        quat5 = R_theta.as_quat()
+        delta_pos=R_theta.apply(l)
+        p_tcp = CoR3D - delta_pos
+        p_tcp[2] = max(pos4[2],z_min, lip_height) 
+    
+        try:
+            q5 = ur5e.inverse_kinematics(
+                link=ur5e.get_link("tool0"),
+                pos=p_tcp,
+                quat=quat5
+            )
+        except Exception:
+            raise RuntimeError("errore nella IK q5 (pour)")
 
-        ur5e.set_qpos(q5)
-        scene.visualizer.update(force=True, auto=True)
-        collisions5 = ur5e.detect_collision()
-        if debug: print(f"Collisioni 5: {collisions5}")
-        path5 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path5])
-        path = np.concatenate((path, path5))
+        path5.append(q5)
+    path5 = np.asarray(path5, dtype=float)
+    path = np.concatenate((path, path5))
 
-        ###########################################
-        # Ritorno dal versamento (5->6)
-        path6 = []
-        for theta in np.linspace(theta_f, 0.0, n_steps):
-            R_theta = R.from_rotvec(theta * axis_world) * R0
-            quat6 = R_theta.as_quat()
+    ###########################################
+    # Ritorno dal versamento (5->6)
+    path6 = []
+    for theta in np.linspace(theta_f, 0.0, n_steps):
+        R_theta = R.from_rotvec(theta * axis_world) * R0
+        quat6 = R_theta.as_quat()
 
-            p_tcp = CoR3D - R_theta.apply(l)
-            p_tcp[2] = max(pos4[2],z_min,lip_height)
+        p_tcp = CoR3D - R_theta.apply(l)
+        p_tcp[2] = max(pos4[2],z_min,lip_height)
 
-            try:
-                q6 = ur5e.inverse_kinematics(
-                    link=ur5e.get_link("tool0"),
-                    pos=p_tcp,
-                    quat=quat6
-                )
-            except Exception:
-                raise RuntimeError("errore nella IK q6 (unpour)")
+        try:
+            q6 = ur5e.inverse_kinematics(
+                link=ur5e.get_link("tool0"),
+                pos=p_tcp,
+                quat=quat6
+            )
+        except Exception:
+            raise RuntimeError("errore nella IK q6 (unpour)")
 
-            path6.append(q6)
-        pos6=p_tcp
-        ur5e.set_qpos(q6)
-        scene.visualizer.update(force=True, auto=True)
-        collisions6 = ur5e.detect_collision()
-        if debug: print(f"Collisioni 6: {collisions6}")
-        path6 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path6])
-        path = np.concatenate((path, path6))
+        path6.append(q6)
+    path6 = np.asarray(path6, dtype=float)
+    q6=path6[-1]
+    path = np.concatenate((path, path6))
     logger.info(f"Pianificazione pouring e unpouring eseguita")
+
+    pos6=p_tcp
     #################################
     # q7
     pos7 = pos6    
     pos7[2] =parameters['pos_init_cont'][2]+container_size[2]
     pos7[2]=max(pos7[2],z_min)
     quat7 = quat_orizz
-    try:
-        q7 = ur5e.inverse_kinematics(
-            link=ur5e.get_link("tool0"),
-            pos=pos7,
-            quat=quat7
-        ) 
-    except Exception as e:
-        raise RuntimeError(f"errore nella IK q7")
-    ur5e.set_qpos(q7)
-    scene.visualizer.update(force=True, auto=True)
-    collisions7 = ur5e.detect_collision()
-    if debug: print(f"Collisioni 7: {collisions7}")
-    # Termina rilasciando contenitore sul tavolo
-    path7, valid = ur5e.plan_path(
-        #ee_link_name="tool0",
-        qpos_goal=q7,
-        qpos_start=q6,
-        timeout=timeout,
-        num_waypoints= 30, #int(num_waypoints/10),
-        smooth_path=smooth_path,
-        ignore_collision=ignore_collision,
-        planner=planner,
-        return_valid_mask=return_valid_mask,
-        max_retry=max_retry,
-    )
-    if not valid:  
-        print(path7)
-        raise RuntimeError(f"path di release")
-    path7=path7.cpu().numpy()
-    path = np.concatenate((path, path7))
+    
+    pose_msg = PoseStamped()
+    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    pose_msg.pose.position.x = pos7[0]
+    pose_msg.pose.position.y = pos7[1]
+    pose_msg.pose.position.z = pos7[2]
+    pose_msg.pose.orientation.w = quat7[0]
+    pose_msg.pose.orientation.x = quat7[1]
+    pose_msg.pose.orientation.y = quat7[2]
+    pose_msg.pose.orientation.z = quat7[3]
+    
+    result, trj7 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q6, cartesian_motion=True)
+
+    if getattr(result,"val")==1:
+        path7=remap_trajectory(trj7, joint_name_map, dt)
+        path = np.concatenate((path, path7))
 
     if debug: print(path)
     print(f"Planning complete")
