@@ -1070,7 +1070,7 @@ def plan_path_moveit(
         ur5e,
         theta_f,
         parameters,
-        motion_client = MotionClient(),
+        motion_client,
         timeout=5.0,
         smooth_path=True,
         num_waypoints=1000,
