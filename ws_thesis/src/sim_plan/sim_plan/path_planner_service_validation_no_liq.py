@@ -14,6 +14,8 @@ from scipy.spatial.transform import Rotation as R
 from interfaces.srv import Simplan
 import sys
 from scipy.special import expit
+from drims2_motion_server.motion_client import MotionClient
+from geometry_msgs.msg import PoseStamped
 
 def progress_bar(i, total, msg, length=30):
     percent = (i + 1) / total
@@ -1064,6 +1066,470 @@ def plan_path(
         "all": path
         }
 
+def plan_path_moveit(
+        ur5e,
+        theta_f,
+        parameters,
+        motion_client = MotionClient(),
+        timeout=5.0,
+        smooth_path=True,
+        num_waypoints=1000,
+        ignore_collision=False,
+        planner= "RRTstar", # "RRTConnect"
+        return_valid_mask=True,
+        debug=False,
+        approach=False,
+        max_retry=20,
+    ):
+    logger=get_logger("path logger")
+    
+    old=False
+    path=np.empty((0, 8))
+    print(f"planning started")
+    
+    #################################
+    x_shift=0.15
+    z_min=0.967
+    lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
+    quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
+    if approach:
+        # q0 (foto)
+        q0 = ur5e.get_qpos()
+        collisions0 = ur5e.detect_collision()
+        if debug: print(f"Collisioni 0: {collisions0}")
+        pos0=np.array([parameters['pos_init_ee'][0], parameters['pos_init_ee'][1],parameters['pos_init_ee'][2]])
+        quat0=np.array([parameters['pos_init_ee'][3], parameters['pos_init_ee'][4], parameters['pos_init_ee'][5], parameters['pos_init_ee'][6]])
+
+        q0_test = ur5e.inverse_kinematics(
+                    link=ur5e.get_link("tool0"),
+                    pos=pos0,
+                    quat=quat0,
+            )
+        
+        links_p0, _ = ur5e.forward_kinematics(q0)      
+        p0 = links_p0[-1]
+        links_p0_test, _ = ur5e.forward_kinematics(q0_test)
+        p0_test = links_p0_test[-1]
+        pos_error = np.linalg.norm(p0 - p0_test)
+        if pos_error>5e-2:
+            print(f"Errore: {pos_error}")
+            raise RuntimeError(f"Errore nella posizione iniziale troppo grosso")
+        
+        # q01 (pregrasp)
+        pos01 = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
+        pos01[0]-=x_shift 
+        pos01[2]+=container_size[2]+0.05
+        pos01[2]=max(pos01[2],z_min)
+        quat01 = quat_orizz
+        try:
+            q01 = ur5e.inverse_kinematics(
+                link=ur5e.get_link("tool0"),
+                pos=pos01,
+                quat=quat01
+            ) 
+        except Exception as e:
+            raise RuntimeError(f"errore nella IK q1")
+        ur5e.set_qpos(q01)
+        scene.visualizer.update(force=True, auto=True)
+        collisions01 = ur5e.detect_collision()
+        if debug: print(f"Collisioni 01: {collisions01}")
+
+        # Pianifica da posizione iniziale ee a posizione grasping contenitore (0->1): movimento principale nel piano X-Z
+        path01, valid = ur5e.plan_path(
+            #ee_link_name="tool0",
+            qpos_goal=q01,
+            qpos_start=q0,
+            timeout=timeout,
+            num_waypoints=int(num_waypoints*0.8),
+            smooth_path=smooth_path,
+            ignore_collision=ignore_collision,
+            planner=planner,
+            return_valid_mask=return_valid_mask,
+            max_retry=max_retry,
+        )
+        if not valid:  # se invalido
+            raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
+        path01=path01.cpu().numpy()
+
+        # q1 (grasp)
+        pos1 = np.array([parameters['pos_init_cont'][0],parameters['pos_init_cont'][1],parameters['pos_init_cont'][2]])
+        pos1[0]-=x_shift 
+        pos1[2]+=container_size[2]-0.01
+        pos1[2]=max(pos1[2],z_min)
+        quat1 = quat_orizz
+        try:
+            q1 = ur5e.inverse_kinematics(
+                link=ur5e.get_link("tool0"),
+                pos=pos1,
+                quat=quat1
+            ) 
+        except Exception as e:
+            raise RuntimeError(f"errore nella IK q1")
+        ur5e.set_qpos(q1)
+        scene.visualizer.update(force=True, auto=True)
+        collisions1 = ur5e.detect_collision()
+        if debug: print(f"Collisioni 1: {collisions1}")
+
+        # Pianifica da posizione iniziale ee a posizione grasping contenitore (0->1): movimento principale nel piano X-Z
+        path1, valid = ur5e.plan_path(
+            #ee_link_name="tool0",
+            qpos_goal=q1,
+            qpos_start=q01,
+            timeout=timeout,
+            num_waypoints=int(num_waypoints*0.1),
+            smooth_path=smooth_path,
+            ignore_collision=ignore_collision,
+            planner=planner,
+            return_valid_mask=return_valid_mask,
+            max_retry=max_retry,
+        )
+        if not valid:  # se invalido
+            raise RuntimeError(f"path da posizione iniziale a posizione grasping è invalido")
+        path1=path1.cpu().numpy()
+        path1=np.concatenate((path01,path1))
+        path = np.concatenate((path, path1))
+    else:
+        
+        pos1=np.array([parameters['pos_grip_ee'][0], parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
+        quat1=np.array([parameters['pos_grip_ee'][6], parameters['pos_grip_ee'][3], parameters['pos_grip_ee'][4], parameters['pos_grip_ee'][5]]) # xyzw-> wxyz
+
+        # la pose si riferisce al base link o a world? nel primo caso serve tf
+        pose_msg = PoseStamped()
+        pose_msg.header.frame_id = "tool0" # relative motion wrt tool0 frame
+        pose_msg.pose.position.x = pos1[0]
+        pose_msg.pose.position.y = pos1[1]
+        pose_msg.pose.position.z = pos1[2]
+        pose_msg.pose.orientation.w = quat1[0]
+        pose_msg.pose.orientation.x = quat1[1]
+        pose_msg.pose.orientation.y = quat1[2]
+        pose_msg.pose.orientation.z = quat1[3]
+        
+
+        result, trj = motion_client.plan_to_pose(pose=pose_msg, joint_start=None, cartesian_motion=True)
+        
+   
+    ################################# 
+    # q2 (sollevam)
+    pos2 = pos1.copy()
+    pos2[2]+=0.10
+    pos2[2]=max(pos2[2],z_min)
+    quat2 = quat_orizz
+    try:
+        q2 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos2,
+            quat=quat2
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q2")
+    ur5e.set_qpos(q2)
+    scene.visualizer.update(force=True, auto=True)
+    collisions2 = ur5e.detect_collision()
+    if debug: print(f"Collisioni 2: {collisions2}")
+
+    # Sollevamento (1->2): movimento verticale lungo Z
+    path2, valid = ur5e.plan_path(
+        #ee_link_name="tool0",
+        qpos_goal=q2,
+        qpos_start=q1,
+        timeout=timeout,
+        num_waypoints= 100, #int(num_waypoints/3),
+        smooth_path=smooth_path,
+        ignore_collision=ignore_collision,
+        planner=planner,
+        return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
+    )
+    if not valid:  
+        raise RuntimeError(f"path di sollevamento è invalido")
+    path2=path2.cpu().numpy()
+    path = np.concatenate((path, path2))
+    logger.info(f"Pianificazione salita eseguita")
+   
+    #################################
+    # q3 (approach cont target): movimento principale nel piano Y-Z
+    pos3 = np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
+    pos3[0]-=x_shift
+    pos3[1] -= (0.01+container2_size[0]/2+container_size[0]/2)
+    pos3[2] = pos2[2]
+    pos3[2]=max(pos3[2],z_min)
+    quat3 = quat_orizz
+    try:
+        q3 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos3,
+            quat=quat3
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q3")
+    ur5e.set_qpos(q3)
+    scene.visualizer.update(force=True, auto=True)
+    collisions3 = ur5e.detect_collision()
+    if debug: print(f"Collisioni 3: {collisions3}")
+
+    # Trasporto liquido (2->3) ((modificato in simulazione per cambio orientaz in funzione del liquido))
+    path3, valid = ur5e.plan_path(
+        #ee_link_name="tool0",
+        qpos_goal=q3,
+        qpos_start=q2,
+        timeout=timeout*10,
+        max_nodes=10000,
+        num_waypoints=num_waypoints,
+        smooth_path=smooth_path,
+        ignore_collision=ignore_collision,
+        planner=planner,
+        return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
+    )
+    if not valid:  
+        raise RuntimeError(f"path di trasporto è invalido")
+    path3 = path3.cpu().numpy()
+    path = np.concatenate((path, path3))
+    logger.info(f"Pianificazione trasporto eseguito")
+    #################################
+    # q4 (pre vers)
+    pos4 = np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
+    pos4[0]-=x_shift
+    if old: 
+        pos4[1] -= (0.01+container2_size[0]/2+container_size[0]/2)
+        pos4[2] += container2_size[2]+0.05
+    else:
+        pos4[1] -= (container2_size[0]/2+0.03)
+        pos4[2] += container2_size[2]
+    
+    pos4[2]=max(pos4[2],z_min,lip_height)
+    quat4 = quat_orizz
+    try:
+        q4 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos4,
+            quat=quat4
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q4")
+    ur5e.set_qpos(q4)
+    scene.visualizer.update(force=True, auto=True)
+    collisions4 = ur5e.detect_collision()
+    if debug: print(f"Collisioni 4: {collisions4}")
+
+    # Posizione pre versamento (3->4): movimento verticale lungo Z
+    path4, valid = ur5e.plan_path(
+        #ee_link_name="tool0",
+        qpos_goal=q4,
+        qpos_start=q3,
+        timeout=timeout,
+        num_waypoints=100, #int(num_waypoints/3),
+        smooth_path=smooth_path,
+        ignore_collision=ignore_collision,
+        planner=planner,
+        return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
+    )
+    if not valid:  
+        raise RuntimeError(f"path da fine trasporto a preversamento è invalido")
+    path4=path4.cpu().numpy()
+    path = np.concatenate((path, path4))   
+    logger.info(f"Pianificazione discesa eseguita")
+
+    ################################# OLD (TO BE REMOVED IF TESTING OF NEW IS SUCCESSFUL)
+    if old:
+        # Versamento (4->5) [Da paper: Vision-based robot manipulation of transparent liquid containers in a laboratory setting]
+        # La rotazione avviene nel piano Y-Z
+        CoR3D = np.array([parameters['pos_cont_goal'][0]-x_shift,parameters['pos_cont_goal'][1]-container2_size[0]/4,parameters['pos_cont_goal'][2]+container2_size[2]/2])    
+        _, y_c, z_c = CoR3D
+        x0, y0, z0 = pos4
+        yaw,pitch,roll=quaternion_to_euler(quat4)
+        l = np.sqrt((y0 - y_c)**2 + (z0 - z_c)**2)
+        alpha_start = np.arctan2(z0 - z_c, y0 - y_c)
+        path5 = []
+        n_steps = int(num_waypoints/2.5)
+        for theta in np.linspace(0,theta_f,n_steps):
+            x = x0 # fixed
+            y = y_c + l * np.cos(alpha_start - theta)
+            z = z_c + l * np.sin(alpha_start - theta)
+            z = max(z, z_min)
+        
+            pos5 = [x, y, z]
+            quat5 = R.from_euler('zxy', [yaw + theta, pitch, roll]).as_quat()
+            try:
+                q5 = ur5e.inverse_kinematics(
+                    link=ur5e.get_link("tool0"),
+                    pos=pos5,
+                    quat=quat5
+                ) 
+            except Exception as e:
+                raise RuntimeError(f"errore nella IK q5")
+            path5.append(q5)
+        
+        ur5e.set_qpos(q5)
+        scene.visualizer.update(force=True, auto=True)
+        collisions5 = ur5e.detect_collision()
+        if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = np.array(path5)
+        path5 = path5.cpu().numpy()
+        path = np.concatenate((path, path5))    
+
+        #################################
+        path6 = []
+        for theta in np.linspace(theta_f, 0, n_steps):
+            x = x0  # fisso
+            y = y_c + 1.5 * l * np.cos(alpha_start - theta)  
+            z = z_c + 1.0 * l * np.sin(alpha_start - theta)
+            z = max(z, z_min)
+
+            pos6 = [x, y, z]
+            quat6 = R.from_euler('zxy', [yaw + theta, pitch, roll]).as_quat()
+            try:
+                q6 = ur5e.inverse_kinematics(
+                    link=ur5e.get_link("tool0"),
+                    pos=pos6,
+                    quat=quat6
+                )
+            except Exception:
+                raise RuntimeError("errore nella IK q6")
+            path6.append(q6)
+
+        ur5e.set_qpos(q6)
+        scene.visualizer.update(force=True, auto=True)
+        collisions6 = ur5e.detect_collision()
+        if debug:
+            print(f"Collisioni 6: {collisions6}")
+        path6 = np.array(path6)
+        path6 = path6.cpu().numpy()
+        path = np.concatenate((path, path6))
+
+    else:
+        ######################################
+        # Versamento (4->5)
+        CoR3D = np.array([
+            parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
+            parameters['pos_cont_goal'][1] - 0.005 + parameters['dCoR'][1], # - 0.01 
+            parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
+        ])
+        p_tcp0 = pos4.copy()
+        scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
+        R0 = R.from_quat(quat4) # matrice rot init
+        l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
+        tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
+        axis_world=tool_x_axis
+      
+        path5 = []
+        n_steps = int(num_waypoints/2)
+        for theta in np.linspace(0, theta_f, n_steps):
+            R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
+            quat5 = R_theta.as_quat()
+            delta_pos=R_theta.apply(l)
+            p_tcp = CoR3D - delta_pos
+            p_tcp[2] = max(pos4[2],z_min, lip_height) 
+        
+            try:
+                q5 = ur5e.inverse_kinematics(
+                    link=ur5e.get_link("tool0"),
+                    pos=p_tcp,
+                    quat=quat5
+                )
+            except Exception:
+                raise RuntimeError("errore nella IK q5 (pour)")
+
+            path5.append(q5)
+
+        ur5e.set_qpos(q5)
+        scene.visualizer.update(force=True, auto=True)
+        collisions5 = ur5e.detect_collision()
+        if debug: print(f"Collisioni 5: {collisions5}")
+        path5 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path5])
+        path = np.concatenate((path, path5))
+
+        ###########################################
+        # Ritorno dal versamento (5->6)
+        path6 = []
+        for theta in np.linspace(theta_f, 0.0, n_steps):
+            R_theta = R.from_rotvec(theta * axis_world) * R0
+            quat6 = R_theta.as_quat()
+
+            p_tcp = CoR3D - R_theta.apply(l)
+            p_tcp[2] = max(pos4[2],z_min,lip_height)
+
+            try:
+                q6 = ur5e.inverse_kinematics(
+                    link=ur5e.get_link("tool0"),
+                    pos=p_tcp,
+                    quat=quat6
+                )
+            except Exception:
+                raise RuntimeError("errore nella IK q6 (unpour)")
+
+            path6.append(q6)
+        pos6=p_tcp
+        ur5e.set_qpos(q6)
+        scene.visualizer.update(force=True, auto=True)
+        collisions6 = ur5e.detect_collision()
+        if debug: print(f"Collisioni 6: {collisions6}")
+        path6 = np.stack([q.cpu().numpy() if isinstance(q, torch.Tensor) else np.array(q) for q in path6])
+        path = np.concatenate((path, path6))
+    logger.info(f"Pianificazione pouring e unpouring eseguita")
+    #################################
+    # q7
+    pos7 = pos6    
+    pos7[2] =parameters['pos_init_cont'][2]+container_size[2]
+    pos7[2]=max(pos7[2],z_min)
+    quat7 = quat_orizz
+    try:
+        q7 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos7,
+            quat=quat7
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q7")
+    ur5e.set_qpos(q7)
+    scene.visualizer.update(force=True, auto=True)
+    collisions7 = ur5e.detect_collision()
+    if debug: print(f"Collisioni 7: {collisions7}")
+    # Termina rilasciando contenitore sul tavolo
+    path7, valid = ur5e.plan_path(
+        #ee_link_name="tool0",
+        qpos_goal=q7,
+        qpos_start=q6,
+        timeout=timeout,
+        num_waypoints= 30, #int(num_waypoints/10),
+        smooth_path=smooth_path,
+        ignore_collision=ignore_collision,
+        planner=planner,
+        return_valid_mask=return_valid_mask,
+        max_retry=max_retry,
+    )
+    if not valid:  
+        print(path7)
+        raise RuntimeError(f"path di release")
+    path7=path7.cpu().numpy()
+    path = np.concatenate((path, path7))
+
+    if debug: print(path)
+    print(f"Planning complete")
+    
+    if approach:
+        return {
+        "init_to_grasp": path1,
+        "lift": path2,
+        "transport": path3,
+        "pre_pour": path4,
+        "pour": path5,
+        "unpour": path6,
+        "release": path7,
+        "all": path
+        }
+    else:
+        return {
+        "lift": path2,
+        "transport": path3,
+        "pre_pour": path4,
+        "pour": path5,
+        "unpour": path6,
+        "release": path7,
+        "all": path
+        }
+
 def compute_reward(liquid, becher2, parameters, t0, scene):
     particles = np.squeeze(liquid.get_particles())
     target_vol = parameters['vol_target']
@@ -1529,6 +1995,7 @@ class PathPlannerService(Node):
         super().__init__('path_planner_service')
         self.srv = self.create_service(Simplan, 'plan_path', self.plan_path_callback)
         self.get_logger().info("Path planner service ready")
+        self.motion_client = MotionClient()
 
     def _make_parameters_range(self, values: dict, tolerances: dict) -> dict:
         """
@@ -1751,6 +2218,19 @@ class PathPlannerService(Node):
                 #     ur5e, 
                 #     theta_f,
                 #     parameters,
+                #     timeout=5.0, 
+                #     smooth_path=True, 
+                #     num_waypoints=num_wp, 
+                #     ignore_collision=False, 
+                #     planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
+                #     debug=debug,
+                # )
+               
+                # paths = plan_path(
+                #     ur5e, 
+                #     theta_f,
+                #     parameters,
+                #     motion_client=self.motion_client
                 #     timeout=5.0, 
                 #     smooth_path=True, 
                 #     num_waypoints=num_wp, 
