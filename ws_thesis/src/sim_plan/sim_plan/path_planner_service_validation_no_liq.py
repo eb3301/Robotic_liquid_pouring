@@ -1167,7 +1167,7 @@ def plan_path_moveit(
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
     
         
-    pos1=np.array([parameters['pos_grip_ee'][0], parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
+    pos1=np.array([parameters['pos_grip_ee'][0]+x_shift, parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
     quat1=np.array([parameters['pos_grip_ee'][6], parameters['pos_grip_ee'][3], parameters['pos_grip_ee'][4], parameters['pos_grip_ee'][5]]) # xyzw-> wxyz
 
     # la pose si riferisce al base link o a world? nel primo caso serve tf
