@@ -1187,7 +1187,8 @@ def plan_path_moveit(
         q1=path1[-1]
         print(type(q1))
     else:
-         print(f"result: {result}")
+        print(f"result: {result}")
+        quit()
     ################################# 
     # q2 (sollevam)
     pos2 = pos1.copy()
@@ -1215,6 +1216,7 @@ def plan_path_moveit(
     else:
         print(f"result: {result}")
         logger.info(f"Pianificazione salita fallita")
+        quit()
 
     #################################
     # q3 (approach cont target): movimento principale nel piano Y-Z
