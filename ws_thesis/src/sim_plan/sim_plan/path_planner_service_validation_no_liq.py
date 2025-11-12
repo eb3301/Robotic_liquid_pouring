@@ -1182,11 +1182,10 @@ def plan_path_moveit(
     pose_msg.pose.orientation.z = quat1[3]
     
     result, trj1 = motion_client.plan_to_pose(pose=pose_msg, joint_start=None, cartesian_motion=False)
-    print(result)
     if getattr(result,"val")==1:
         path1=remap_trajectory(trj1, joint_name_map, dt)
         q1=path1[-1]
-    
+    print(type(q1))
     ################################# 
     # q2 (sollevam)
     pos2 = pos1.copy()
