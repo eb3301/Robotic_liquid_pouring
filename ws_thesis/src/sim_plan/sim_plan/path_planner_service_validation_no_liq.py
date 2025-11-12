@@ -1139,7 +1139,7 @@ def remap_trajectory(trj: JointTrajectory, joint_name_map, dt):
 #         self.node.get_logger().warn(f"Transform failed: {e}")
 #         return None
 
-def reorder_and_pad_joints(node, q, joint_name_map):
+def reorder_and_pad_joints(last_joint_state, q, joint_name_map):
     """
     Riordina il vettore q in base all'ordine dei joint pubblicati su /joint_states.
     Aggiunge 0.0 se un joint non è presente in joint_name_map.
@@ -1152,12 +1152,7 @@ def reorder_and_pad_joints(node, q, joint_name_map):
     Returns:
         list[float]: vettore q riordinato e completato secondo joint_states.
     """
-
-    msg = rclpy.wait_for_message('/joint_states', JointState, node=node, timeout_sec=2.0)
-    if msg is None:
-        raise RuntimeError("Timeout: impossibile leggere /joint_states")
-
-    current_order = msg.name
+    current_order = last_joint_state.name
     joint_dict = dict(zip(joint_name_map, q))
 
     q_reordered = []
@@ -1166,12 +1161,11 @@ def reorder_and_pad_joints(node, q, joint_name_map):
 
     return q_reordered
 
-
 def plan_path_moveit(
-        node,
         ur5e,
         theta_f,
         parameters,
+        last_joint_state,
         motion_client,
         num_waypoints=1000,
         debug=False,
@@ -1207,7 +1201,7 @@ def plan_path_moveit(
         ) 
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
-    q1=reorder_and_pad_joints(node, to_numpy_cpu(q1), joint_name_map)
+    q1=reorder_and_pad_joints(last_joint_state, to_numpy_cpu(q1), joint_name_map)
 
     # # la pose si riferisce al base link o a world? nel primo caso serve tf
     # pose_msg = PoseStamped()
@@ -1248,7 +1242,7 @@ def plan_path_moveit(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
     
-    q2=reorder_and_pad_joints(node, to_numpy_cpu(q2), joint_name_map)
+    q2=reorder_and_pad_joints(last_joint_state, to_numpy_cpu(q2), joint_name_map)
 
     result, trj2 = motion_client.plan_to_joint(joint_target=q2.tolist(), joint_start=q1.tolist())
 
@@ -1919,6 +1913,11 @@ class PathPlannerService(Node):
         self.srv = self.create_service(Simplan, 'plan_path', self.plan_path_callback)
         self.get_logger().info("Path planner service ready")
         self.motion_client = MotionClient()
+        self.sub = self.create_subscription(JointState,"/joint_states",self._joint_state_cb, 10)
+        self._last_joint_state=None
+
+    def _joint_state_cb(self, msg):
+        self._last_joint_state = msg
 
     def _make_parameters_range(self, values: dict, tolerances: dict) -> dict:
         """
@@ -2150,10 +2149,10 @@ class PathPlannerService(Node):
                 # )
                
                 paths = plan_path_moveit(
-                    self,
                     ur5e,
                     theta_f,
                     parameters,
+                    self._last_joint_state,
                     motion_client=self.motion_client,
                     num_waypoints=1000,
                     debug=False,
