@@ -1204,6 +1204,7 @@ def plan_path_moveit(
     q1=to_numpy_cpu(q1)
     q1=q1[:6]
     q1 = [float(x) for x in q1]
+    q1[0]-=np.pi
     print(f"q1: {q1}")
 
     # pose_msg = PoseStamped()
