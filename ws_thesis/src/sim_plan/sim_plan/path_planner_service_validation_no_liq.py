@@ -1181,13 +1181,13 @@ def plan_path_moveit(
     pose_msg.pose.orientation.y = quat1[2]
     pose_msg.pose.orientation.z = quat1[3]
     
-    print(pose_msg)
     result, trj1 = motion_client.plan_to_pose(pose=pose_msg, joint_start=None, cartesian_motion=False)
-    print(f"result: {result}")
     if getattr(result,"val")==1:
         path1=remap_trajectory(trj1, joint_name_map, dt)
         q1=path1[-1]
         print(type(q1))
+    else:
+         print(f"result: {result}")
     ################################# 
     # q2 (sollevam)
     pos2 = pos1.copy()
@@ -1213,6 +1213,7 @@ def plan_path_moveit(
         path = np.concatenate((path, path2))
         logger.info(f"Pianificazione salita eseguita")
     else:
+        print(f"result: {result}")
         logger.info(f"Pianificazione salita fallita")
 
     #################################
@@ -1234,7 +1235,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.y = quat3[2]
     pose_msg.pose.orientation.z = quat3[3]
     
-    result, trj3 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q2, cartesian_motion=False)
+    result, trj3 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q2.tolist(), cartesian_motion=False)
 
     if getattr(result,"val")==1:
         path3=remap_trajectory(trj3, joint_name_map, dt)
@@ -1252,6 +1253,7 @@ def plan_path_moveit(
         path = np.concatenate((path, path3))
         logger.info(f"Pianificazione trasporto eseguita")
     else:
+        print(f"result: {result}")
         logger.info(f"Pianificazione trasporto fallita")
     #################################
     # q4 (pre vers)
@@ -1272,7 +1274,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.y = quat4[2]
     pose_msg.pose.orientation.z = quat4[3]
     
-    result, trj4 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q3, cartesian_motion=True)
+    result, trj4 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q3.tolist(), cartesian_motion=True)
 
     if getattr(result,"val")==1:
         path4 = remap_trajectory(trj4, joint_name_map, dt)
@@ -1280,6 +1282,7 @@ def plan_path_moveit(
         path = np.concatenate((path, path4))
         logger.info(f"Pianificazione discesa eseguita")
     else:
+        print(f"result: {result}")
         logger.info(f"Pianificazione discesa fallita")
 
     ######################################
