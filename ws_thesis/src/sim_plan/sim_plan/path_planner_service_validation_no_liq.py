@@ -1201,6 +1201,7 @@ def plan_path_moveit(
         ) 
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
+    print(q1)
     q1=reorder_and_pad_joints(last_joint_state, to_numpy_cpu(q1), joint_name_map)
     print(f"q1: {q1}")
     # pose_msg = PoseStamped()
@@ -1253,7 +1254,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.y = quat2[2]
     pose_msg.pose.orientation.z = quat2[3]
     
-    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q1.tolist(), cartesian_motion=True)
+    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q1), cartesian_motion=True)
 
     if getattr(result,"val")==1:
         path2=remap_trajectory(trj2, joint_name_map, dt)
