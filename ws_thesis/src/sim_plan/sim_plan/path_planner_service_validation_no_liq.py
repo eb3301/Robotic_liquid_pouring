@@ -1244,7 +1244,7 @@ def plan_path_moveit(
     
     q2=reorder_and_pad_joints(last_joint_state, to_numpy_cpu(q2), joint_name_map)
 
-    result, trj2 = motion_client.plan_to_joint(joint_target=q2.tolist(), joint_start=q1.tolist())
+    result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
 
     # pose_msg = PoseStamped()
     # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
