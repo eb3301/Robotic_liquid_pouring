@@ -1177,7 +1177,7 @@ def plan_path_moveit(
         ) 
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
-
+    print(type(q1))
     # # la pose si riferisce al base link o a world? nel primo caso serve tf
     # pose_msg = PoseStamped()
     # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
@@ -1216,7 +1216,7 @@ def plan_path_moveit(
         ) 
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
-    result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
+    result, trj2 = motion_client.plan_to_joint(joint_target=q2.tolist(), joint_start=q1.tolist())
 
     # pose_msg = PoseStamped()
     # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
