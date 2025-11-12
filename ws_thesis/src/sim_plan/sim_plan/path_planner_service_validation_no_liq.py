@@ -1202,8 +1202,7 @@ def plan_path_moveit(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
     q1=reorder_and_pad_joints(last_joint_state, to_numpy_cpu(q1), joint_name_map)
-
-    # # la pose si riferisce al base link o a world? nel primo caso serve tf
+    print(f"q1: {q1}")
     # pose_msg = PoseStamped()
     # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
     # pose_msg.pose.position.x = pos1[0]
@@ -1215,8 +1214,6 @@ def plan_path_moveit(
     # pose_msg.pose.orientation.z = quat1[3]
     
     # result, trj1 = motion_client.plan_to_pose(pose=pose_msg, joint_start=None, cartesian_motion=False)
-
- 
     
     # if getattr(result,"val")==1:
     #     path1=remap_trajectory(trj1, joint_name_map, dt)
@@ -1233,30 +1230,30 @@ def plan_path_moveit(
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
     
-    try:
-        q2 = ur5e.inverse_kinematics(
-            link=ur5e.get_link("tool0"),
-            pos=pos2,
-            quat=quat2
-        ) 
-    except Exception as e:
-        raise RuntimeError(f"errore nella IK q1")
+    # try:
+    #     q2 = ur5e.inverse_kinematics(
+    #         link=ur5e.get_link("tool0"),
+    #         pos=pos2,
+    #         quat=quat2
+    #     ) 
+    # except Exception as e:
+    #     raise RuntimeError(f"errore nella IK q1")
     
-    q2=reorder_and_pad_joints(last_joint_state, to_numpy_cpu(q2), joint_name_map)
+    # q2=reorder_and_pad_joints(last_joint_state, to_numpy_cpu(q2), joint_name_map)
 
-    result, trj2 = motion_client.plan_to_joint(joint_target=list(q2), joint_start=list(q1))
+    # result, trj2 = motion_client.plan_to_joint(joint_target=list(q2), joint_start=list(q1))
 
-    # pose_msg = PoseStamped()
-    # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
-    # pose_msg.pose.position.x = pos2[0]
-    # pose_msg.pose.position.y = pos2[1]
-    # pose_msg.pose.position.z = pos2[2]
-    # pose_msg.pose.orientation.w = quat2[0]
-    # pose_msg.pose.orientation.x = quat2[1]
-    # pose_msg.pose.orientation.y = quat2[2]
-    # pose_msg.pose.orientation.z = quat2[3]
+    pose_msg = PoseStamped()
+    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    pose_msg.pose.position.x = pos2[0]
+    pose_msg.pose.position.y = pos2[1]
+    pose_msg.pose.position.z = pos2[2]
+    pose_msg.pose.orientation.w = quat2[0]
+    pose_msg.pose.orientation.x = quat2[1]
+    pose_msg.pose.orientation.y = quat2[2]
+    pose_msg.pose.orientation.z = quat2[3]
     
-    # result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q1.tolist(), cartesian_motion=True)
+    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q1.tolist(), cartesian_motion=True)
 
     if getattr(result,"val")==1:
         path2=remap_trajectory(trj2, joint_name_map, dt)
