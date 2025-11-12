@@ -1202,6 +1202,9 @@ def plan_path_moveit(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
     q1=to_numpy_cpu(q1)
+    q1=q1[:6]
+    for q in q1:
+        q=float(q)
     print(f"q1: {q1}")
 
     # pose_msg = PoseStamped()
