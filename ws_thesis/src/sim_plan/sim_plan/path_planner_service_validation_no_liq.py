@@ -1185,6 +1185,7 @@ def plan_path_moveit(
     if getattr(result,"val")==1:
         path1=remap_trajectory(trj1, joint_name_map, dt)
         q1=path1[-1]
+        
     print(type(q1))
     ################################# 
     # q2 (sollevam)
@@ -1203,7 +1204,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.y = quat2[2]
     pose_msg.pose.orientation.z = quat2[3]
     
-    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q1, cartesian_motion=True)
+    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q1.tolist(), cartesian_motion=True)
 
     if getattr(result,"val")==1:
         path2=remap_trajectory(trj2, joint_name_map, dt)
