@@ -17,6 +17,8 @@ ROBOT:
 SIM: ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=true
 REAL: switch to remote control on the robot: ros2 launch ur5e_mics_bringup ur5e_start.launch.py use_fake_hardware:=false
 PLAY: ros2 service call /dashboard_client/play std_srvs/srv/Trigger {}
+ros2 run behaviour_tree behaviour_tree_noROS_MF
+
 
 
 MACCHINA VIRTUALE
