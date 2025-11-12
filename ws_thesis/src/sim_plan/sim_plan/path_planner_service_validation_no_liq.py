@@ -1226,6 +1226,7 @@ def plan_path_moveit(
         raise RuntimeError(f"errore nella IK q1")
     
     q2=q2moveit(q2)
+    print(f"q2: {q2}")
     result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
 
     # pose_msg = PoseStamped()
