@@ -17,6 +17,7 @@ from scipy.special import expit
 from drims2_motion_server.motion_client import MotionClient
 from geometry_msgs.msg import PoseStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from sensor_msgs.msg import JointState
 
 def progress_bar(i, total, msg, length=30):
     percent = (i + 1) / total
@@ -1137,8 +1138,37 @@ def remap_trajectory(trj: JointTrajectory, joint_name_map, dt):
 #     except Exception as e:
 #         self.node.get_logger().warn(f"Transform failed: {e}")
 #         return None
-    
+
+def reorder_and_pad_joints(node, q, joint_name_map):
+    """
+    Riordina il vettore q in base all'ordine dei joint pubblicati su /joint_states.
+    Aggiunge 0.0 se un joint non è presente in joint_name_map.
+
+    Args:
+        node (rclpy.node.Node): nodo già inizializzato.
+        q (list[float]): valori di joint nell'ordine definito da joint_name_map.
+        joint_name_map (list[str]): nomi dei giunti corrispondenti a q.
+
+    Returns:
+        list[float]: vettore q riordinato e completato secondo joint_states.
+    """
+
+    msg = rclpy.wait_for_message('/joint_states', JointState, node=node, timeout_sec=2.0)
+    if msg is None:
+        raise RuntimeError("Timeout: impossibile leggere /joint_states")
+
+    current_order = msg.name
+    joint_dict = dict(zip(joint_name_map, q))
+
+    q_reordered = []
+    for name in current_order:
+        q_reordered.append(joint_dict.get(name, 0.0))
+
+    return q_reordered
+
+
 def plan_path_moveit(
+        node,
         ur5e,
         theta_f,
         parameters,
@@ -1177,6 +1207,8 @@ def plan_path_moveit(
         ) 
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
+    q1=reorder_and_pad_joints(node, q1, joint_name_map)
+
     print(type(q1))
     # # la pose si riferisce al base link o a world? nel primo caso serve tf
     # pose_msg = PoseStamped()
@@ -2116,6 +2148,7 @@ class PathPlannerService(Node):
                 # )
                
                 paths = plan_path_moveit(
+                    self,
                     ur5e,
                     theta_f,
                     parameters,
