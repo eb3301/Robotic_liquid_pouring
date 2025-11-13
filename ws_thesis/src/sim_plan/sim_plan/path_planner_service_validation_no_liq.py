@@ -1245,6 +1245,7 @@ def plan_path_moveit(
     if getattr(result,"val")==1:
         path2=remap_trajectory(trj2, joint_name_map, dt)
         q2=path2[-1]
+        q2 = [float(x) for x in q2]
         path = np.concatenate((path, path2))
         logger.info(f"Pianificazione salita eseguita")
     else:
@@ -1289,6 +1290,7 @@ def plan_path_moveit(
     if getattr(result,"val")==1:
         path3=remap_trajectory(trj3, joint_name_map, dt)
         q3=path3[-1]
+        q3 = [float(x) for x in q3]
         # Interpolate with new duration
         tf=dt*(len(path3)-1)
         t=np.arange(0.0, tf + 1e-12, dt)
@@ -1342,6 +1344,7 @@ def plan_path_moveit(
     if getattr(result,"val")==1:
         path4 = remap_trajectory(trj4, joint_name_map, dt)
         q4 = path4[-1]
+        q4 = [float(x) for x in q4]
         path = np.concatenate((path, path4))
         logger.info(f"Pianificazione discesa eseguita")
     else:
@@ -1409,6 +1412,7 @@ def plan_path_moveit(
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
     q6=path6[-1]
+    q6 = [float(x) for x in q6]
     path = np.concatenate((path, path6))
     logger.info(f"Pianificazione pouring e unpouring eseguita")
 
