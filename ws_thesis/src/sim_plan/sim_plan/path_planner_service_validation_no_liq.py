@@ -1841,8 +1841,8 @@ def fake_sim(ur5e, paths, scene, path_debug, approach=False):
     for joint in ur5e.joints:
         if joint.name not in ["joint_world","flange-tool0","robotiq_hande_base_joint"]:
             dofs_idx.extend(joint.dofs_idx_local)
-    print(dofs_idx)
-    print(len(dofs_idx))
+    #print(dofs_idx)
+    #print(len(dofs_idx))
     if approach:
         # Init to grasp:
         path1=paths["init_to_grasp"]
@@ -1861,6 +1861,7 @@ def fake_sim(ur5e, paths, scene, path_debug, approach=False):
 
     # Lift:
     path2=paths["lift"]
+    print(path2)
     for qpos in path2:
         ur5e.set_dofs_position(qpos, dofs_idx_local=dofs_idx) # bisognerebbe aggiungere qui il delay di controllo (delay_control)
         #ur5e.control_dofs_force(np.array([-0.5, 0.5]), fingers_dof)
