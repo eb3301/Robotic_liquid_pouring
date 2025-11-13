@@ -1451,37 +1451,25 @@ def plan_path_moveit(
         path7=remap_trajectory(trj7, joint_name_map, dt)
         path = np.concatenate((path, path7))
     else:
-        logger.error("dioporcooo")
+        logger.error("failure")
         quit()
 
     for p in [path, path2, path3, path4, path5, path6, path7]:
-        p[:, 0] += np.pi  # somma π alla prima colonna
-        p = np.hstack((p, np.zeros((p.shape[0], 2))))  # aggiungi due colonne di zeri
-
+        for q in p:        
+            q[0] += np.pi  # somma π alla prima colonna
+            q = np.concatenate((q, np.array([0.0, 0.0])))
     if debug: print(path)
     print(f"Planning complete")
     
-    if approach:
-        return {
-        "init_to_grasp": path1,
-        "lift": path2,
-        "transport": path3,
-        "pre_pour": path4,
-        "pour": path5,
-        "unpour": path6,
-        "release": path7,
-        "all": path
-        }
-    else:
-        return {
-        "lift": path2,
-        "transport": path3,
-        "pre_pour": path4,
-        "pour": path5,
-        "unpour": path6,
-        "release": path7,
-        "all": path
-        }
+    return {
+    "lift": path2,
+    "transport": path3,
+    "pre_pour": path4,
+    "pour": path5,
+    "unpour": path6,
+    "release": path7,
+    "all": path
+    }
 
 def compute_reward(liquid, becher2, parameters, t0, scene):
     particles = np.squeeze(liquid.get_particles())
