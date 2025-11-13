@@ -1108,37 +1108,6 @@ def remap_trajectory(trj: JointTrajectory, joint_name_map, dt):
 
     return q_new
 
-# def convert_pose_world_to_baselink(self, pose_stamped_in):
-#     """Converte una PoseStamped da world → base_link."""
-#     from_frame = pose_stamped_in.header.frame_id
-#     to_frame = "base_link"
-
-#     if not self.tf_buffer.can_transform(
-#         to_frame,
-#         from_frame,
-#         Time(),
-#         timeout=Duration(seconds=0.5)
-#     ):
-#         self.node.get_logger().warn(f"No transform {from_frame} → {to_frame}")
-#         return None
-
-#     try:
-#         t = self.tf_buffer.lookup_transform(
-#             to_frame,
-#             from_frame,
-#             Time()
-#         )
-#         pose_out = tf2_geometry_msgs.do_transform_pose_stamped(
-#             pose_stamped_in,
-#             t
-#         )
-#         pose_out.header.frame_id = to_frame
-#         return pose_out
-
-#     except Exception as e:
-#         self.node.get_logger().warn(f"Transform failed: {e}")
-#         return None
-
 def q2moveit(q):
     q=to_numpy_cpu(q)
     q=q[:6]
