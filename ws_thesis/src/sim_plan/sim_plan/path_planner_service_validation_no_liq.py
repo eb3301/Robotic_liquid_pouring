@@ -1187,6 +1187,7 @@ def plan_path_moveit(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
     q1=q2moveit(q1)
+    motion_client.move_to_joint(joint_goal=q1)
     #print(f"q1: {q1}")
 
     # pose_msg = PoseStamped()
@@ -1216,36 +1217,34 @@ def plan_path_moveit(
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
     
-    # try:
-    #     q2 = ur5e.inverse_kinematics(
-    #         link=ur5e.get_link("tool0"),
-    #         pos=pos2,
-    #         quat=quat2
-    #     ) 
-    # except Exception as e:
-    #     raise RuntimeError(f"errore nella IK q1")
-    
-    # q2=q2moveit(q2)
-    # #print(f"q2: {q2}")
-    # result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
+    try:
+        q2 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos2,
+            quat=quat2
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q1")
+    q2=q2moveit(q2)
+    #print(f"q2: {q2}")
+    result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
 
-    pose_msg = PoseStamped()
-    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
-    pose_msg.pose.position.x = pos2[0]
-    pose_msg.pose.position.y = pos2[1]
-    pose_msg.pose.position.z = pos2[2]
-    pose_msg.pose.orientation.w = quat2[0]
-    pose_msg.pose.orientation.x = quat2[1]
-    pose_msg.pose.orientation.y = quat2[2]
-    pose_msg.pose.orientation.z = quat2[3]
+    # pose_msg = PoseStamped()
+    # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    # pose_msg.pose.position.x = pos2[0]
+    # pose_msg.pose.position.y = pos2[1]
+    # pose_msg.pose.position.z = pos2[2]
+    # pose_msg.pose.orientation.w = quat2[0]
+    # pose_msg.pose.orientation.x = quat2[1]
+    # pose_msg.pose.orientation.y = quat2[2]
+    # pose_msg.pose.orientation.z = quat2[3]
     
-    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q1), cartesian_motion=True)
+    # result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q1), cartesian_motion=True)
     motion_client.execute_last_planned_trajectory()
 
     if getattr(result,"val")==1:
         path2=remap_trajectory(trj2, joint_name_map, dt)
         q2=path2[-1]
-        q2=q2moveit(q2)
         path = np.concatenate((path, path2))
         logger.info(f"Pianificazione salita eseguita")
     else:
@@ -1262,23 +1261,34 @@ def plan_path_moveit(
     pos3[2]=max(pos3[2],z_min)
     quat3 = quat_orizz
     
-    pose_msg = PoseStamped()
-    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
-    pose_msg.pose.position.x = pos3[0]
-    pose_msg.pose.position.y = pos3[1]
-    pose_msg.pose.position.z = pos3[2]
-    pose_msg.pose.orientation.w = quat3[0]
-    pose_msg.pose.orientation.x = quat3[1]
-    pose_msg.pose.orientation.y = quat3[2]
-    pose_msg.pose.orientation.z = quat3[3]
+    try:
+        q3 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos3,
+            quat=quat3
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q1")
+    q3=q2moveit(q3)
+    #print(f"q2: {q2}")
+    result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2)
+
+    # pose_msg = PoseStamped()
+    # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    # pose_msg.pose.position.x = pos3[0]
+    # pose_msg.pose.position.y = pos3[1]
+    # pose_msg.pose.position.z = pos3[2]
+    # pose_msg.pose.orientation.w = quat3[0]
+    # pose_msg.pose.orientation.x = quat3[1]
+    # pose_msg.pose.orientation.y = quat3[2]
+    # pose_msg.pose.orientation.z = quat3[3]
     
-    result, trj3 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q2), cartesian_motion=False)
+    # result, trj3 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q2), cartesian_motion=False)
     motion_client.execute_last_planned_trajectory()
     
     if getattr(result,"val")==1:
         path3=remap_trajectory(trj3, joint_name_map, dt)
         q3=path3[-1]
-        q3=q2moveit(q3)
         # Interpolate with new duration
         tf=dt*(len(path3)-1)
         t=np.arange(0.0, tf + 1e-12, dt)
@@ -1303,17 +1313,30 @@ def plan_path_moveit(
     pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
 
-    pose_msg = PoseStamped()
-    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
-    pose_msg.pose.position.x = pos4[0]
-    pose_msg.pose.position.y = pos4[1]
-    pose_msg.pose.position.z = pos4[2]
-    pose_msg.pose.orientation.w = quat4[0]
-    pose_msg.pose.orientation.x = quat4[1]
-    pose_msg.pose.orientation.y = quat4[2]
-    pose_msg.pose.orientation.z = quat4[3]
+    try:
+        q4 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos4,
+            quat=quat4
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q1")
+    q4=q2moveit(q4)
+    #print(f"q2: {q2}")
+    result, trj4 = motion_client.plan_to_joint(joint_target=q4, joint_start=q3)
+
+    # pose_msg = PoseStamped()
+    # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    # pose_msg.pose.position.x = pos4[0]
+    # pose_msg.pose.position.y = pos4[1]
+    # pose_msg.pose.position.z = pos4[2]
+    # pose_msg.pose.orientation.w = quat4[0]
+    # pose_msg.pose.orientation.x = quat4[1]
+    # pose_msg.pose.orientation.y = quat4[2]
+    # pose_msg.pose.orientation.z = quat4[3]
     
-    result, trj4 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q3), cartesian_motion=True)
+    # result, trj4 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q3), cartesian_motion=True)
+
     motion_client.execute_last_planned_trajectory()
     if getattr(result,"val")==1:
         path4 = remap_trajectory(trj4, joint_name_map, dt)
@@ -1355,7 +1378,6 @@ def plan_path_moveit(
             )
         except Exception:
             raise RuntimeError("errore nella IK q5 (pour)")
-        q5=to_numpy_cpu(q5)
         q5=q2moveit(q5)
 
         path5.append(q5)
@@ -1380,7 +1402,6 @@ def plan_path_moveit(
             )
         except Exception:
             raise RuntimeError("errore nella IK q6 (unpour)")
-        q6=to_numpy_cpu(q6)
         q6=q2moveit(q6)
 
         path6.append(q6)
@@ -1397,17 +1418,28 @@ def plan_path_moveit(
     pos7[2]=max(pos7[2],z_min)
     quat7 = quat_orizz
     
-    pose_msg = PoseStamped()
-    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
-    pose_msg.pose.position.x = pos7[0]
-    pose_msg.pose.position.y = pos7[1]
-    pose_msg.pose.position.z = pos7[2]
-    pose_msg.pose.orientation.w = quat7[0]
-    pose_msg.pose.orientation.x = quat7[1]
-    pose_msg.pose.orientation.y = quat7[2]
-    pose_msg.pose.orientation.z = quat7[3]
+    try:
+        q7 = ur5e.inverse_kinematics(
+            link=ur5e.get_link("tool0"),
+            pos=pos7,
+            quat=quat7
+        ) 
+    except Exception as e:
+        raise RuntimeError(f"errore nella IK q1")
+    q7=q2moveit(q7)
+    #print(f"q2: {q2}")
+    result, trj7 = motion_client.plan_to_joint(joint_target=q7, joint_start=q6)
+    # pose_msg = PoseStamped()
+    # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    # pose_msg.pose.position.x = pos7[0]
+    # pose_msg.pose.position.y = pos7[1]
+    # pose_msg.pose.position.z = pos7[2]
+    # pose_msg.pose.orientation.w = quat7[0]
+    # pose_msg.pose.orientation.x = quat7[1]
+    # pose_msg.pose.orientation.y = quat7[2]
+    # pose_msg.pose.orientation.z = quat7[3]
     
-    result, trj7 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q6), cartesian_motion=True)
+    # result, trj7 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q6), cartesian_motion=True)
 
     if getattr(result,"val")==1:
         path7=remap_trajectory(trj7, joint_name_map, dt)
@@ -1415,6 +1447,7 @@ def plan_path_moveit(
 
     for wp in path:
         wp = np.concatenate((wp, np.array([0.0, 0.0])))
+        wp[0]+=np.pi
 
     if debug: print(path)
     print(f"Planning complete")
