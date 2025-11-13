@@ -661,8 +661,11 @@ def compute_fake_reward(parameters, theta_f, num_wp):
     print(f"reward theta: {reward3}")
     print(f"reward num_wp: {reward4}")
 
-    reward = reward1 + reward2 + reward3 + reward4
-    w_tot = w_pos + w_cor + w_theta + w_num_wp
+    # reward = reward1 + reward2 + reward3 + reward4
+    # w_tot = w_pos + w_cor + w_theta + w_num_wp
+
+    reward = reward3 + reward4
+    w_tot = w_theta + w_num_wp
     reward/=w_tot
     return reward
 
