@@ -1414,7 +1414,7 @@ def plan_path_moveit(
         path = np.concatenate((path, path7))
 
     for wp in path:
-        wp=np.concatenate(wp, np.array([0.0,0.0]))
+        wp = np.concatenate((wp, np.array([0.0, 0.0])))
 
     if debug: print(path)
     print(f"Planning complete")
