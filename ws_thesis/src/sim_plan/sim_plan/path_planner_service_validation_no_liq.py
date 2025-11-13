@@ -1378,6 +1378,8 @@ def plan_path_moveit(
             )
         except Exception:
             raise RuntimeError("errore nella IK q6 (unpour)")
+        q6=to_numpy_cpu(q6)
+        q6=q2moveit(q6)
 
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
@@ -1403,7 +1405,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.y = quat7[2]
     pose_msg.pose.orientation.z = quat7[3]
     
-    result, trj7 = motion_client.plan_to_pose(pose=pose_msg, joint_start=q6, cartesian_motion=True)
+    result, trj7 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q6), cartesian_motion=True)
 
     if getattr(result,"val")==1:
         path7=remap_trajectory(trj7, joint_name_map, dt)
