@@ -536,7 +536,7 @@ class BeliefUpdater(Node):
             num_wp_new=[]
             for i in range(PATH_NUM):
                 theta_new.append(np.clip(float(x_next_theta[i]) + np.random.uniform(-1.0, 1.0)/k, 80, 100))
-                num_wp_new.append(np.clip(int(x_next_num_wp[i] + np.random.uniform(-10, 10))/k, 300, 400))
+                num_wp_new.append(np.clip(int(x_next_num_wp[i]) + np.random.uniform(-10, 10)/k, 300, 400))
             x_next_theta=theta_new
             x_next_num_wp=num_wp_new
             
