@@ -2159,13 +2159,13 @@ class PathPlannerService(Node):
                     parameters,
                     self._last_joint_state,
                     motion_client=self.motion_client,
-                    num_waypoints=1000,
+                    num_waypoints=num_wp,
                     debug=False,
                     approach=False,
                     dt=0.01,
                 )
                 path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
-                fake_sim(ur5e, paths, scene, path_debug)
+                #fake_sim(ur5e, paths, scene, path_debug)
                 candidate_paths.append(paths)
 
         # Trova best path e salva params

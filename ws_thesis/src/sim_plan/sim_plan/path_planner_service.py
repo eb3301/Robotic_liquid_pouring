@@ -2136,11 +2136,11 @@ class PathPlannerService(Node):
         # Simulazione
         #init_sim()
         candidate_paths = []
-
+        scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
-            scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
+            #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             for j in range(M):   
                 theta_f = np.deg2rad(theta_f_arr[j])
                 num_wp = int(num_wp_arr[j])
@@ -2162,7 +2162,7 @@ class PathPlannerService(Node):
                     parameters,
                     self._last_joint_state,
                     motion_client=self.motion_client,
-                    num_waypoints=1000,
+                    num_waypoints=num_wp,
                     debug=False,
                     approach=False,
                     dt=0.01,
