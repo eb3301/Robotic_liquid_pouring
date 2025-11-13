@@ -1240,6 +1240,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.z = quat2[3]
     
     result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q1), cartesian_motion=True)
+    motion_client.execute_last_planned_trajectory()
 
     if getattr(result,"val")==1:
         path2=remap_trajectory(trj2, joint_name_map, dt)
@@ -1272,7 +1273,8 @@ def plan_path_moveit(
     pose_msg.pose.orientation.z = quat3[3]
     
     result, trj3 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q2), cartesian_motion=False)
-
+    motion_client.execute_last_planned_trajectory()
+    
     if getattr(result,"val")==1:
         path3=remap_trajectory(trj3, joint_name_map, dt)
         q3=path3[-1]
@@ -1312,7 +1314,7 @@ def plan_path_moveit(
     pose_msg.pose.orientation.z = quat4[3]
     
     result, trj4 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q3), cartesian_motion=True)
-
+    motion_client.execute_last_planned_trajectory()
     if getattr(result,"val")==1:
         path4 = remap_trajectory(trj4, joint_name_map, dt)
         q4 = path4[-1]
@@ -2149,7 +2151,7 @@ class PathPlannerService(Node):
                     dt=0.01,
                 )
                 path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
-                # fake_sim(ur5e, paths, scene, path_debug)
+                fake_sim(ur5e, paths, scene, path_debug)
                 candidate_paths.append(paths)
 
         # Trova best path e salva params
