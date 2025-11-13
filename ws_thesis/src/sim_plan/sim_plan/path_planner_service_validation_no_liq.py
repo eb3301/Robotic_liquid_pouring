@@ -1457,6 +1457,25 @@ def plan_path_moveit(
     for wp in path:
         wp = np.concatenate((wp, np.array([0.0, 0.0])))
         wp[0]+=np.pi
+    for wp in path2:
+        wp = np.concatenate((wp, np.array([0.0, 0.0])))
+        wp[0]+=np.pi
+    for wp in path3:
+        wp = np.concatenate((wp, np.array([0.0, 0.0])))
+        wp[0]+=np.pi
+    for wp in path4:
+        wp = np.concatenate((wp, np.array([0.0, 0.0])))
+        wp[0]+=np.pi
+    for wp in path5:
+        wp = np.concatenate((wp, np.array([0.0, 0.0])))
+        wp[0]+=np.pi
+    for wp in path6:
+        wp = np.concatenate((wp, np.array([0.0, 0.0])))
+        wp[0]+=np.pi
+    for wp in path7:
+        wp = np.concatenate((wp, np.array([0.0, 0.0])))
+        wp[0]+=np.pi
+   
 
     if debug: print(path)
     print(f"Planning complete")
