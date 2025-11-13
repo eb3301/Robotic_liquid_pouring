@@ -1413,6 +1413,9 @@ def plan_path_moveit(
         path7=remap_trajectory(trj7, joint_name_map, dt)
         path = np.concatenate((path, path7))
 
+    for wp in path:
+        wp.extend([0,0])
+
     if debug: print(path)
     print(f"Planning complete")
     
