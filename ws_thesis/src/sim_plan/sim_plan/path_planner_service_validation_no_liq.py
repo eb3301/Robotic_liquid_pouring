@@ -1458,6 +1458,9 @@ def plan_path_moveit(
         for q in p:        
             q[0] += np.pi  # somma π alla prima colonna
             q = np.concatenate((q, np.array([0.0, 0.0])))
+    print(path)
+    print(path2)
+
     if debug: print(path)
     print(f"Planning complete")
     
