@@ -1249,7 +1249,7 @@ def plan_path_moveit(
         logger.info(f"Pianificazione salita eseguita")
     else:
         print(f"result: {result}")
-        logger.info(f"Pianificazione salita fallita")
+        logger.error(f"Pianificazione salita fallita")
         quit()
 
     #################################
@@ -1303,7 +1303,8 @@ def plan_path_moveit(
         logger.info(f"Pianificazione trasporto eseguita")
     else:
         print(f"result: {result}")
-        logger.info(f"Pianificazione trasporto fallita")
+        logger.error(f"Pianificazione trasporto fallita")
+        quit()
     #################################
     # q4 (pre vers)
     pos4 = np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
@@ -1345,7 +1346,8 @@ def plan_path_moveit(
         logger.info(f"Pianificazione discesa eseguita")
     else:
         print(f"result: {result}")
-        logger.info(f"Pianificazione discesa fallita")
+        logger.error(f"Pianificazione discesa fallita")
+        quit()
 
     ######################################
     # Versamento (4->5)
@@ -1444,6 +1446,9 @@ def plan_path_moveit(
     if getattr(result,"val")==1:
         path7=remap_trajectory(trj7, joint_name_map, dt)
         path = np.concatenate((path, path7))
+    else:
+        logger.error("dioporcooo")
+        quit()
 
     for wp in path:
         wp = np.concatenate((wp, np.array([0.0, 0.0])))
