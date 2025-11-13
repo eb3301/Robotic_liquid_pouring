@@ -2128,9 +2128,9 @@ class PathPlannerService(Node):
         
         #################################################################################à
         # Simulazione
-        init_sim()
+        #init_sim()
         candidate_paths = []
-        scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione
+        #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
