@@ -1158,7 +1158,7 @@ def plan_path_moveit(
         dt=0.01,
     ):
     logger=get_logger("path logger")
-    path=np.empty((0, 8))
+    path=np.empty((0, 6))
     print(f"planning started")
     
     joint_name_map = [
@@ -1187,7 +1187,7 @@ def plan_path_moveit(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
     q1=q2moveit(q1)
-    print(f"q1: {q1}")
+    #print(f"q1: {q1}")
 
     # pose_msg = PoseStamped()
     # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
@@ -1226,7 +1226,7 @@ def plan_path_moveit(
         raise RuntimeError(f"errore nella IK q1")
     
     q2=q2moveit(q2)
-    print(f"q2: {q2}")
+    #print(f"q2: {q2}")
     result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
 
     # pose_msg = PoseStamped()
