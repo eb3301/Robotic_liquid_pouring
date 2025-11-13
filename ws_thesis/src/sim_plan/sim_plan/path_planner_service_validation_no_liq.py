@@ -1454,28 +1454,9 @@ def plan_path_moveit(
         logger.error("dioporcooo")
         quit()
 
-    for wp in path:
-        wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        wp[0]+=np.pi
-    for wp in path2:
-        wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        wp[0]+=np.pi
-    for wp in path3:
-        wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        wp[0]+=np.pi
-    for wp in path4:
-        wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        wp[0]+=np.pi
-    for wp in path5:
-        wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        wp[0]+=np.pi
-    for wp in path6:
-        wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        wp[0]+=np.pi
-    for wp in path7:
-        wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        wp[0]+=np.pi
-   
+    for p in [path, path2, path3, path4, path5, path6, path7]:
+        p[:, 0] += np.pi  # somma π alla prima colonna
+        p = np.hstack((p, np.zeros((p.shape[0], 2))))  # aggiungi due colonne di zeri
 
     if debug: print(path)
     print(f"Planning complete")
