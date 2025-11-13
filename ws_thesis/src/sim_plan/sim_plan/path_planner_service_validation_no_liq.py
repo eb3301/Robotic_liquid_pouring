@@ -2140,7 +2140,7 @@ class PathPlannerService(Node):
                 theta_f = np.deg2rad(theta_f_arr[j])
                 num_wp = int(num_wp_arr[j])
         
-                #paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+                paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
                 # paths = plan_path(
                 #     ur5e, 
                 #     theta_f,
@@ -2153,18 +2153,18 @@ class PathPlannerService(Node):
                 #     debug=debug,
                 # )
                
-                paths = plan_path_moveit(
-                    ur5e,
-                    theta_f,
-                    parameters,
-                    self._last_joint_state,
-                    motion_client=self.motion_client,
-                    num_waypoints=num_wp,
-                    debug=False,
-                    approach=False,
-                    dt=0.01,
-                )
-                path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+                # paths = plan_path_moveit(
+                #     ur5e,
+                #     theta_f,
+                #     parameters,
+                #     self._last_joint_state,
+                #     motion_client=self.motion_client,
+                #     num_waypoints=num_wp,
+                #     debug=False,
+                #     approach=False,
+                #     dt=0.01,
+                # )
+                # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
                 #fake_sim(ur5e, paths, scene, path_debug)
                 candidate_paths.append(paths)
 
