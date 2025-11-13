@@ -2135,7 +2135,7 @@ class PathPlannerService(Node):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
             
-            #dt=0.01
+            dt=0.01
             for j in range(M):   
                 theta_f = np.deg2rad(theta_f_arr[j])
                 num_wp = int(num_wp_arr[j])
