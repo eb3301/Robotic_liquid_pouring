@@ -1415,7 +1415,6 @@ def plan_path_moveit(
 
     for wp in path:
         wp = np.concatenate((wp, np.array([0.0, 0.0])))
-        print(len(wp))
 
     if debug: print(path)
     print(f"Planning complete")
@@ -1842,7 +1841,8 @@ def fake_sim(ur5e, paths, scene, path_debug, approach=False):
     for joint in ur5e.joints:
         if joint.name not in ["joint_world","flange-tool0","robotiq_hande_base_joint"]:
             dofs_idx.extend(joint.dofs_idx_local)
-    
+    print(dofs_idx)
+    print(len(dofs_idx))
     if approach:
         # Init to grasp:
         path1=paths["init_to_grasp"]
