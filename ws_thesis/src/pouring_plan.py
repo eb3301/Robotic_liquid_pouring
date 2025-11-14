@@ -506,9 +506,13 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
     path = np.concatenate((path, path6))
+    path = np.hstack(
+        (
+            path + np.array([np.pi, 0, 0, 0, 0, 0]),
+            np.zeros((path.shape[0], 2))
+        )
+    )
 
-    path= [np.hstack((p + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros((p.shape[0], 2))))
-    for p in [path]    ]
     return path
 
 def init_sim():
