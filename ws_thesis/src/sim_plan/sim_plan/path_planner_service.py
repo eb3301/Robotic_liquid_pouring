@@ -2012,7 +2012,7 @@ class PathPlannerService(Node):
         liq=True
         record=False
         debug=False   
-        view=False
+        view=True
 
         if view:
             N = 1                    # Numero di modelli simulati (iniziale)
