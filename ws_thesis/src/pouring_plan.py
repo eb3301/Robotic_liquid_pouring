@@ -505,11 +505,12 @@ def main():
             }
     theta_f=90
     num_waypoints=320
-    with open("/tmp/best_path.yaml", "w") as f:
-                yaml.safe_dump({"best_path": path}, f, sort_keys=False)
     _, ur5e, _, _, _, dt = generate_sim(parameters)
     path=plan_pouring(parameters, theta_f, num_waypoints, ur5e)
-    pass
+    
+    with open("/tmp/best_path.yaml", "w") as f:
+                yaml.safe_dump({"best_path": path}, f, sort_keys=False)
+  
 
 if __name__ == '__main__':
     main()
