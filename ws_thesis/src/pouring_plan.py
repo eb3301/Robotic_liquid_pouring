@@ -546,9 +546,14 @@ def main():
     init_sim()
     _, ur5e, _, _, _, dt = generate_sim(parameters)
     path=plan_pouring(parameters, theta_f, num_waypoints, ur5e)
+    time = np.arange(0.0, len(path)*dt, dt)
+    best_path = {
+        "all": path,
+        "time": time,
+    }
     print("FATTO DIOOPOOIIPCO")
     with open("/tmp/best_path.yaml", "w") as f:
-                yaml.safe_dump({"best_path": to_builtin(path)}, f, sort_keys=False)
+                yaml.safe_dump({"best_path": to_builtin(best_path)}, f, sort_keys=False)
   
 
 if __name__ == '__main__':
