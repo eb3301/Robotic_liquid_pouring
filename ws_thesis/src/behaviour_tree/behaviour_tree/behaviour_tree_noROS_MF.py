@@ -870,7 +870,7 @@ def create_tree(node: Node, tf_buffer, motion_client):
 
     pour = py_trees.composites.Sequence("FullCycle",memory=True)
     pour.add_children([WaitForBestPath(node), ExecutePathPublisher(node, motion_client=motion_client)])
-    return seq
+    return pour
 
 def main():
     rclpy.init()
