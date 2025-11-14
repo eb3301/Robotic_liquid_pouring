@@ -467,7 +467,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
             q5_old = path5[-1]
             q5_old = np.concatenate((q5_old + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros(2)))
         else:
-            q5_old=np.deg2rad(np.array([-27, -117, -116, -126, -28, -180, 0, 0]))
+            q5_old=np.deg2rad(np.array([-27+180, -117, -116, -126, -28, -180, 0, 0]))
 
         R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         quat5 = R_theta.as_quat()
