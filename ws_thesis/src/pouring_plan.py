@@ -465,8 +465,9 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     for theta in np.linspace(0, theta_f, n_steps):
         q5_old=None
         if len(path5) > 0:
-            q5_old=path5[-1]
-            q5_old[0]+=np.pi
+            q5_old = path5[-1]
+            q5_old = np.concatenate((q5_old + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros(2)))
+
         R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         quat5 = R_theta.as_quat()
         delta_pos=R_theta.apply(l)
@@ -494,8 +495,9 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     for theta in np.linspace(theta_f, 0.0, n_steps):
         q6_old=None
         if len(path6) > 0:
-            q6_old=path6[-1]
-            q6_old[0]+=np.pi
+            q6_old = path6[-1]
+            q6_old = np.concatenate((q6_old + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros(2)))
+
         R_theta = R.from_rotvec(theta * axis_world) * R0
         quat6 = R_theta.as_quat()
 
