@@ -465,7 +465,6 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     for theta in np.linspace(0, theta_f, n_steps):
         if len(path5) > 0:
             q5_old = path5[-1]
-            q5_old = np.concatenate((q5_old + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros(2)))
         else:
             q5_old=np.deg2rad(np.array([0, -117, -116, -126, -28, -180, 0, 0]))
 
@@ -484,8 +483,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
             )
         except Exception:
             raise RuntimeError("errore nella IK q5 (pour)")
-        q5=q2moveit(q5)
-
+        q5=to_numpy_cpu(q5)
         path5.append(q5)
     path5 = np.asarray(path5, dtype=float)
     path = np.concatenate((path, path5))
@@ -497,10 +495,8 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
         q6_old=None
         if len(path6) > 0:
             q6_old = path6[-1]
-            q6_old = np.concatenate((q6_old + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros(2)))
         else:
             q6_old=path5[-1]
-            q6_old = np.concatenate((q6_old + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros(2)))
 
         R_theta = R.from_rotvec(theta * axis_world) * R0
         quat6 = R_theta.as_quat()
@@ -517,18 +513,18 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
             )
         except Exception:
             raise RuntimeError("errore nella IK q6 (unpour)")
-        q6=q2moveit(q6)
+        q5=to_numpy_cpu(q5)
 
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
     path = np.concatenate((path, path6))
 
-    path = np.hstack(
-        (
-            path + np.array([np.pi, 0, 0, 0, 0, 0]),
-            np.zeros((path.shape[0], 2))
-        )
-    )
+    # path = np.hstack(
+    #     (
+    #         path + np.array([np.pi, 0, 0, 0, 0, 0]),
+    #         np.zeros((path.shape[0], 2))
+    #     )
+    # )
 
     return path
 
