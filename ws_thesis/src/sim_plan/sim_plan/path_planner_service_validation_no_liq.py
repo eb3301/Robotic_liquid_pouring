@@ -1186,29 +1186,29 @@ def plan_path_moveit(
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
     
-    try:
-        q2 = ur5e.inverse_kinematics(
-            link=ur5e.get_link("tool0"),
-            pos=pos2,
-            quat=quat2
-        ) 
-    except Exception as e:
-        raise RuntimeError(f"errore nella IK q1")
-    q2=q2moveit(q2)
-    print(f"q2: {q2}, type: {type(q2)}")
-    result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
+    # try:
+    #     q2 = ur5e.inverse_kinematics(
+    #         link=ur5e.get_link("tool0"),
+    #         pos=pos2,
+    #         quat=quat2
+    #     ) 
+    # except Exception as e:
+    #     raise RuntimeError(f"errore nella IK q1")
+    # q2=q2moveit(q2)
+    # print(f"q2: {q2}, type: {type(q2)}")
+    # result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
 
-    # pose_msg = PoseStamped()
-    # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
-    # pose_msg.pose.position.x = pos2[0]
-    # pose_msg.pose.position.y = pos2[1]
-    # pose_msg.pose.position.z = pos2[2]
-    # pose_msg.pose.orientation.w = quat2[0]
-    # pose_msg.pose.orientation.x = quat2[1]
-    # pose_msg.pose.orientation.y = quat2[2]
-    # pose_msg.pose.orientation.z = quat2[3]
+    pose_msg = PoseStamped()
+    pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
+    pose_msg.pose.position.x = pos2[0]
+    pose_msg.pose.position.y = pos2[1]
+    pose_msg.pose.position.z = pos2[2]
+    pose_msg.pose.orientation.w = quat2[0]
+    pose_msg.pose.orientation.x = quat2[1]
+    pose_msg.pose.orientation.y = quat2[2]
+    pose_msg.pose.orientation.z = quat2[3]
     
-    # result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q1), cartesian_motion=True)
+    result, trj2 = motion_client.plan_to_pose(pose=pose_msg, joint_start=list(q1), cartesian_motion=True)
     motion_client.execute_last_planned_trajectory()
 
     if getattr(result,"val")==1:
@@ -2140,7 +2140,7 @@ class PathPlannerService(Node):
                 theta_f = np.deg2rad(theta_f_arr[j])
                 num_wp = int(num_wp_arr[j])
         
-                paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+                #paths = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
                 # paths = plan_path(
                 #     ur5e, 
                 #     theta_f,
@@ -2153,18 +2153,18 @@ class PathPlannerService(Node):
                 #     debug=debug,
                 # )
                
-                # paths = plan_path_moveit(
-                #     ur5e,
-                #     theta_f,
-                #     parameters,
-                #     self._last_joint_state,
-                #     motion_client=self.motion_client,
-                #     num_waypoints=num_wp,
-                #     debug=False,
-                #     approach=False,
-                #     dt=0.01,
-                # )
-                # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+                paths = plan_path_moveit(
+                    ur5e,
+                    theta_f,
+                    parameters,
+                    self._last_joint_state,
+                    motion_client=self.motion_client,
+                    num_waypoints=num_wp,
+                    debug=False,
+                    approach=False,
+                    dt=0.01,
+                )
+                path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
                 #fake_sim(ur5e, paths, scene, path_debug)
                 candidate_paths.append(paths)
 
