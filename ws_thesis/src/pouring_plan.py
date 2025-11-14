@@ -447,6 +447,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     pos4[2] += container2_size[2]
     pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
+
     # Versamento (4->5)
     CoR3D = np.array([
         parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
@@ -506,6 +507,8 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     path6 = np.asarray(path6, dtype=float)
     path = np.concatenate((path, path6))
 
+    path= [np.hstack((p + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros((p.shape[0], 2))))
+    for p in [path]    ]
     return path
 
 def init_sim():
