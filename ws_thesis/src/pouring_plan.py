@@ -463,6 +463,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     path5 = []
     n_steps = int(num_waypoints/2)
     for theta in np.linspace(0, theta_f, n_steps):
+        q5_old=None
         if len(path5) > 0:
             q5_old=path5[-1]
             q5_old[0]+=np.pi
@@ -491,6 +492,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     # Ritorno dal versamento (5->6)
     path6 = []
     for theta in np.linspace(theta_f, 0.0, n_steps):
+        q6_old=None
         if len(path6) > 0:
             q6_old=path6[-1]
             q6_old[0]+=np.pi
