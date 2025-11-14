@@ -32,7 +32,7 @@ def q2moveit(q):
     q[0]-=np.pi
     return q
 
-def generate_sim(parameters, view=False, liq=False, debug=False, video=False, approach=False):    
+def generate_sim(parameters, view=True, liq=False, debug=False, video=False, approach=False):    
     ########################## create a scene ##########################
     DIR="/home/barutta/Robotic_liquid_pouring"
     dt=1e-2
@@ -484,6 +484,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
         except Exception:
             raise RuntimeError("errore nella IK q5 (pour)")
         q5=to_numpy_cpu(q5)
+        ur5e.set_dofs_position(q5)
         path5.append(q5)
     path5 = np.asarray(path5, dtype=float)
     path = np.concatenate((path, path5))
@@ -514,7 +515,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
         except Exception:
             raise RuntimeError("errore nella IK q6 (unpour)")
         q6=to_numpy_cpu(q6)
-
+        ur5e.set_dofs_position(q6)
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
     path = np.concatenate((path, path6))
