@@ -463,6 +463,9 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     path5 = []
     n_steps = int(num_waypoints/2)
     for theta in np.linspace(0, theta_f, n_steps):
+        if len(path5) > 0:
+            q5_old=path5[-1]
+            q5_old[0]+=np.pi
         R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         quat5 = R_theta.as_quat()
         delta_pos=R_theta.apply(l)
@@ -473,7 +476,8 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
             q5 = ur5e.inverse_kinematics(
                 link=ur5e.get_link("tool0"),
                 pos=p_tcp,
-                quat=quat5
+                quat=quat5,
+                init_qpos=q5_old
             )
         except Exception:
             raise RuntimeError("errore nella IK q5 (pour)")
@@ -487,6 +491,9 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     # Ritorno dal versamento (5->6)
     path6 = []
     for theta in np.linspace(theta_f, 0.0, n_steps):
+        if len(path6) > 0:
+            q6_old=path6[-1]
+            q6_old[0]+=np.pi
         R_theta = R.from_rotvec(theta * axis_world) * R0
         quat6 = R_theta.as_quat()
 
@@ -497,7 +504,8 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
             q6 = ur5e.inverse_kinematics(
                 link=ur5e.get_link("tool0"),
                 pos=p_tcp,
-                quat=quat6
+                quat=quat6,
+                init_qpos=q6_old
             )
         except Exception:
             raise RuntimeError("errore nella IK q6 (unpour)")
@@ -506,8 +514,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
     path = np.concatenate((path, path6))
-    
-    print(len(path))
+
     path = np.hstack(
         (
             path + np.array([np.pi, 0, 0, 0, 0, 0]),
