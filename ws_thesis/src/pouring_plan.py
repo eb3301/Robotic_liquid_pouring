@@ -513,18 +513,11 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
             )
         except Exception:
             raise RuntimeError("errore nella IK q6 (unpour)")
-        q5=to_numpy_cpu(q5)
+        q6=to_numpy_cpu(q6)
 
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
     path = np.concatenate((path, path6))
-
-    # path = np.hstack(
-    #     (
-    #         path + np.array([np.pi, 0, 0, 0, 0, 0]),
-    #         np.zeros((path.shape[0], 2))
-    #     )
-    # )
 
     return path
 
