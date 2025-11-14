@@ -516,6 +516,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
             raise RuntimeError("errore nella IK q6 (unpour)")
         q6=to_numpy_cpu(q6)
         ur5e.set_dofs_position(q6)
+        scene.update_visualizer(force=True)
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
     path = np.concatenate((path, path6))
@@ -556,7 +557,8 @@ def main():
     theta_f=90
     num_waypoints=320
     init_sim()
-    _, ur5e, _, _, _, dt = generate_sim(parameters)
+    global scene
+    scene, ur5e, _, _, _, dt = generate_sim(parameters)
     path=plan_pouring(parameters, theta_f, num_waypoints, ur5e)
     time = np.arange(0.0, len(path)*dt, dt)
     best_path = {
