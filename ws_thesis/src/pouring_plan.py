@@ -504,8 +504,6 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
 
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
-    q6=path6[-1]
-    q6 = [float(x) for x in q6]
     path = np.concatenate((path, path6))
 
     return path
