@@ -486,6 +486,20 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
 
     return path
 
+def init_sim():
+    ########################## init ##########################
+    gs.init(
+        seed                = None,
+        precision           = '32',
+        debug               = False,
+        eps                 = 1e-12,
+        logging_level       = None,
+        backend             = gs.gpu,
+        theme               = 'dark',
+        logger_verbose_time = 'warning',
+        performance_mode=True,
+    )
+
 def main():
     parameters = {
                 "pos_init_cont": (0.8021465039268282, 0.2847160024669491, 0.9564999991059303),
@@ -505,6 +519,7 @@ def main():
             }
     theta_f=90
     num_waypoints=320
+    init_sim()
     _, ur5e, _, _, _, dt = generate_sim(parameters)
     path=plan_pouring(parameters, theta_f, num_waypoints, ur5e)
     
