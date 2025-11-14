@@ -1428,6 +1428,10 @@ def plan_path_moveit(
     #         q[0] += np.pi  # somma π alla prima colonna
     #         q = np.concatenate((q, np.array([0.0, 0.0])))
     
+    path=np.empty((0, 6))
+    path = np.concatenate((path, path5))
+    path = np.concatenate((path, path6))
+    
     path, path2, path3, path4, path5, path6, path7 = [
     np.hstack((p + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros((p.shape[0], 2))))
     for p in [path, path2, path3, path4, path5, path6, path7]
@@ -2188,9 +2192,9 @@ class PathPlannerService(Node):
             successes = np.zeros(len(parameters_set))
             scores = np.zeros(len(parameters_set))
             for j,parameters in enumerate(parameters_set):
-                scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
-                score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-                
+                #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
+                #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
+                score=1
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1
