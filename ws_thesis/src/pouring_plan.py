@@ -32,7 +32,7 @@ def q2moveit(q):
     q[0]-=np.pi
     return q
 
-def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
+def generate_sim(parameters, view=False, liq=False, debug=False, video=False, approach=False):    
     ########################## create a scene ##########################
     DIR="/home/barutta/Robotic_liquid_pouring"
     dt=1e-2
@@ -409,6 +409,30 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
 
     return scene, ur5e, becher, becher2, liquid, dt
 
+def to_builtin(self, obj):
+        # numpy scalari -> tipo Python
+        if isinstance(obj, np.generic):
+            return obj.item()
+
+        # numpy array -> lista Python ricorsiva
+        if isinstance(obj, np.ndarray):
+            return [self.to_builtin(x) for x in obj.tolist()]
+
+        # lista -> lista pulita
+        if isinstance(obj, list):
+            return [self.to_builtin(x) for x in obj]
+
+        # tupla -> lista (YAML gestisce le liste meglio, ed è ok perdere l'immutabilità)
+        if isinstance(obj, tuple):
+            return [self.to_builtin(x) for x in obj]
+
+        # dict -> dict pulito
+        if isinstance(obj, dict):
+            return {k: self.to_builtin(v) for k, v in obj.items()}
+
+        # tipi base (int, float, str, bool, None) restano così
+        return obj
+
 def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
 
     x_shift=0.15
@@ -524,7 +548,7 @@ def main():
     path=plan_pouring(parameters, theta_f, num_waypoints, ur5e)
     
     with open("/tmp/best_path.yaml", "w") as f:
-                yaml.safe_dump({"best_path": path}, f, sort_keys=False)
+                yaml.safe_dump({"best_path": to_builtin(path)}, f, sort_keys=False)
   
 
 if __name__ == '__main__':
