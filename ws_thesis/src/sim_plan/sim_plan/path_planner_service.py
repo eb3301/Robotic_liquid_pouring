@@ -1195,7 +1195,7 @@ def plan_path_moveit(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
     q2=q2moveit(q2)
-    print(f"q2: {q2}, type: {type(q2)}")
+    #print(f"q2: {q2}, type: {type(q2)}")
     result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
 
     # pose_msg = PoseStamped()
@@ -2012,15 +2012,15 @@ class PathPlannerService(Node):
         liq=True
         record=False
         debug=False   
-        view=True
+        view=False
 
         if view:
             N = 1                    # Numero di modelli simulati (iniziale)
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 15                    # Numero di modelli simulati (iniziale)
-            M = 3                     # Numero di traiettorie
+            N = 1                    # Numero di modelli simulati (iniziale)
+            M = 1                    # Numero di traiettorie
             delta = 1/N               # Threshold di successo
 
         # Carica parametri simulazione:
