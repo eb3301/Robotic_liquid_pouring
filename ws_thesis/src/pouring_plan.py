@@ -546,7 +546,7 @@ def main():
     init_sim()
     _, ur5e, _, _, _, dt = generate_sim(parameters)
     path=plan_pouring(parameters, theta_f, num_waypoints, ur5e)
-    
+    print("FATTO DIOOPOOIIPCO")
     with open("/tmp/best_path.yaml", "w") as f:
                 yaml.safe_dump({"best_path": to_builtin(path)}, f, sort_keys=False)
   
