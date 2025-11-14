@@ -439,7 +439,7 @@ def plan_pouring(parameters, theta_f, num_waypoints, ur5e):
     z_min=0.967
     lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
-    path=np.empty((0, 6))
+    path=np.empty((0, 8))
 
     pos4 = np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
     pos4[0]-=x_shift
