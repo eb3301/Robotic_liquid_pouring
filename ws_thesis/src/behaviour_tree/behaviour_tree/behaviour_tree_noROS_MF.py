@@ -716,6 +716,7 @@ class ExecutePathPublisher(RosLeaf):
         self.path = self.bb.get("best_path")
         for p in self.path:
             p[0]-=np.pi
+        self.node.get_logger().info("Path is being executed")
 
 
     def update(self):
