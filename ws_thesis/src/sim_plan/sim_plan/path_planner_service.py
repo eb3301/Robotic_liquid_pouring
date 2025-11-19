@@ -18,7 +18,7 @@ from drims2_motion_server.motion_client import MotionClient
 from geometry_msgs.msg import PoseStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
-from modello_pour_liq import reward_pouring
+from sim_plan.modello_pour_liq import reward_pouring
 
 def progress_bar(i, total, msg, length=30):
     percent = (i + 1) / total
