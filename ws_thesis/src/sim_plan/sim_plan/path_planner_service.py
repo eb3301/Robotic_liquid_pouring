@@ -1452,7 +1452,7 @@ def plan_path_moveit(
     }
 
 def ik(pos, quat, q_guess, n_ik, motion_client):
-
+    q_guess=np.asarray(q_guess,dtype=float)
     pose_msg = PoseStamped()
     pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
     pose_msg.pose.position.x = pos[0]
@@ -1467,30 +1467,37 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
         #best_norm = 1e30
         best_err = 1e30
         q_best = None
-        for _ in range(n_ik):
+        for i in range(n_ik):
+            if i%20==0: print("Almost there or maybe not")
             result, tmp = motion_client.solve_ik(pose=pose_msg)
             if tmp is None:
                 continue
             tmp=np.asarray(tmp,dtype=float)
             #norm = np.linalg.norm(tmp - q_old)
             err = np.sum(np.abs(tmp - q_guess))
-
+            # print(q_guess)
+            # print(tmp)
+            # print(f"err: {err}")
             # if norm < best_norm:
             #     best_norm = norm
             #     q_best = tmp
             if err < best_err:
                 best_err = err
                 q_best = tmp
+                if err < np.pi/4:
+                    q=q_best
+                    q = [float(x) for x in q]
+                    return q
 
-        if q_best is None or best_err > np.pi/3:
+        if q_best is None or best_err > np.pi:
             raise Warning("Ocio batocio te funziona mia la IK")
         else:
             q=q_best
             q_guess = q_best.copy()
     else:
         result, q = motion_client.solve_ik(pose=pose_msg)
-    
-    return result, q
+    q = [float(x) for x in q]
+    return q
 
 def plan_path_full_moveit(
         theta_f,
@@ -1514,6 +1521,13 @@ def plan_path_full_moveit(
     ]
     #################################
     DIR="/home/barutta/Robotic_liquid_pouring"
+
+    container_scale1 = 0.015
+    container_mesh_path1 = DIR + "/becher/becher1.obj"
+    container1_mesh = trimesh.load(container_mesh_path1)
+    container1_bounds = container1_mesh.bounds
+    container_size = (container1_bounds[1] - container1_bounds[0])*container_scale1
+
     container_scale2 = 0.013
     container_mesh_path2 = DIR + "/becher/becher1.obj"
     container2_mesh = trimesh.load(container_mesh_path2)
@@ -1522,7 +1536,7 @@ def plan_path_full_moveit(
     #################################
     x_shift=0.15
     z_min=0.967
-    n_ik=5
+    n_ik=100
     lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
     
@@ -1611,6 +1625,7 @@ def plan_path_full_moveit(
     pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
 
+    n_ik=5
     q_guess4=np.deg2rad(np.array([-24,-120,-130,-112,-24,-180]))
     q4=ik(pos4,quat4,q_guess4,n_ik,motion_client)
     
@@ -1636,7 +1651,7 @@ def plan_path_full_moveit(
         parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
     ])
     p_tcp0 = pos4.copy()
-    scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
+    #scene.draw_debug_sphere(CoR3D, radius=0.005, color=(1.0, 0.0, 0.0, 1.0))
     R0 = R.from_quat(quat4) # matrice rot init
     l = R0.inv().apply(CoR3D - p_tcp0) # offset tool0 --> CoR3D
     tool_x_axis = np.array([1.0, 0.0, 0.0])             # asse x nel frame tool
@@ -1683,6 +1698,7 @@ def plan_path_full_moveit(
     pos6=p_tcp
     #################################
     # q7
+    n_ik=50
     pos7 = pos6.copy() 
     pos7[2] =parameters['pos_init_cont'][2]+container_size[2]
     pos7[2]=max(pos7[2],z_min)
