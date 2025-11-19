@@ -1156,8 +1156,9 @@ def plan_path_moveit(
     except Exception as e:
         raise RuntimeError(f"errore nella IK q1")
     q1=q2moveit(q1)
+    print(f"q1: {q1}")
     motion_client.move_to_joint(q1)
-    #print(f"q1: {q1}")
+    
 
     # pose_msg = PoseStamped()
     # pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
