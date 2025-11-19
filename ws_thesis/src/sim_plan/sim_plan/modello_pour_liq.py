@@ -140,7 +140,7 @@ def _get_h_spill(c: float, theta: float, H: float, R: float) -> float:
 def calc_v_trasc(trj):
     return 0
 
-def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parameters: dict, debug: bool)->int:
+def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parameters: dict, debug: bool = False)->int:
     # Parameters
     H = 9.5 * 1e-2
     R = 3 * 1e-2

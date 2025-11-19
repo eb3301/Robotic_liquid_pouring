@@ -18,6 +18,7 @@ from drims2_motion_server.motion_client import MotionClient
 from geometry_msgs.msg import PoseStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
+from modello_pour_liq import reward_pouring
 
 def progress_bar(i, total, msg, length=30):
     percent = (i + 1) / total
@@ -1714,7 +1715,6 @@ def plan_path_full_moveit(
     "all": path
     }
 
-
 def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     particles = np.squeeze(liquid.get_particles())
     target_vol = parameters['vol_target']
@@ -1767,6 +1767,26 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     print(f"reward tempo: {reward3}")
     
     reward = reward1 + reward2 + reward3
+    return reward
+
+def compute_reward_models(parameters, theta_f, num_wp):
+    
+    reward_pour = reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"])
+
+    num_wp_opt=320
+    err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
+    err_max_num_wp=50
+
+    w_pour, w_sloshing = 5, 3
+
+    reward_sloshing = w_sloshing * max (0,1-err_num_wp/err_max_num_wp) # da cambiare con modello
+
+    print(f"reward pour: {reward_pour}")
+    print(f"reward num_wp: {reward_sloshing}")
+
+    reward = reward_pour + reward_sloshing
+    w_tot = w_pour + w_sloshing
+    reward/=w_tot
     return reward
 
 def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, liq, dt, approach=False, antisloshing=False): 
@@ -2401,7 +2421,7 @@ class PathPlannerService(Node):
         # Simulazione
         init_sim()
         candidate_paths = []
-        scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione senza liquido (uso solo per planning)
+        #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione senza liquido (uso solo per planning)
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
             print(f"Parameters of iteration {i}: {parameters}")
@@ -2421,15 +2441,23 @@ class PathPlannerService(Node):
                 #     planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
                 #     debug=debug,
                 # )
-                paths = plan_path_moveit(
-                    ur5e,
+                # paths = plan_path_moveit(
+                #     ur5e,
+                #     theta_f,
+                #     parameters,
+                #     self._last_joint_state,
+                #     motion_client=self.motion_client,
+                #     num_waypoints=num_wp,
+                #     debug=False,
+                #     approach=False,
+                #     dt=0.01,
+                # )
+                paths = plan_path_full_moveit(
                     theta_f,
                     parameters,
-                    self._last_joint_state,
-                    motion_client=self.motion_client,
-                    num_waypoints=num_wp,
+                    self.motion_client,
+                    num_waypoints=1000,
                     debug=False,
-                    approach=False,
                     dt=0.01,
                 )
                 # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
@@ -2455,7 +2483,8 @@ class PathPlannerService(Node):
             for j,parameters in enumerate(parameters_set):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-                score=1
+                #score = compute_reward_models(parameters, theta_f, num_wp)
+                score = 1
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1
