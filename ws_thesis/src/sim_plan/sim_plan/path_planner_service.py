@@ -1146,7 +1146,7 @@ def plan_path_moveit(
     
     pos1=np.array([parameters['pos_grip_ee'][0], parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
     quat1=np.array([parameters['pos_grip_ee'][6], parameters['pos_grip_ee'][3], parameters['pos_grip_ee'][4], parameters['pos_grip_ee'][5]]) # xyzw-> wxyz
-
+    print(f"pos: {pos1}, quat: {quat1}")
     try:
         q1 = ur5e.inverse_kinematics(
             link=ur5e.get_link("tool0"),
