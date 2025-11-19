@@ -1513,6 +1513,13 @@ def plan_path_full_moveit(
         "wrist_3_joint",
     ]
     #################################
+    DIR="/home/edo/thesis"
+    container_scale2 = 0.013
+    container_mesh_path2 = DIR + '/becher/becher1.obj'
+    container2_mesh = trimesh.load(container_mesh_path2)
+    container2_bounds = container2_mesh.bounds
+    container2_size = (container2_bounds[1] - container2_bounds[0])*container_scale2
+    #################################
     x_shift=0.15
     z_min=0.967
     n_ik=5
@@ -2419,7 +2426,8 @@ class PathPlannerService(Node):
         
         #################################################################################à
         # Simulazione
-        init_sim()
+        dt=0.01
+        #init_sim()
         candidate_paths = []
         #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione senza liquido (uso solo per planning)
         for i in range(len(parameters_set)):
