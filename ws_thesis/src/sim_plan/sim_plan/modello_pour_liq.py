@@ -134,7 +134,7 @@ def _get_h_spill(c: float, theta: float, H: float, R: float) -> float:
     h1 = z_plus  - H
     h2 = z_minus - H
 
-    h_spill = min(max(h1, h2, 0.0),magic_number*R)
+    h_spill = min(max(h1, h2, 0.0),1*R)
     return h_spill
 
 def calc_v_trasc(trj):
@@ -343,7 +343,7 @@ def main():
     theta_f=90
     num_waypoints=320  
     vol_target=40
-    debug=False
+    debug=True
 
     reward=reward_pouring(num_waypoints, theta_f, vol_target, parameters, debug)
     print(reward)

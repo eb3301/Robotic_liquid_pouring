@@ -1427,19 +1427,11 @@ def plan_path_moveit(
     #     for q in p:        
     #         q[0] += np.pi  # somma π alla prima colonna
     #         q = np.concatenate((q, np.array([0.0, 0.0])))
-    
-    path=np.empty((0, 6))
-    path = np.concatenate((path, path5))
-    path = np.concatenate((path, path6))
-    
+        
     path, path2, path3, path4, path5, path6, path7 = [
     np.hstack((p + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros((p.shape[0], 2))))
     for p in [path, path2, path3, path4, path5, path6, path7]
     ]
-
-
-    print(path)
-    print(path2)
 
     if debug: print(path)
     print(f"Planning complete")

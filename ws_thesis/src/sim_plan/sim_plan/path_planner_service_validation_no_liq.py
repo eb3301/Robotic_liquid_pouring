@@ -1433,14 +1433,6 @@ def plan_path_moveit(
     for p in [path, path2, path3, path4, path5, path6, path7]
     ]
 
-
-    print(path)
-    print(path2)
-
-    path=np.empty((0, 6))
-    path = np.concatenate((path, path5))
-    path = np.concatenate((path, path6))
-
     if debug: print(path)
     print(f"Planning complete")
     
