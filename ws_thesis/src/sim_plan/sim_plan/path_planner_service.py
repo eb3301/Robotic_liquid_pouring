@@ -1453,6 +1453,7 @@ def plan_path_moveit(
 
 def ik(pos, quat, q_guess, n_ik, motion_client):
     q_guess=np.asarray(q_guess,dtype=float)
+    seed = [float(x) for x in q_guess]
     pose_msg = PoseStamped()
     pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
     pose_msg.pose.position.x = pos[0]
@@ -1468,8 +1469,8 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
         best_err = 1e30
         q_best = None
         for i in range(n_ik):
-            if i%20==0: print("Almost there or maybe not")
-            result, tmp = motion_client.solve_ik(pose=pose_msg)
+            # if i%40==0: print("Almost there or maybe not")
+            result, tmp = motion_client.solve_ik(pose=pose_msg, seed=seed)
             if tmp is None:
                 continue
             tmp=np.asarray(tmp,dtype=float)
@@ -1484,6 +1485,7 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
             if err < best_err:
                 best_err = err
                 q_best = tmp
+                #print(best_err)
                 if err < np.pi/4:
                     q=q_best
                     q = [float(x) for x in q]
@@ -1625,7 +1627,7 @@ def plan_path_full_moveit(
     pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
 
-    n_ik=5
+    n_ik=3
     q_guess4=np.deg2rad(np.array([-24,-120,-130,-112,-24,-180]))
     q4=ik(pos4,quat4,q_guess4,n_ik,motion_client)
     
