@@ -336,7 +336,12 @@ class BeliefUpdater(Node):
         real_result = is_success(request.real_score)
         self.get_logger().info(f"Real score={request.real_score:.3f} -> real_result={real_result}")
 
+        ##################################################################################
+        ##################################################################################
+        ##################################################################################
+
         # Simulation Parameters Update:
+        
         # Carica set di parametri e score
         try:
             data_params = self._load_yaml(PARAMS_FILE)
@@ -472,45 +477,68 @@ class BeliefUpdater(Node):
                 response.success = False
                 return response
             
+            # # Aggiornamento TS 
+            # if k % 2 == 0: # aggiorna theta
+            #     # Append liste
+            #     y_hist_theta.append(success_path) 
+            #     x_hist_theta.append(current_theta)
+
+            #     ys = np.array(y_hist_theta)
+            #     if ys.sum() == 0 or ys.sum() == len(ys):
+            #         # COLLASSO → NON aggiornare posteriore
+            #         # esplora uniformemente
+            #         x_next_theta = np.random.uniform(80,100,PATH_NUM)
+            #         num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, 300,400))
+            #         x_next_num_wp = np.ones(PATH_NUM)*num_wp
+            #     else:
+            #         # update posterior
+            #         w_mean_theta, w_cov_theta = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
+            #         # new sample
+            #         num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400))
+            #         x_next_num_wp = np.ones(PATH_NUM)*num_wp
+                    
+            #         x_next_theta = sample_x_TS(w_mean_theta, w_cov_theta, x_min=80, x_max=100, M=PATH_NUM)
+                    
+            # else: # aggiorna num wp
+            #     # Append liste
+            #     y_hist_num_wp.append(success_path) 
+            #     x_hist_num_wp.append(current_num_wp)
+
+            #     ys = np.array(y_hist_num_wp)
+            #     if ys.sum() == 0 or ys.sum() == len(ys):
+            #         x_next_num_wp = np.random.uniform(300,400,PATH_NUM)
+            #         theta = best_theta_bayes(w_mean_theta, w_cov_theta, 80,100)
+            #         x_next_theta = np.ones(PATH_NUM)*theta
+            #     else:
+            #         # update posterior
+            #         w_mean_num_wp, w_cov_num_wp = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
+            #         # new sample
+            #         x_next_num_wp = sample_x_TS(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400, M=PATH_NUM)
+            #         theta = best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100)
+            #         x_next_theta = np.ones(PATH_NUM)*theta
+
             # Aggiornamento TS 
-            if k % 2 == 0: # aggiorna theta
-                # Append liste
-                y_hist_theta.append(success_path) 
-                x_hist_theta.append(current_theta)
+            # Append liste
+            y_hist_theta.append(success_path) 
+            x_hist_theta.append(current_theta)
+            y_hist_num_wp.append(success_path) 
+            x_hist_num_wp.append(current_num_wp)
 
-                ys = np.array(y_hist_theta)
-                if ys.sum() == 0 or ys.sum() == len(ys):
-                    # COLLASSO → NON aggiornare posteriore
-                    # esplora uniformemente
-                    x_next_theta = np.random.uniform(80,100,PATH_NUM)
-                    num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, 300,400))
-                    x_next_num_wp = np.ones(PATH_NUM)*num_wp
-                else:
-                    # update posterior
-                    w_mean_theta, w_cov_theta = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
-                    # new sample
-                    num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400))
-                    x_next_num_wp = np.ones(PATH_NUM)*num_wp
-                    
-                    x_next_theta = sample_x_TS(w_mean_theta, w_cov_theta, x_min=80, x_max=100, M=PATH_NUM)
-                    
-            else: # aggiorna num wp
-                # Append liste
-                y_hist_num_wp.append(success_path) 
-                x_hist_num_wp.append(current_num_wp)
+            # Update theta
+            ys_t = np.array(y_hist_theta)
+            if ys_t.sum() == 0 or ys_t.sum() == len(ys_t):
+                x_next_theta = np.random.uniform(80,100,PATH_NUM) # COLLASSO → NON aggiornare posteriore ma esplora uniformemente
+            else:
+                w_mean_theta, w_cov_theta = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta) # update posterior            
+                x_next_theta = sample_x_TS(w_mean_theta, w_cov_theta, x_min=80, x_max=100, M=PATH_NUM) # new sample
 
-                ys = np.array(y_hist_num_wp)
-                if ys.sum() == 0 or ys.sum() == len(ys):
-                    x_next_num_wp = np.random.uniform(300,400,PATH_NUM)
-                    theta = best_theta_bayes(w_mean_theta, w_cov_theta, 80,100)
-                    x_next_theta = np.ones(PATH_NUM)*theta
-                else:
-                    # update posterior
-                    w_mean_num_wp, w_cov_num_wp = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
-                    # new sample
-                    x_next_num_wp = sample_x_TS(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400, M=PATH_NUM)
-                    theta = best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100)
-                    x_next_theta = np.ones(PATH_NUM)*theta
+            # Update wp
+            ys_wp = np.array(y_hist_num_wp)
+            if ys_wp.sum() == 0 or ys_wp.sum() == len(ys_wp):
+                x_next_num_wp = np.random.uniform(300,400,PATH_NUM)
+            else:
+                w_mean_num_wp, w_cov_num_wp = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp) # update posterior
+                x_next_num_wp = sample_x_TS(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400, M=PATH_NUM) # new sample
 
             k+=1
             
@@ -539,15 +567,16 @@ class BeliefUpdater(Node):
                 num_wp_new.append(np.clip(int(x_next_num_wp[i]) + np.random.uniform(-10, 10)/k, 300, 400))
             x_next_theta=theta_new
             x_next_num_wp=num_wp_new
-            
-            # save plan params
+
+            # Save plan params
             state_current_plan_params = {
                 "current_theta": self.to_builtin(x_next_theta),
                 "current_num_wp": self.to_builtin(x_next_num_wp),
             }
             with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
-                yaml.safe_dump(state_current_plan_params, f, sort_keys=False)            
-        else:
+                yaml.safe_dump(state_current_plan_params, f, sort_keys=False) 
+
+        else: # Successo del path non coincide con il successo reale --> non aggiornare
             try:
                 if not os.path.exists(FILE_CURRENT_PLAN_PARAMS):
                     self.get_logger().error("no file planning parameters")

@@ -2346,6 +2346,8 @@ class PathPlannerService(Node):
         return obj
 
     def plan_path_callback(self, request, response):
+        
+        vol_target = 40
 
         liq=True
         record=False
@@ -2357,8 +2359,8 @@ class PathPlannerService(Node):
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 1                    # Numero di modelli simulati (iniziale)
-            M = 1                    # Numero di traiettorie
+            N = 10                    # Numero di modelli simulati (iniziale)
+            M = 9                    # Numero di traiettorie
             delta = 1/N               # Threshold di successo
 
         # Carica parametri simulazione:
@@ -2469,7 +2471,17 @@ class PathPlannerService(Node):
                     data_plan = yaml.safe_load(f)
             theta_f_arr = data_plan["current_theta"]
             num_wp_arr = data_plan["current_num_wp"]
-        
+
+        # Update sincrono
+        theta_f_a = np.zeros(M)
+        num_wp_a  = np.zeros(M)
+        cont = 0
+        for i in range(int(np.sqrt(M))):
+            for j in range(int(np.sqrt(M))):
+                theta_f_a[cont] = np.deg2rad(theta_f_arr[i])
+                num_wp_a[cont] = int(num_wp_arr[j])
+                cont += 1
+
         #################################################################################à
         # Simulazione
         dt=0.01
@@ -2478,11 +2490,17 @@ class PathPlannerService(Node):
         #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione senza liquido (uso solo per planning)
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
+            parameters["vol_target"]=vol_target
             print(f"Parameters of iteration {i}: {parameters}")
             #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             for j in range(M):   
-                theta_f = np.deg2rad(theta_f_arr[j])
-                num_wp = int(num_wp_arr[j])
+
+                # Update asincrono
+                # theta_f = np.deg2rad(theta_f_arr[j])
+                # num_wp = int(num_wp_arr[j])
+                # Update sincrono
+                theta_f = np.deg2rad(theta_f_a[j])
+                num_wp = int(num_wp_a[j])
         
                 # paths = plan_path(
                 #     ur5e, 
@@ -2537,8 +2555,8 @@ class PathPlannerService(Node):
             for j,parameters in enumerate(parameters_set):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-                #score = compute_reward_models(parameters, theta_f, num_wp)
-                score = 1
+                score = compute_reward_models(parameters, theta_f, num_wp)
+                #score = 1
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1
