@@ -37,7 +37,7 @@ def sloshing_mass(mf, R, h, xi):
 # 2) ODE lineare del modello (eq. (3))
 # ============================================================
 
-def make_ode_linear(wn, damp, x0_ddot):
+def ode_func(wn, damp, x0_ddot):
     """
     Restituisce una funzione f(t, y) per solve_ivp:
     y = [x_n, x_n_dot]
@@ -81,20 +81,40 @@ def simulate_linear_sloshing(
     mf = fluid_volume * rho
     h = fluid_volume / (np.pi * R**2)
 
-    # DA SISTEMARE -->
-    acc = trj # da sost con calcolo acc
-    t_eval = np.linspace(0,dt*len(acc),dt)
-
+    name_to_idx  = {n:i for i,n in enumerate(trj.joint_names)}
     
+    q_pos=[]
+    q_acc=[]
+    time=[]
+    for p in trj.points:
+        time_from_start = p.time_from_start
+        t = time_from_start.sec + time_from_start.nanosec * 1e-9
+        q_pos.append(p.positions)
+        q_acc.append(p.accelerations)
+        time.append(t)
+
+    t0 = time[0]
+    tf = time[-1]
+    time = [t-t0 for t in time]
+    time = np.asarray(time, dtype=float)
+    q_pos = np.asarray(q_pos, dtype=float)
+    q_acc = np.asarray(q_acc, dtype=float)
+    
+    a_x=[]
+    a_y=[]
 
     # interpolazione lineare (di solito sufficiente per accelerazioni reali)
-    a_interp = interp1d(t_data, a_data, kind='linear',
+    a_interp_x = interp1d(time, a_x, kind='linear',
+                        fill_value="extrapolate")
+    a_interp_y = interp1d(time, a_y, kind='linear',
                         fill_value="extrapolate")
 
-
     # Preallocazione
+    t_eval = np.linspace(t0, tf, 1000)
     x_modes = np.zeros((n_modes, len(t_eval)))
+    y_modes = np.zeros((n_modes, len(t_eval)))
 
+    # DA SISTEMARE -->
     # Per ogni modo n
     for n in range(1, n_modes + 1):
 
@@ -103,8 +123,8 @@ def simulate_linear_sloshing(
         zeta = damping_ratio(mu, rho, g, R, h)
         m_n = sloshing_mass(mf, R, h, xi)
 
-        ode = make_ode_linear(wn, zeta, x0_ddot)
-        sol = solve_ivp(ode, [t_eval[0], t_eval[-1]], [0, 0], t_eval=t_eval, rtol=1e-8, atol=1e-8)
+        ode_x = ode_func(wn, zeta, a_interp)
+        sol_x = solve_ivp(ode, [t_eval[0], t_eval[-1]], [0, 0], t_eval=t_eval, rtol=1e-8, atol=1e-8)
         x_modes[n-1, :] = sol.y[0]
 
     # ============================================================
