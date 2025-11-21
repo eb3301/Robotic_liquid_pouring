@@ -1522,20 +1522,6 @@ def plan_path_full_moveit(
         "wrist_3_joint",
     ]
     #################################
-    DIR="/home/barutta/Robotic_liquid_pouring"
-
-    container_scale1 = 0.015
-    container_mesh_path1 = DIR + "/becher/becher1.obj"
-    container1_mesh = trimesh.load(container_mesh_path1)
-    container1_bounds = container1_mesh.bounds
-    container_size = (container1_bounds[1] - container1_bounds[0])*container_scale1
-
-    container_scale2 = 0.013
-    container_mesh_path2 = DIR + "/becher/becher1.obj"
-    container2_mesh = trimesh.load(container_mesh_path2)
-    container2_bounds = container2_mesh.bounds
-    container2_size = (container2_bounds[1] - container2_bounds[0])*container_scale2
-    #################################
     x_shift=0.15
     z_min=0.967
     n_ik=100
@@ -1568,7 +1554,7 @@ def plan_path_full_moveit(
     #print(f"q2: {q2}, type: {type(q2)}")
     result, trj2 = motion_client.plan_to_joint(joint_target=q2, joint_start=q1)
     
-    motion_client.execute_last_planned_trajectory()
+    #motion_client.execute_last_planned_trajectory()
 
     if getattr(result,"val")==1:
         path2=remap_trajectory(trj2, joint_name_map, dt)
@@ -1598,7 +1584,7 @@ def plan_path_full_moveit(
 
     result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2, velocity_scaling=v_scale)
     
-    motion_client.execute_last_planned_trajectory()
+    #motion_client.execute_last_planned_trajectory()
     
     if getattr(result,"val")==1:
         path3=remap_trajectory(trj3, joint_name_map, dt)
@@ -1635,7 +1621,7 @@ def plan_path_full_moveit(
     
     result, trj4 = motion_client.plan_to_joint(joint_target=q4, joint_start=q3)
 
-    motion_client.execute_last_planned_trajectory()
+    #motion_client.execute_last_planned_trajectory()
     if getattr(result,"val")==1:
         path4 = remap_trajectory(trj4, joint_name_map, dt)
         q4 = path4[-1]
@@ -1664,7 +1650,7 @@ def plan_path_full_moveit(
     path5 = []
     q5=q4
     n_steps = int(num_waypoints/2)
-    n_new = int(n_steps/5)
+    n_new = int(n_steps/20)
     for theta in np.linspace(0, theta_f, n_new):
         R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         quat5 = R_theta.as_quat()
@@ -2481,8 +2467,23 @@ class PathPlannerService(Node):
                 theta_f_a[cont] = np.deg2rad(theta_f_arr[i])
                 num_wp_a[cont] = int(num_wp_arr[j])
                 cont += 1
+        #################################################################################
+        DIR="/home/barutta/Robotic_liquid_pouring"
 
-        #################################################################################à
+        container_scale1 = 0.015
+        container_mesh_path1 = DIR + "/becher/becher1.obj"
+        container1_mesh = trimesh.load(container_mesh_path1)
+        container1_bounds = container1_mesh.bounds
+        global container_size
+        container_size = (container1_bounds[1] - container1_bounds[0])*container_scale1
+
+        container_scale2 = 0.013
+        container_mesh_path2 = DIR + "/becher/becher1.obj"
+        container2_mesh = trimesh.load(container_mesh_path2)
+        container2_bounds = container2_mesh.bounds
+        global container2_size
+        container2_size = (container2_bounds[1] - container2_bounds[0])*container_scale2
+        #################################################################################
         # Simulazione
         dt=0.01
         #init_sim()
