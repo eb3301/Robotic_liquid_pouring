@@ -1594,7 +1594,9 @@ def plan_path_full_moveit(
     q3=ik(pos3,quat3,q_guess3,n_ik,motion_client)
 
     #print(f"q2: {q2}")
-    result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2)
+    v_scale = (1.2 - 0.8) / (400 - 300) * (num_waypoints - 300) + 0.8
+
+    result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2, velocity_scaling=v_scale)
     
     motion_client.execute_last_planned_trajectory()
     
@@ -1603,14 +1605,14 @@ def plan_path_full_moveit(
         q3=path3[-1]
         q3 = [float(x) for x in q3]
         # Interpolate with new duration
-        tf=dt*(len(path3)-1)
-        t=np.arange(0.0, tf + 1e-12, dt)
-        tf_new=num_waypoints*dt
-        t_new = np.arange(0.0, tf_new + dt, dt)
-        new = np.zeros((len(t_new), path3.shape[1]))
-        for j in range(path3.shape[1]):
-            new[:, j] = np.interp(t_new, t, path3[:, j])
-        path3 = new
+        # tf=dt*(len(path3)-1)
+        # t=np.arange(0.0, tf + 1e-12, dt)
+        # tf_new=num_waypoints*dt
+        # t_new = np.arange(0.0, tf_new + dt, dt)
+        # new = np.zeros((len(t_new), path3.shape[1]))
+        # for j in range(path3.shape[1]):
+        #     new[:, j] = np.interp(t_new, t, path3[:, j])
+        # path3 = new
 
         path = np.concatenate((path, path3))
         logger.info(f"Pianificazione trasporto eseguita")
@@ -1662,7 +1664,8 @@ def plan_path_full_moveit(
     path5 = []
     q5=q4
     n_steps = int(num_waypoints/2)
-    for theta in np.linspace(0, theta_f, n_steps):
+    n_new = int(n_steps/5)
+    for theta in np.linspace(0, theta_f, n_new):
         R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         quat5 = R_theta.as_quat()
         delta_pos=R_theta.apply(l)
@@ -1674,13 +1677,25 @@ def plan_path_full_moveit(
 
         path5.append(q5)
     path5 = np.asarray(path5, dtype=float)
+
+    n = path5.shape[0]
+    d = path5.shape[1]
+    N = n_steps
+    t = np.linspace(0, 1, n)
+    T = np.linspace(0, 1, N)
+
+    path_dense = np.zeros((N, d))
+    for i in range(d):
+        path_dense[:, i] = np.interp(T, t, path5[:, i])
+    path5 = path_dense
+   
     path = np.concatenate((path, path5))
 
     ###########################################
     # Ritorno dal versamento (5->6)
     path6 = []
     q6=q5
-    for theta in np.linspace(theta_f, 0.0, n_steps):
+    for theta in np.linspace(theta_f, 0.0, n_new):
         R_theta = R.from_rotvec(theta * axis_world) * R0
         quat6 = R_theta.as_quat()
 
@@ -1692,8 +1707,21 @@ def plan_path_full_moveit(
 
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
+
+    n = path6.shape[0]
+    d = path6.shape[1]
+    N = n_steps
+    t = np.linspace(0, 1, n)
+    T = np.linspace(0, 1, N)
+
+    path_dense = np.zeros((N, d))
+    for i in range(d):
+        path_dense[:, i] = np.interp(T, t, path6[:, i])
+    path6 = path_dense
+
     q6=path6[-1]
     q6 = [float(x) for x in q6]
+
     path = np.concatenate((path, path6))
     logger.info(f"Pianificazione pouring e unpouring eseguita")
 
