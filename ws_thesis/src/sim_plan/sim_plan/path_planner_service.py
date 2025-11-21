@@ -1453,6 +1453,7 @@ def plan_path_moveit(
 
 def ik(pos, quat, q_guess, n_ik, motion_client):
     q_guess=np.asarray(q_guess,dtype=float)
+    seed = [float(x) for x in q_guess]
     pose_msg = PoseStamped()
     pose_msg.header.frame_id = "world" # relative motion wrt tool0 frame
     pose_msg.pose.position.x = pos[0]
@@ -1468,8 +1469,8 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
         best_err = 1e30
         q_best = None
         for i in range(n_ik):
-            if i%20==0: print("Almost there or maybe not")
-            result, tmp = motion_client.solve_ik(pose=pose_msg)
+            # if i%40==0: print("Almost there or maybe not")
+            result, tmp = motion_client.solve_ik(pose=pose_msg, seed=seed)
             if tmp is None:
                 continue
             tmp=np.asarray(tmp,dtype=float)
@@ -1484,6 +1485,7 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
             if err < best_err:
                 best_err = err
                 q_best = tmp
+                #print(best_err)
                 if err < np.pi/4:
                     q=q_best
                     q = [float(x) for x in q]
@@ -1592,7 +1594,9 @@ def plan_path_full_moveit(
     q3=ik(pos3,quat3,q_guess3,n_ik,motion_client)
 
     #print(f"q2: {q2}")
-    result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2)
+    v_scale = (1.2 - 0.8) / (400 - 300) * (num_waypoints - 300) + 0.8
+
+    result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2, velocity_scaling=v_scale)
     
     motion_client.execute_last_planned_trajectory()
     
@@ -1601,14 +1605,14 @@ def plan_path_full_moveit(
         q3=path3[-1]
         q3 = [float(x) for x in q3]
         # Interpolate with new duration
-        tf=dt*(len(path3)-1)
-        t=np.arange(0.0, tf + 1e-12, dt)
-        tf_new=num_waypoints*dt
-        t_new = np.arange(0.0, tf_new + dt, dt)
-        new = np.zeros((len(t_new), path3.shape[1]))
-        for j in range(path3.shape[1]):
-            new[:, j] = np.interp(t_new, t, path3[:, j])
-        path3 = new
+        # tf=dt*(len(path3)-1)
+        # t=np.arange(0.0, tf + 1e-12, dt)
+        # tf_new=num_waypoints*dt
+        # t_new = np.arange(0.0, tf_new + dt, dt)
+        # new = np.zeros((len(t_new), path3.shape[1]))
+        # for j in range(path3.shape[1]):
+        #     new[:, j] = np.interp(t_new, t, path3[:, j])
+        # path3 = new
 
         path = np.concatenate((path, path3))
         logger.info(f"Pianificazione trasporto eseguita")
@@ -1625,7 +1629,7 @@ def plan_path_full_moveit(
     pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
 
-    n_ik=5
+    n_ik=3
     q_guess4=np.deg2rad(np.array([-24,-120,-130,-112,-24,-180]))
     q4=ik(pos4,quat4,q_guess4,n_ik,motion_client)
     
@@ -1660,7 +1664,8 @@ def plan_path_full_moveit(
     path5 = []
     q5=q4
     n_steps = int(num_waypoints/2)
-    for theta in np.linspace(0, theta_f, n_steps):
+    n_new = int(n_steps/5)
+    for theta in np.linspace(0, theta_f, n_new):
         R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         quat5 = R_theta.as_quat()
         delta_pos=R_theta.apply(l)
@@ -1672,13 +1677,25 @@ def plan_path_full_moveit(
 
         path5.append(q5)
     path5 = np.asarray(path5, dtype=float)
+
+    n = path5.shape[0]
+    d = path5.shape[1]
+    N = n_steps
+    t = np.linspace(0, 1, n)
+    T = np.linspace(0, 1, N)
+
+    path_dense = np.zeros((N, d))
+    for i in range(d):
+        path_dense[:, i] = np.interp(T, t, path5[:, i])
+    path5 = path_dense
+   
     path = np.concatenate((path, path5))
 
     ###########################################
     # Ritorno dal versamento (5->6)
     path6 = []
     q6=q5
-    for theta in np.linspace(theta_f, 0.0, n_steps):
+    for theta in np.linspace(theta_f, 0.0, n_new):
         R_theta = R.from_rotvec(theta * axis_world) * R0
         quat6 = R_theta.as_quat()
 
@@ -1690,8 +1707,21 @@ def plan_path_full_moveit(
 
         path6.append(q6)
     path6 = np.asarray(path6, dtype=float)
+
+    n = path6.shape[0]
+    d = path6.shape[1]
+    N = n_steps
+    t = np.linspace(0, 1, n)
+    T = np.linspace(0, 1, N)
+
+    path_dense = np.zeros((N, d))
+    for i in range(d):
+        path_dense[:, i] = np.interp(T, t, path6[:, i])
+    path6 = path_dense
+
     q6=path6[-1]
     q6 = [float(x) for x in q6]
+
     path = np.concatenate((path, path6))
     logger.info(f"Pianificazione pouring e unpouring eseguita")
 
@@ -2316,6 +2346,8 @@ class PathPlannerService(Node):
         return obj
 
     def plan_path_callback(self, request, response):
+        
+        vol_target = 40
 
         liq=True
         record=False
@@ -2327,8 +2359,8 @@ class PathPlannerService(Node):
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 1                    # Numero di modelli simulati (iniziale)
-            M = 1                    # Numero di traiettorie
+            N = 10                    # Numero di modelli simulati (iniziale)
+            M = 9                    # Numero di traiettorie
             delta = 1/N               # Threshold di successo
 
         # Carica parametri simulazione:
@@ -2439,7 +2471,17 @@ class PathPlannerService(Node):
                     data_plan = yaml.safe_load(f)
             theta_f_arr = data_plan["current_theta"]
             num_wp_arr = data_plan["current_num_wp"]
-        
+
+        # Update sincrono
+        theta_f_a = np.zeros(M)
+        num_wp_a  = np.zeros(M)
+        cont = 0
+        for i in range(int(np.sqrt(M))):
+            for j in range(int(np.sqrt(M))):
+                theta_f_a[cont] = np.deg2rad(theta_f_arr[i])
+                num_wp_a[cont] = int(num_wp_arr[j])
+                cont += 1
+
         #################################################################################à
         # Simulazione
         dt=0.01
@@ -2448,11 +2490,17 @@ class PathPlannerService(Node):
         #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione senza liquido (uso solo per planning)
         for i in range(len(parameters_set)):
             parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
+            parameters["vol_target"]=vol_target
             print(f"Parameters of iteration {i}: {parameters}")
             #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
             for j in range(M):   
-                theta_f = np.deg2rad(theta_f_arr[j])
-                num_wp = int(num_wp_arr[j])
+
+                # Update asincrono
+                # theta_f = np.deg2rad(theta_f_arr[j])
+                # num_wp = int(num_wp_arr[j])
+                # Update sincrono
+                theta_f = np.deg2rad(theta_f_a[j])
+                num_wp = int(num_wp_a[j])
         
                 # paths = plan_path(
                 #     ur5e, 
@@ -2507,8 +2555,8 @@ class PathPlannerService(Node):
             for j,parameters in enumerate(parameters_set):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-                #score = compute_reward_models(parameters, theta_f, num_wp)
-                score = 1
+                score = compute_reward_models(parameters, theta_f, num_wp)
+                #score = 1
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1
