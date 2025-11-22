@@ -2,6 +2,8 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.special import jv, jvp
 from scipy.interpolate import interp1d
+import pinocchio as pin
+from pinocchio.robot_wrapper import RobotWrapper
 
 
 # ============================================================
@@ -32,11 +34,6 @@ def sloshing_mass(mf, R, h, xi):
     """Eq. (4): m_n"""
     return 2 * mf * R / ( (xi * h) * (xi**2 - 1) ) * np.tanh(xi * h / R)
 
-
-# ============================================================
-# 2) ODE lineare del modello (eq. (3))
-# ============================================================
-
 def ode_func(wn, damp, x0_ddot):
     """
     Restituisce una funzione f(t, y) per solve_ivp:
@@ -48,10 +45,21 @@ def ode_func(wn, damp, x0_ddot):
         return [xd, xdd]
     return f
 
-
-# ============================================================
-# 3) Funzione principale di simulazione
-# ============================================================
+def trajectory_to_arrays(trj):
+    t = []
+    qs = []
+    qds = []
+    qdds = []
+    for p in trj.points:
+        tt = p.time_from_start.sec + p.time_from_start.nanosec * 1e-9
+        t.append(tt)
+        qs.append(p.positions)
+        qds.append(p.velocities)
+        qdds.append(p.accelerations)
+    return (np.array(t),
+            np.array(qs),
+            np.array(qds),
+            np.array(qdds))
 
 def simulate_linear_sloshing(
         trj,     
@@ -78,30 +86,45 @@ def simulate_linear_sloshing(
     mu = 1e-3  
     dt = 0.01
 
+
+    # Carica modello robot da urdf
+    urdf_path = "/percorso/al/tuo_robot.urdf"
+    robot = RobotWrapper.BuildFromURDF(urdf_path, root_joint=None)
+    model = robot.model
+    data = model.createData()
+
+    frame_name = "tip"   # nome del link a cui è fissato il contenitore
+    frame_id = model.getFrameId(frame_name)
+
+
     mf = fluid_volume * rho
     h = fluid_volume / (np.pi * R**2)
 
-    name_to_idx  = {n:i for i,n in enumerate(trj.joint_names)}
     
-    q_pos=[]
-    q_acc=[]
-    time=[]
-    for p in trj.points:
-        time_from_start = p.time_from_start
-        t = time_from_start.sec + time_from_start.nanosec * 1e-9
-        q_pos.append(p.positions)
-        q_acc.append(p.accelerations)
-        time.append(t)
-
+    name_to_idx = {name: i for i, name in enumerate(trj.joint_names)}
+    time, Q, Qd, Qdd = trajectory_to_arrays(trj)
     t0 = time[0]
     tf = time[-1]
     time = [t-t0 for t in time]
-    time = np.asarray(time, dtype=float)
-    q_pos = np.asarray(q_pos, dtype=float)
-    q_acc = np.asarray(q_acc, dtype=float)
-    
-    a_x=[]
-    a_y=[]
+
+    acc_container = []   # lista di accelerazioni [ax, ay, az] nel world
+
+    for q, qd, qdd in zip(Q, Qd, Qdd):
+        # Cinematica diretta + cin. differenziale
+        pin.forwardKinematics(model, data, q, qd, qdd)
+        pin.updateFramePlacement(model, data, frame_id)
+
+        # This gives “classical” acceleration (lineare + angolare del frame)
+        a_frame = pin.getFrameClassicalAcceleration(model, data, frame_id)
+
+        lin_acc = a_frame.linear    # np.array([ax, ay, az])
+        # ang_acc = a_frame.angular  # se ti serve
+
+        acc_container.append(lin_acc)
+
+    acc_container = np.vstack(acc_container)   # shape: (N, 3)
+    a_x = acc_container[:, 0]
+    a_y = acc_container[:, 1]
 
     # interpolazione lineare (di solito sufficiente per accelerazioni reali)
     a_interp_x = interp1d(time, a_x, kind='linear',
@@ -110,11 +133,10 @@ def simulate_linear_sloshing(
                         fill_value="extrapolate")
 
     # Preallocazione
-    t_eval = np.linspace(t0, tf, 1000)
+    t_eval = np.linspace(0, tf-t0, 1000)
     x_modes = np.zeros((n_modes, len(t_eval)))
     y_modes = np.zeros((n_modes, len(t_eval)))
 
-    # DA SISTEMARE -->
     # Per ogni modo n
     for n in range(1, n_modes + 1):
 
@@ -123,19 +145,25 @@ def simulate_linear_sloshing(
         zeta = damping_ratio(mu, rho, g, R, h)
         m_n = sloshing_mass(mf, R, h, xi)
 
-        ode_x = ode_func(wn, zeta, a_interp)
-        sol_x = solve_ivp(ode, [t_eval[0], t_eval[-1]], [0, 0], t_eval=t_eval, rtol=1e-8, atol=1e-8)
-        x_modes[n-1, :] = sol.y[0]
+        ode_x = ode_func(wn, zeta, a_interp_x)
+        sol_x = solve_ivp(ode_x, [t_eval[0], t_eval[-1]], [0, 0], t_eval=t_eval, rtol=1e-8, atol=1e-8)
+        x_modes[n-1, :] = sol_x.y[0]
+
+        ode_y = ode_func(wn, zeta, a_interp_y)
+        sol_y = solve_ivp(ode_y, [t_eval[0], t_eval[-1]], [0, 0], t_eval=t_eval, rtol=1e-8, atol=1e-8)
+        y_modes[n-1, :] = sol_y.y[0]
 
     # ============================================================
     # 4) Sloshing height η(t) usando eq. (10)
     #    η = 8 ∑ x_n / ( xi * (xi^2 -1)) * tanh(xi*h/R)
     # ============================================================
 
-    eta = np.zeros(len(t_eval))
+    eta_x = np.zeros(len(t_eval))
+    eta_y = np.zeros(len(t_eval))
     for n in range(1, n_modes + 1):
         xi = XI_1N[n]
         coef = 8 / (xi * ((xi**2 - 1))) * np.tanh(xi*h/R)
-        eta += coef * x_modes[n-1, :]
+        eta_x += coef * x_modes[n-1, :]
+        eta_y += coef * y_modes[n-1, :]
 
-    return eta, x_modes, t_eval
+    return eta_x, x_modes, eta_y, y_modes, t_eval
