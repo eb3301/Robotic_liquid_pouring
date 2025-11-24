@@ -2465,8 +2465,8 @@ class PathPlannerService(Node):
         cont = 0
         for i in range(int(np.sqrt(l_arr))):
             for j in range(int(np.sqrt(l_arr))):
-                theta_f_a[cont] = np.deg2rad(theta_f_arr[i])
-                num_wp_a[cont] = int(num_wp_arr[j])
+                theta_f_a[cont] = theta_f_arr[i]
+                num_wp_a[cont] = num_wp_arr[j]
                 cont += 1
         
         idx = np.random.choice(l_arr, size=M, replace=False)
