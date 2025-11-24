@@ -2,9 +2,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.special import jv, jvp
 from scipy.interpolate import interp1d
-import pinocchio as pin
-from pinocchio.robot_wrapper import RobotWrapper
-
+import mujoco
 
 # ============================================================
 # 1) Funzioni utili
@@ -21,6 +19,13 @@ XI_1N = {
     5: 14.8636
 }
 
+H = 9.5 * 1e-2
+R = 3 * 1e-2
+g = 9.81
+Cd = 0.6
+rho = 998
+mu = 1e-3  
+dt = 0.01
 
 def natural_frequency(R, h, g, xi):
     """ω_n = sqrt( g*xi/R * tanh(xi*h/R) )"""
@@ -56,14 +61,48 @@ def trajectory_to_arrays(trj):
         qs.append(p.positions)
         qds.append(p.velocities)
         qdds.append(p.accelerations)
-    return (np.array(t),
-            np.array(qs),
-            np.array(qds),
-            np.array(qdds))
+    return (np.array(t), np.array(qs))
+
+def acc_from_q(time, q_trj, model, data, tool_body_id):
+    """
+    time: array shape (N,) con i timestamp assoluti
+    q_trj: array shape (N, 6) con qpos
+    """
+    pos_list = []
+    for q in q_trj:
+        data.qpos[:6] = q
+        mujoco.mj_forward(model, data)
+        pos_list.append(np.array(data.xpos[tool_body_id], dtype=float))
+
+    pos = np.vstack(pos_list)   # shape (N, 3)
+    N = len(pos)
+
+    vel = np.zeros_like(pos)    # velocità cartesiana
+    acc = np.zeros_like(pos)    # accelerazione cartesiana
+
+    # Diff centrate per vel e acc (Estremi con differenze in avanti e indietro)
+    for i in range(1, N-1):
+        dt = time[i+1] - time[i-1]
+        vel[i] = (pos[i+1] - pos[i-1]) / dt
+ 
+    vel[0] = (pos[1] - pos[0]) / (time[1] - time[0])
+    vel[-1] = (pos[-1] - pos[-2]) / (time[-1] - time[-2])
+
+    for i in range(1, N-1):
+        dt = time[i+1] - time[i-1]
+        acc[i] = (vel[i+1] - vel[i-1]) / dt
+
+    acc[0] = (vel[1] - vel[0]) / (time[1] - time[0])
+    acc[-1] = (vel[-1] - vel[-2]) / (time[-1] - time[-2])
+
+    ax=acc[:,0]
+    ay=acc[:,1]
+    az=acc[:,2]
+    return ax, ay, az
 
 def simulate_linear_sloshing(
         trj,     
-        fluid_volume=0,
+        V_init=0,
         n_modes=1,
     ):
     """
@@ -79,52 +118,24 @@ def simulate_linear_sloshing(
     n_modes: numero di modi da includere
     fluid_volume: volume [m3] (se non dato: mf = pi*R^2*h*rho)
     """
-    H = 9.5 * 1e-2
-    R = 3 * 1e-2
-    g = 9.81
-    rho = 998
-    mu = 1e-3  
-    dt = 0.01
-
 
     # Carica modello robot da urdf
-    urdf_path = "/percorso/al/tuo_robot.urdf"
-    robot = RobotWrapper.BuildFromURDF(urdf_path, root_joint=None)
-    model = robot.model
-    data = model.createData()
-
-    frame_name = "tip"   # nome del link a cui è fissato il contenitore
-    frame_id = model.getFrameId(frame_name)
+    model_path = "/home/barutta/projects/src/ur5e_utils_mujoco/ur5e/ur5e.xml"
+    model = mujoco.MjModel.from_xml_path(model_path)
+    data = mujoco.MjData(model)
+    tool_body_id  = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "tool_frame")
 
 
-    mf = fluid_volume * rho
-    h = fluid_volume / (np.pi * R**2)
-
+    mf = V_init * rho
+    h = V_init / (np.pi * R**2)
     
-    name_to_idx = {name: i for i, name in enumerate(trj.joint_names)}
-    time, Q, Qd, Qdd = trajectory_to_arrays(trj)
+    # name_to_idx = {name: i for i, name in enumerate(trj.joint_names)}
+    time, q_trj = trajectory_to_arrays(trj)
     t0 = time[0]
     tf = time[-1]
     time = [t-t0 for t in time]
 
-    acc_container = []   # lista di accelerazioni [ax, ay, az] nel world
-
-    for q, qd, qdd in zip(Q, Qd, Qdd):
-        # Cinematica diretta + cin. differenziale
-        pin.forwardKinematics(model, data, q, qd, qdd)
-        pin.updateFramePlacement(model, data, frame_id)
-
-        # This gives “classical” acceleration (lineare + angolare del frame)
-        a_frame = pin.getFrameClassicalAcceleration(model, data, frame_id)
-
-        lin_acc = a_frame.linear    # np.array([ax, ay, az])
-        # ang_acc = a_frame.angular  # se ti serve
-
-        acc_container.append(lin_acc)
-
-    acc_container = np.vstack(acc_container)   # shape: (N, 3)
-    a_x = acc_container[:, 0]
-    a_y = acc_container[:, 1]
+    a_x, a_y, _ = acc_from_q(time, q_trj, model, data, tool_body_id)
 
     # interpolazione lineare (di solito sufficiente per accelerazioni reali)
     a_interp_x = interp1d(time, a_x, kind='linear',
@@ -167,3 +178,30 @@ def simulate_linear_sloshing(
         eta_y += coef * y_modes[n-1, :]
 
     return eta_x, x_modes, eta_y, y_modes, t_eval
+
+def reward_sloshing(trj, parameters):
+
+    V_init = parameters["vol_init"] * 1e-6 if parameters["vol_init"]>1 else parameters["vol_init"]
+    V = V_init
+    V_spilled = 0
+
+    eta_x, _, eta_y, _, t_eval = simulate_linear_sloshing(trj, V_init=V_init, n_modes=1)
+    h = V_init / (np.pi * R**2)
+    
+
+    for i in range(len(eta_x)):
+        eta = max(eta_x[i], eta_y[i])
+
+        if eta + h > H:
+            dt = t_eval[i+1] - t_eval[i-1]
+            dh = eta + h
+            L = 2 * np.arccos((R-dh)/R) * R
+    
+            # Update volumes:
+            Q = 2/3 * Cd * np.sqrt(2*g) * L * dh**1.5 * 1.25 # 1.25 to account for not rect sect (exp param)
+            V_i = min(Q * dt, V)
+            V = np.clip(V - V_i, 0, V_init)
+            V_spilled = np.clip(V_spilled + V_i, 0, V_init)
+    
+    reward = 1 - V_spilled/V_init 
+    return reward

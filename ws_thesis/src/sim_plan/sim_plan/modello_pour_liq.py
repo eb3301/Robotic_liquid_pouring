@@ -158,6 +158,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     tol_spill = 0.1 * V_init
 
     n_steps = int(num_waypoints/2)
+    
     theta_f = np.deg2rad(theta_f) if theta_f>2*np.pi else theta_f
     theta_arr = np.concatenate((np.linspace(0, theta_f, n_steps), np.linspace(theta_f, 0.0, n_steps)))
 
@@ -335,7 +336,7 @@ def main():
                 "densità": 998.0,
                 "viscosità": 0.001,
                 "tens_sup": 0.072,
-                "vol_target": 20.0, #0.75e-5,
+                "vol_target": 50.484, #0.75e-5,
                 "err_target": 5e-6,
                 "theta_f": 87, #+-15°
                 "num_wp": 320,

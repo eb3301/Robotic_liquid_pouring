@@ -1491,7 +1491,7 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
                     q = [float(x) for x in q]
                     return q
 
-        if q_best is None or best_err > np.pi:
+        if q_best is None or best_err > 2*np.pi:
             raise Warning("Ocio batocio te funziona mia la IK")
         else:
             q=q_best
@@ -1524,7 +1524,7 @@ def plan_path_full_moveit(
     #################################
     x_shift=0.15
     z_min=0.967
-    n_ik=100
+    n_ik=10
     lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
     
@@ -1538,7 +1538,7 @@ def plan_path_full_moveit(
     # print(f"pos: {pos1}, quat: {quat1}")
     # print(f"q1: {q1}")
 
-    motion_client.move_to_joint(q1)
+    #motion_client.move_to_joint(q1)
     
     ################################# 
 
@@ -1650,7 +1650,7 @@ def plan_path_full_moveit(
     path5 = []
     q5=q4
     n_steps = int(num_waypoints/2)
-    n_new = int(n_steps/20)
+    n_new = 4 #int(n_steps/20)
     for theta in np.linspace(0, theta_f, n_new):
         R_theta = R.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         quat5 = R_theta.as_quat()
@@ -1810,11 +1810,11 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
 
 def compute_reward_models(parameters, theta_f, num_wp):
     
-    reward_pour = reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"])
-
+    reward_pour = reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
+    
     num_wp_opt=320
     err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
-    err_max_num_wp=50
+    err_max_num_wp=70
 
     w_pour, w_sloshing = 5, 3
 
@@ -2345,8 +2345,8 @@ class PathPlannerService(Node):
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 10                    # Numero di modelli simulati (iniziale)
-            M = 9                    # Numero di traiettorie
+            N = 4                    # Numero di modelli simulati (iniziale)
+            M = 3                       # Numero di traiettorie
             delta = 1/N               # Threshold di successo
 
         # Carica parametri simulazione:
@@ -2459,14 +2459,21 @@ class PathPlannerService(Node):
             num_wp_arr = data_plan["current_num_wp"]
 
         # Update sincrono
-        theta_f_a = np.zeros(M)
-        num_wp_a  = np.zeros(M)
+        l_arr=9
+        theta_f_a = np.zeros(l_arr)
+        num_wp_a  = np.zeros(l_arr)
         cont = 0
-        for i in range(int(np.sqrt(M))):
-            for j in range(int(np.sqrt(M))):
+        for i in range(int(np.sqrt(l_arr))):
+            for j in range(int(np.sqrt(l_arr))):
                 theta_f_a[cont] = np.deg2rad(theta_f_arr[i])
                 num_wp_a[cont] = int(num_wp_arr[j])
                 cont += 1
+        
+        idx = np.random.choice(l_arr, size=M, replace=False)
+
+        theta_f_a = theta_f_a[idx]
+        num_wp_a = num_wp_a[idx]
+        
         #################################################################################
         DIR="/home/barutta/Robotic_liquid_pouring"
 
