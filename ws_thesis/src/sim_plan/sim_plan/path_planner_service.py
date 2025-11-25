@@ -2472,7 +2472,7 @@ class PathPlannerService(Node):
 
         theta_f_a = theta_f_a[idx]
         num_wp_a = num_wp_a[idx]
-        
+        print(f"theta: {theta_f_a} - num wp: {num_wp_a}")
         #################################################################################
         DIR="/home/barutta/Robotic_liquid_pouring"
 
@@ -2508,7 +2508,7 @@ class PathPlannerService(Node):
                 # Update sincrono
                 theta_f = np.deg2rad(theta_f_a[j])
                 num_wp = int(num_wp_a[j])
-        
+                print(f"plan {j+1} - [theta: {np.rad2deg(theta_f)} - num wp: {num_wp}]")
                 # paths = plan_path(
                 #     ur5e, 
                 #     theta_f,
@@ -2562,7 +2562,7 @@ class PathPlannerService(Node):
             for j,parameters in enumerate(parameters_set):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-                score = compute_reward_models(parameters, np.deg2rad(theta_f_a[j%M]), int(num_wp_a[j%M]))
+                score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]))
                 #score = 1
                 scores[j]=score
                 if is_success(score,threshold):
