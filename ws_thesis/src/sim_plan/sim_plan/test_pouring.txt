@@ -1,0 +1,127 @@
+tests:
+  - id: 1
+    v_init: 40
+    v_pour: 30
+    theta_f: 90
+    v_spill: 0
+    v_model: 27.097
+    
+  - id: 2
+    v_init: 60
+    v_pour: 40
+    theta_f: 90
+    v_spill: 2
+    v_model: 37.658
+
+  - id: 3
+    v_init: 80
+    v_pour: 60
+    theta_f: 90
+    v_spill: 2
+    v_model: 50.882
+
+  - id: 4
+    v_init: 100
+    v_pour: 75
+    theta_f: 90
+    v_spill: 2
+    v_model: 66.100
+
+  - id: 5
+    v_init: 120
+    v_pour: 90
+    theta_f: 90
+    v_spill: 3
+    v_model: 82.512 
+
+  - id: 6
+    v_init: 140
+    v_pour: 109
+    theta_f: 90
+    v_spill: 4
+    v_model: 100.174
+
+  - id: 7
+    v_init: 40
+    v_pour: 5
+    theta_f: 80
+    v_spill: 0
+    v_model: 0.390
+
+  - id: 8
+    v_init: 60
+    v_pour: 15
+    theta_f: 80
+    v_spill: 0
+    v_model: 5.002
+
+  - id: 9
+    v_init: 80
+    v_pour: 30
+    theta_f: 80
+    v_spill: 0
+    v_model: 14.099
+
+  - id: 10
+    v_init: 100
+    v_pour: 40
+    theta_f: 80
+    v_spill: 2
+    v_model: 26.833
+
+  - id: 11
+    v_init: 120
+    v_pour: 55
+    theta_f: 80
+    v_spill: 4
+    v_model: 41.921
+
+  - id: 12
+    v_init: 140
+    v_pour: 70
+    theta_f: 80
+    v_spill: 6
+    v_model: 58.483
+
+  - id: 13
+    v_init: 40
+    v_pour: 40
+    theta_f: 100
+    v_spill: 0
+    v_model: 27.574
+
+  - id: 14
+    v_init: 60
+    v_pour: 58
+    theta_f: 100
+    v_spill: 0
+    v_model: 38.856
+
+  - id: 15
+    v_init: 80
+    v_pour: 77
+    theta_f: 100
+    v_spill: 0
+    v_model: 52.553
+
+  - id: 16
+    v_init: 100
+    v_pour: 95
+    theta_f: 100
+    v_spill: 3
+    v_model: 68.190
+
+  - id: 17
+    v_init: 120
+    v_pour: 110
+    theta_f: 100
+    v_spill: 6
+    v_model: 85.174
+
+  - id: 18
+    v_init: 140
+    v_pour: 130
+    theta_f: 100
+    v_spill: 10
+    v_model: 81.679
+
