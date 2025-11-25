@@ -144,10 +144,12 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     # Parameters
     H = 9.5 * 1e-2
     R = 3 * 1e-2
-    dt=0.01
     Cd = 0.6
     g = 9.81
     
+    dt=0.01
+    n_steps = int(num_waypoints/2)
+
     print("Simulating pouring")
     if debug:
         plotter = FreeSurfacePlotter(width=2*R, height=H)
@@ -157,7 +159,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     tol_pour = 0.15 * V_target
     tol_spill = 0.1 * V_init
 
-    n_steps = int(num_waypoints/2)
+    
     
     theta_f = np.deg2rad(theta_f) if theta_f>2*np.pi else theta_f
     theta_arr = np.concatenate((np.linspace(0, theta_f, n_steps), np.linspace(theta_f, 0.0, n_steps)))
@@ -168,6 +170,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     z_min=0.967
     lip_height = parameters['pos_cont_goal'][2] + H +0.07
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
+
     pos4 = pos_cont.copy()
     pos4[0]-=x_shift
     pos4[1] -= (R+0.03)
@@ -199,7 +202,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
         L = 2 * np.arccos((R-h_spill)/R) * R
         
         # Update volumes:
-        Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * 1.25 # 1.25 to account for not rect sect (exp param)
+        Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * 1 # 1.25 to account for not rect sect (exp param)
         V_i = min(Q * dt, V)
         if debug:
             print(f"")
@@ -234,8 +237,8 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
             V_poured += V_i
     print("Simulation completed")
     if not np.isclose(V+V_poured+V_spilled, V_init):
-        raise Warning("odiocrop")
-    print(f"[Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")
+        raise Warning("oidocrop")
+    print(f"[Wp {num_waypoints} theta {np.rad2deg(theta_f)}]-[Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")
     err_vol = np.abs(V_poured-V_target)
     #print(f"Volume poured: {V_poured}")
     #print(f"Volume spilled: {V_spilled}")
@@ -332,7 +335,7 @@ def main():
                 "pos_grip_ee": (0.6509734785173125, 0.2847438888358813, 0.9764986855761588, -0.5000033337808922, 0.49998929956451965, -0.4999940109139501, 0.5000133554007884),
                 "offset": (0, 0.15, -0.02),
                 "dCoR": [0.0, 0.06, -0.004], 
-                "vol_init": 60.0, #2e-5, +-MAE
+                "vol_init": 140.0, #2e-5, +-MAE
                 "densità": 998.0,
                 "viscosità": 0.001,
                 "tens_sup": 0.072,
@@ -341,10 +344,10 @@ def main():
                 "theta_f": 87, #+-15°
                 "num_wp": 320,
             }
-    theta_f=90
+    theta_f=100
     num_waypoints=320  
     vol_target=40
-    debug=True
+    debug=False
 
     reward=reward_pouring(num_waypoints, theta_f, vol_target, parameters, debug)
     print(reward)

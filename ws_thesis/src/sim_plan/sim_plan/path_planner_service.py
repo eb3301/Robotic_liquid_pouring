@@ -1615,7 +1615,6 @@ def plan_path_full_moveit(
     pos4[2]=max(pos4[2],z_min,lip_height)
     quat4 = quat_orizz
 
-    n_ik=3
     q_guess4=np.deg2rad(np.array([-24,-120,-130,-112,-24,-180]))
     q4=ik(pos4,quat4,q_guess4,n_ik,motion_client)
     
@@ -2345,9 +2344,9 @@ class PathPlannerService(Node):
             M = 1                    # Numero di traiettorie
             delta = 1/N              # Threshold di successo
         else:
-            N = 4                    # Numero di modelli simulati (iniziale)
-            M = 3                       # Numero di traiettorie
-            delta = 1/N               # Threshold di successo
+            N = 3                    # Numero di modelli simulati (iniziale)
+            M = 4                    # Numero di traiettorie
+            delta = 1/N              # Threshold di successo
 
         # Carica parametri simulazione:
         if request.no_params == True:
