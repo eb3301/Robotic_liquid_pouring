@@ -3,6 +3,9 @@ from scipy.integrate import solve_ivp
 from scipy.special import jv, jvp
 from scipy.interpolate import interp1d
 import mujoco
+import os
+import yaml
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 # ============================================================
 # 1) Funzioni utili
@@ -50,7 +53,7 @@ def ode_func(wn, damp, x0_ddot):
         return [xd, xdd]
     return f
 
-def trajectory_to_arrays(trj):
+def _trajectory_to_arrays(trj):
     t = []
     qs = []
     qds = []
@@ -62,6 +65,12 @@ def trajectory_to_arrays(trj):
         qds.append(p.velocities)
         qdds.append(p.accelerations)
     return (np.array(t), np.array(qs))
+
+def trajectory_to_arrays(trj):
+    t = np.asarray(trj["time"], dtype=float)
+    qs = np.asarray(trj["positions"], dtype=float)[:, :6]
+
+    return (t, qs)
 
 def acc_from_q(time, q_trj, model, data, tool_body_id):
     """
@@ -179,9 +188,9 @@ def simulate_linear_sloshing(
 
     return eta_x, x_modes, eta_y, y_modes, t_eval
 
-def reward_sloshing(trj, parameters):
+def reward_sloshing(trj, Vol_init):
 
-    V_init = parameters["vol_init"] * 1e-6 if parameters["vol_init"]>1 else parameters["vol_init"]
+    V_init = Vol_init * 1e-6 if Vol_init>1 else Vol_init
     V = V_init
     V_spilled = 0
 
@@ -195,6 +204,8 @@ def reward_sloshing(trj, parameters):
         if eta + h > H:
             dt = t_eval[i+1] - t_eval[i-1]
             dh = eta + h
+
+            dR = min(dh,R)
             L = 2 * np.arccos((R-dh)/R) * R
     
             # Update volumes:
@@ -205,3 +216,29 @@ def reward_sloshing(trj, parameters):
     
     reward = 1 - V_spilled/V_init 
     return reward
+
+def main():
+
+    PARAMS_FILE = "/tmp/best_path.yaml"
+
+    if not os.path.exists(PARAMS_FILE):
+        print(f"File doesn't exist")
+    else:
+        with open(PARAMS_FILE, "r") as f:
+            data = yaml.safe_load(f)
+
+    dt = 0.01
+    transp_mot = data["best_path"]["transport"]
+    time_mot = np.arange(0.0, len(transp_mot)*dt, dt)
+    trj = {
+        "positions": transp_mot,
+        "time": time_mot,
+    }
+    
+
+    Vol_init = 50
+    reward = reward_sloshing(trj, Vol_init)
+    print(reward)
+
+if __name__ == '__main__':
+    main()  
