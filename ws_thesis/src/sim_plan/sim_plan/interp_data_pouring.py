@@ -1,8 +1,6 @@
 import re
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator, Rbf
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
 
 def load_tests(path):
     with open(path, "r", encoding="utf-8") as f:
@@ -34,21 +32,18 @@ def load_tests(path):
 
     return tests
 
-
 def compute_k(tests):
     for t in tests:
         t["k"] = t["v_pour"] / t["v_model"]
     return tests
 
-
 def build_linear_interpolator(tests):
-    X = np.array([(t["v_init"], t["v_pour"]) for t in tests])
+    X = np.array([(t["theta_f"], t["v_init"]) for t in tests])
     k_vals = np.array([t["k"] for t in tests])
     return LinearNDInterpolator(X, k_vals)
 
-
 def build_rbf_model(tests, function="multiquadric"):
-    X = np.array([(t["v_init"], t["v_pour"]) for t in tests])
+    X = np.array([(t["theta_f"], t["v_init"]) for t in tests])
     xv = X[:, 0]
     yv = X[:, 1]
     kv = np.array([t["k"] for t in tests])
@@ -56,36 +51,41 @@ def build_rbf_model(tests, function="multiquadric"):
     rbf = Rbf(xv, yv, kv, function=function)
     return rbf
 
+def get_k(theta_f, v_init, model="linear"):
+    DIR = "/home/barutta/Robotic_liquid_pouring/ws_thesis/src/sim_plan/sim_plan/"
+    path = DIR + "test_pouring.txt"
+    tests = load_tests(path)
+    tests = compute_k(tests)
+    if model=="linear":
+        f_lin = build_linear_interpolator(tests)
+        k = f_lin(theta_f, v_init)
+    else:
+        f_rbf = build_rbf_model(tests)
+        k = f_rbf(theta_f, v_init)
+    return k
 
-def build_polynomial_model(tests, degree=3):
-    X = np.array([(t["v_init"], t["v_pour"]) for t in tests])
-    kv = np.array([t["k"] for t in tests])
-
-    poly = PolynomialFeatures(degree=degree, include_bias=True)
-    Xp = poly.fit_transform(X)
-
-    model = LinearRegression()
-    model.fit(Xp, kv)
-
-    def f(v_init, v_pour):
-        inp = np.array([[v_init, v_pour]])
-        inp_p = poly.transform(inp)
-        return model.predict(inp_p)[0]
-
-    return f
+################################################
 
 def main():
-    tests = load_tests("tests.txt")
+    DIR = "/home/barutta/Robotic_liquid_pouring/ws_thesis/src/sim_plan/sim_plan/"
+    path = DIR + "test_pouring.txt"
+    tests = load_tests(path)
+    print(tests)
     tests = compute_k(tests)
+    print(tests)
+
+    theta=90
+    v_init=40
 
     # Lineare:
     f_lin = build_linear_interpolator(tests)
-    k_lin = f_lin(100, 40)
+    k_lin = f_lin(theta, v_init)
+    print(k_lin)
 
     # RBF nonlineare:
     f_rbf = build_rbf_model(tests)
-    k_rbf = f_rbf(100, 40)
-
-    # Polinomiale 3° ordine:
-    f_poly = build_polynomial_model(tests, degree=3)
-    k_poly = f_poly(100, 40)
+    k_rbf = f_rbf(theta, v_init)
+    print(k_rbf)
+    
+if __name__ == '__main__':
+    main()  

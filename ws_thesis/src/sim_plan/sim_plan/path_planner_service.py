@@ -2562,7 +2562,7 @@ class PathPlannerService(Node):
             for j,parameters in enumerate(parameters_set):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-                score = compute_reward_models(parameters, theta_f, num_wp)
+                score = compute_reward_models(parameters, np.deg2rad(theta_f_a[j%M]), int(num_wp_a[j%M]))
                 #score = 1
                 scores[j]=score
                 if is_success(score,threshold):

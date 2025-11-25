@@ -2,6 +2,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as Rot
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
+from sim_plan.interp_data_pouring import get_k
 
 def get_d(y: float, c: float, theta: float,R: float)->float:
     """
@@ -158,12 +159,11 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     V_target = vol_target * 1e-6 if vol_target>1 else vol_target #40 * 1e-6 #parameters["vol_target"]
     tol_pour = 0.15 * V_target
     tol_spill = 0.1 * V_init
-
-    
     
     theta_f = np.deg2rad(theta_f) if theta_f>2*np.pi else theta_f
     theta_arr = np.concatenate((np.linspace(0, theta_f, n_steps), np.linspace(theta_f, 0.0, n_steps)))
 
+    k=get_k(np.rad2deg(theta_f), V_init*1e6)
     pos_cont= np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
     
     x_shift=0.15
@@ -202,7 +202,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
         L = 2 * np.arccos((R-h_spill)/R) * R
         
         # Update volumes:
-        Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * 1 # 1.25 to account for not rect sect (exp param)
+        Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * k # 1.25 to account for not rect sect (exp param)
         V_i = min(Q * dt, V)
         if debug:
             print(f"")
@@ -243,7 +243,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     #print(f"Volume poured: {V_poured}")
     #print(f"Volume spilled: {V_spilled}")
     if err_vol < tol_pour and V_spilled < tol_spill:
-        return 1
+        return 1-err_vol/tol_pour
     else:
         return 0
 
@@ -335,7 +335,7 @@ def main():
                 "pos_grip_ee": (0.6509734785173125, 0.2847438888358813, 0.9764986855761588, -0.5000033337808922, 0.49998929956451965, -0.4999940109139501, 0.5000133554007884),
                 "offset": (0, 0.15, -0.02),
                 "dCoR": [0.0, 0.06, -0.004], 
-                "vol_init": 140.0, #2e-5, +-MAE
+                "vol_init": 60.0, #2e-5, +-MAE
                 "densità": 998.0,
                 "viscosità": 0.001,
                 "tens_sup": 0.072,
@@ -344,13 +344,14 @@ def main():
                 "theta_f": 87, #+-15°
                 "num_wp": 320,
             }
-    theta_f=100
+    theta_f=90
     num_waypoints=320  
     vol_target=40
     debug=False
 
     reward=reward_pouring(num_waypoints, theta_f, vol_target, parameters, debug)
     print(reward)
+
 if __name__ == '__main__':
     main()  
 
