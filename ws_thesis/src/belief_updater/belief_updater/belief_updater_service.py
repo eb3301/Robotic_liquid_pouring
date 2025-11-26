@@ -7,6 +7,7 @@ import numpy as np
 import copy
 import os
 from scipy.special import expit
+from belief_updater.save_file_for_valid import save_experiment_data
 
 PARAMS_FILE = "/tmp/parameters.yaml"
 SCORES_FILE = "/tmp/scores.yaml"
@@ -601,6 +602,26 @@ class BeliefUpdater(Node):
                 response.success = False
                 return response
         self.get_logger().info(f"Belief set aggiornato: {len(updated)} modelli")
+        
+        # --- SALVATAGGIO DATI ESPERIMENTO ---
+
+        try:
+            save_experiment_data(
+                experiment_name="robot_experiment",
+
+                init_params=data_params if k == 0 else None,
+                init_tolerances=data_tolerances if k == 0 else None,
+
+                iteration_id=k,
+                iteration_parameters=updated,          # set parametri correnti
+                iteration_scores=scores,               # scores correnti
+                threshold=0.5,                         # threshold usato da is_success
+
+                ts_file_data=state_TS                  # copia completa file TS
+            )
+        except Exception as e:
+            self.get_logger().error(f"Errore salvataggio esperimento: {e}")
+
         response.success = True
         return response
 
