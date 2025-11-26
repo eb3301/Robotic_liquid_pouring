@@ -193,8 +193,9 @@ def simulate_linear_sloshing(
 
     return eta_x, x_modes, eta_y, y_modes, t_eval
 
-def reward_sloshing(trj, Vol_init, n_modes=1):
+def reward_sloshing(trj: dict, Vol_init: float, n_modes:int=5, view:bool=False):
 
+    print("Simulating sloshing")
     V_init = Vol_init * 1e-6 if Vol_init>1 else Vol_init
     V = V_init
     V_spilled = 0
@@ -202,24 +203,22 @@ def reward_sloshing(trj, Vol_init, n_modes=1):
     eta_x, _, eta_y, _, t_eval = simulate_linear_sloshing(trj, V_init=V_init, n_modes=n_modes)
     h = V_init / (np.pi * R**2)
     
-    plt.plot(t_eval, eta_x+h, label="eta_x")
-    plt.plot(t_eval, eta_y+h, label="eta_y")
-    plt.plot(t_eval, np.ones_like(t_eval)*H)
-    plt.legend()
-    plt.xlabel("tempo")
-    plt.ylabel("ampiezza")
-    plt.show()
-
+    if view:
+        plt.plot(t_eval, eta_x+h, label="eta_x")
+        plt.plot(t_eval, eta_y+h, label="eta_y")
+        plt.plot(t_eval, np.ones_like(t_eval)*H)
+        plt.legend()
+        plt.xlabel("tempo")
+        plt.ylabel("ampiezza")
+        plt.show()
 
     for i in range(len(eta_x)):
         eta = max(eta_x[i], eta_y[i])
 
         if eta + h > H:
             dh = eta + h - H
-
             dh = np.clip(dh,0,2*R)
-
-            L = 0.4 * 2 * np.arccos((R-dh)/R) * R
+            L = 2 * np.arccos((R-dh)/R) * R 
     
             # Update volumes:
             Q = 2/3 * Cd * np.sqrt(2*g) * L * dh**1.5  # 1.25 to account for not rect sect (exp param)
@@ -227,7 +226,8 @@ def reward_sloshing(trj, Vol_init, n_modes=1):
             V = np.clip(V - V_i, 0, V_init)
             V_spilled = np.clip(V_spilled + V_i, 0, V_init)
     
-    print(V_spilled*1e6)
+    print(f"Simulation completed")
+    print(f"[Vol_init: {V_init*1e6}]-[Vol_spilled: {V_spilled*1e6}]")
     reward = 1 - V_spilled/V_init 
     return reward
 
@@ -241,7 +241,7 @@ def main():
         with open(PARAMS_FILE, "r") as f:
             data = yaml.safe_load(f)
 
-    dt = 0.01*0.3
+    dt = 0.01
     transp_mot = data["best_path"]["transport"]
     time_mot = np.arange(0.0, len(transp_mot)*dt, dt)
     trj = {

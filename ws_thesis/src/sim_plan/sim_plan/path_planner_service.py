@@ -19,6 +19,7 @@ from geometry_msgs.msg import PoseStamped
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from sensor_msgs.msg import JointState
 from sim_plan.modello_pour_liq import reward_pouring
+from sim_plan.modello_sloshing import reward_sloshing
 
 def progress_bar(i, total, msg, length=30):
     percent = (i + 1) / total
@@ -1808,24 +1809,39 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
     reward = reward1 + reward2 + reward3
     return reward
 
-def compute_reward_models(parameters, theta_f, num_wp):
+def compute_reward_models(parameters, theta_f, num_wp, path):
     
+    print(f"Evaluating rewards")
+    
+    dt = 0.01
+    transp_mot = path["transport"]
+    N = len(transp_mot)
+    time_mot = np.linspace(0.0, (N-1)*dt, N)
+    
+    trj = {
+        "positions": transp_mot,
+        "time": time_mot,
+    }
+    reward_slosh = reward_sloshing(trj, parameters["vol_init"])
+
     reward_pour = reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
     
-    num_wp_opt=320
-    err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
-    err_max_num_wp=70
+    w_pour, w_sloshing = 5, 1
 
-    w_pour, w_sloshing = 5, 2
+    # num_wp_opt=320
+    # err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
+    # err_max_num_wp=70
+    # reward_slosh = w_sloshing * max (0,1-err_num_wp/err_max_num_wp) # da cambiare con modello
 
-    reward_sloshing = w_sloshing * max (0,1-err_num_wp/err_max_num_wp) # da cambiare con modello
 
     print(f"reward pour: {reward_pour}")
-    print(f"reward num_wp: {reward_sloshing}")
+    print(f"reward num_wp: {reward_slosh}")
 
-    reward = reward_pour + reward_sloshing
+    reward = reward_pour + reward_slosh
     w_tot = w_pour + w_sloshing
     reward/=w_tot
+
+    print(f"final reward: {reward}")
     return reward
 
 def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, liq, dt, approach=False, antisloshing=False): 
@@ -2563,8 +2579,8 @@ class PathPlannerService(Node):
             for j,parameters in enumerate(parameters_set):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-                score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]))
-                score = 1
+                score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]), path)
+                #score = 1
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1
