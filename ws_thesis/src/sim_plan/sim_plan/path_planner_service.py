@@ -1587,7 +1587,7 @@ def plan_path_full_moveit(
     #motion_client.execute_last_planned_trajectory()
     
     if getattr(result,"val")==1:
-        scale = (1.2 - 0.8) / (400 - 300) * (num_waypoints - 300) + 0.8
+        scale = (1.4 - 0.6) / (400 - 300) * (num_waypoints - 300) + 0.6
         path3=remap_trajectory(trj3, joint_name_map, dt, scale=scale)
         q3=path3[-1]
         q3 = [float(x) for x in q3]

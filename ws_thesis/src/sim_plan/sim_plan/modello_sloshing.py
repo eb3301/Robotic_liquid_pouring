@@ -241,7 +241,7 @@ def main():
         with open(PARAMS_FILE, "r") as f:
             data = yaml.safe_load(f)
 
-    dt = 0.01
+    dt = 0.01*0.3
     transp_mot = data["best_path"]["transport"]
     time_mot = np.arange(0.0, len(transp_mot)*dt, dt)
     trj = {
