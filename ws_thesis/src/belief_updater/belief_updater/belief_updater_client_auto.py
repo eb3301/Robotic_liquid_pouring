@@ -6,7 +6,7 @@ import time
 import rclpy
 from rclpy.node import Node
 from interfaces.srv import Simplan, UpdateBelief
-
+from std_msgs.msg import Float32
 
 class CallPlannerSrv(Node):
     def __init__(self):
@@ -19,22 +19,32 @@ class CallPlannerSrv(Node):
         while not self.client_upd.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Servizio update_belief non disponibile, retry...')
 
+        # Subscriber
+        self.subscription = self.create_subscription(
+            Float32,
+            '/reward',
+            self.reward_callback,
+            10
+        )
+
         self.future = None
 
     def call_service(self):
         req = Simplan.Request()
-        req.no_params = True # to use the following params
+        req.no_params = True
 
         future = self.client_plan.call_async(req)
         rclpy.spin_until_future_complete(self, future)
         if future.result() is None:
             raise RuntimeError("Chiamata al planner fallita")
         return future.result()
-    
-    def reward_callback(self):
+
+    def reward_callback(self, msg):
+        self.get_logger().info(f"Ricevuto reward: {msg.data}")
+
         # Prepara richiesta
         request = UpdateBelief.Request()
-        request.real_score = float(1)
+        request.real_score = float(msg.data)
 
         # Chiama servizio
         self.future = self.client_upd.call_async(request)
@@ -61,26 +71,11 @@ def main():
             while resp is None or not resp.success:
                 resp = node.call_service()
 
-            node.reward_callback()
             node.spin_until_result()
             
             time.sleep(0.1)  # opzionale, evita martellamento
         
         print("done")
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-
-
-def main1():
-    rclpy.init()
-    node = CallPlannerSrv()
-    try:
-        resp = None
-        while resp is None or resp.success is False:
-            resp = node.call_service()
-        node.reward_callback()
-        node.spin_until_result()
     finally:
         node.destroy_node()
         rclpy.shutdown()

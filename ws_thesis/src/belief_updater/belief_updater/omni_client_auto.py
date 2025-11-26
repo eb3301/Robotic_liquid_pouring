@@ -6,7 +6,6 @@ import time
 import rclpy
 from rclpy.node import Node
 from interfaces.srv import Simplan, UpdateBelief
-from std_msgs.msg import Float32
 
 class CallPlannerSrv(Node):
     def __init__(self):
@@ -19,17 +18,9 @@ class CallPlannerSrv(Node):
         while not self.client_upd.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('Servizio update_belief non disponibile, retry...')
         
-        # self.client_real_sys = self.create_client(Simplan, 'real_system')
-        # while not self.client_real_sys.wait_for_service(timeout_sec=2.0):
-        #     self.get_logger().info('Real system non disponibile, retry...')
-
-        # Subscriber
-        self.subscription = self.create_subscription(
-            Float32,
-            '/reward',
-            self.reward_callback,
-            10
-        )
+        self.client_real_sys = self.create_client(Simplan, 'real_system')
+        while not self.client_real_sys.wait_for_service(timeout_sec=2.0):
+            self.get_logger().info('Real system non disponibile, retry...')
 
         self.future = None
 
@@ -51,20 +42,10 @@ class CallPlannerSrv(Node):
             raise RuntimeError("Chiamata al real system fallita")
         return future_real.result()
      
-    # def reward_callback(self,success):
-    #     # Prepara richiesta
-    #     request = UpdateBelief.Request()
-    #     request.real_score = float(success)
-
-    #     # Chiama servizio
-    #     self.future = self.client_upd.call_async(request)
-
-    def reward_callback(self, msg):
-        self.get_logger().info(f"Ricevuto reward: {msg.data}")
-
+    def reward_callback(self,success):
         # Prepara richiesta
         request = UpdateBelief.Request()
-        request.real_score = float(msg.data)
+        request.real_score = float(success)
 
         # Chiama servizio
         self.future = self.client_upd.call_async(request)
@@ -79,8 +60,10 @@ class CallPlannerSrv(Node):
                 else:
                     self.get_logger().info(f"Service call success={result.success}")
                 break
+        self.future = None
 
-def main_old():
+
+def main():
     rclpy.init()
     node = CallPlannerSrv()
     try:
@@ -95,26 +78,6 @@ def main_old():
             success = 1 if resp_real.success else 0
 
             node.reward_callback(success=success)
-            node.spin_until_result()
-            
-            time.sleep(0.1)  # opzionale, evita martellamento
-        
-        print("done")
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-
-def main():
-    rclpy.init()
-    node = CallPlannerSrv()
-    try:
-        for i in range(10000):        # 100 iterazioni
-            print(f"iter {i}")
-
-            resp = node.call_service()
-            if not resp.success:
-                break
-
             node.spin_until_result()
             
             time.sleep(0.1)  # opzionale, evita martellamento
