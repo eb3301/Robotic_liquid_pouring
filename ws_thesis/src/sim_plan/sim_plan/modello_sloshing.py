@@ -3,10 +3,12 @@ from scipy.integrate import solve_ivp
 from scipy.special import jv, jvp
 from scipy.interpolate import interp1d
 import mujoco
+import mujoco.viewer
 import os
 import yaml
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-
+import matplotlib.pyplot as plt
+from scipy.signal import savgol_filter
 # ============================================================
 # 1) Funzioni utili
 # ============================================================
@@ -77,15 +79,18 @@ def acc_from_q(time, q_trj, model, data, tool_body_id):
     time: array shape (N,) con i timestamp assoluti
     q_trj: array shape (N, 6) con qpos
     """
+    #with mujoco.viewer.launch_passive(model, data) as viewer:
     pos_list = []
     for q in q_trj:
         data.qpos[:6] = q
         mujoco.mj_forward(model, data)
+        #viewer.sync()
         pos_list.append(np.array(data.xpos[tool_body_id], dtype=float))
+        #input("Press Enter to continue...")
 
     pos = np.vstack(pos_list)   # shape (N, 3)
     N = len(pos)
-
+ 
     vel = np.zeros_like(pos)    # velocità cartesiana
     acc = np.zeros_like(pos)    # accelerazione cartesiana
 
@@ -188,32 +193,41 @@ def simulate_linear_sloshing(
 
     return eta_x, x_modes, eta_y, y_modes, t_eval
 
-def reward_sloshing(trj, Vol_init):
+def reward_sloshing(trj, Vol_init, n_modes=1):
 
     V_init = Vol_init * 1e-6 if Vol_init>1 else Vol_init
     V = V_init
     V_spilled = 0
 
-    eta_x, _, eta_y, _, t_eval = simulate_linear_sloshing(trj, V_init=V_init, n_modes=1)
+    eta_x, _, eta_y, _, t_eval = simulate_linear_sloshing(trj, V_init=V_init, n_modes=n_modes)
     h = V_init / (np.pi * R**2)
     
+    plt.plot(t_eval, eta_x+h, label="eta_x")
+    plt.plot(t_eval, eta_y+h, label="eta_y")
+    plt.plot(t_eval, np.ones_like(t_eval)*H)
+    plt.legend()
+    plt.xlabel("tempo")
+    plt.ylabel("ampiezza")
+    plt.show()
+
 
     for i in range(len(eta_x)):
         eta = max(eta_x[i], eta_y[i])
 
         if eta + h > H:
-            dt = t_eval[i+1] - t_eval[i-1]
-            dh = eta + h
+            dh = eta + h - H
 
-            dR = min(dh,R)
-            L = 2 * np.arccos((R-dh)/R) * R
+            dh = np.clip(dh,0,2*R)
+
+            L = 0.4 * 2 * np.arccos((R-dh)/R) * R
     
             # Update volumes:
-            Q = 2/3 * Cd * np.sqrt(2*g) * L * dh**1.5 * 1.25 # 1.25 to account for not rect sect (exp param)
+            Q = 2/3 * Cd * np.sqrt(2*g) * L * dh**1.5  # 1.25 to account for not rect sect (exp param)
             V_i = min(Q * dt, V)
             V = np.clip(V - V_i, 0, V_init)
             V_spilled = np.clip(V_spilled + V_i, 0, V_init)
     
+    print(V_spilled*1e6)
     reward = 1 - V_spilled/V_init 
     return reward
 
@@ -236,8 +250,8 @@ def main():
     }
     
 
-    Vol_init = 50
-    reward = reward_sloshing(trj, Vol_init)
+    Vol_init = 90
+    reward = reward_sloshing(trj, Vol_init, n_modes=5)
     print(reward)
 
 if __name__ == '__main__':

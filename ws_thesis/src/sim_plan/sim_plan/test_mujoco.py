@@ -47,18 +47,18 @@ model = mujoco.MjModel.from_xml_path(model_path)
 # Create data structure
 data = mujoco.MjData(model)
 # Launch the viewer
-#with mujoco.viewer.launch_passive(model, data) as viewer:
-q = np.array([1.5, 4.5500, -1.5874, 0.5281, -4.0680, 2.2158])
-data.qpos[:6] = q.tolist()
-print(data)
-#tool_site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, 'tool_site')
-tool_body_id  = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "tool_frame")
+with mujoco.viewer.launch_passive(model, data) as viewer:
+    q = np.array([1.5, 4.5500, -1.5874, 0.5281, -4.0680, 2.2158])
+    data.qpos[:6] = q.tolist()
+    print(data)
+    #tool_site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, 'tool_site')
+    tool_body_id  = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "tool_frame")
 
-mujoco.mj_forward(model, data)
-#viewer.sync()
+    mujoco.mj_forward(model, data)
+    viewer.sync()
 
-pos = data.xpos[tool_body_id]  # shape: (3,)
-# rot = data.xmat[tool_body_id].reshape(3, 3)  # shape: (3, 3)
+    pos = data.xpos[tool_body_id]  # shape: (3,)
+    # rot = data.xmat[tool_body_id].reshape(3, 3)  # shape: (3, 3)
 
 #quat = rotm_to_quaternion(rot)
 #print(f"FK wrist 3: pos={np.round(pos, 3)}, quat={np.round(quat, 3)}")

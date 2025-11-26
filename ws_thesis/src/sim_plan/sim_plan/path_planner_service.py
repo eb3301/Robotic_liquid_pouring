@@ -1069,7 +1069,7 @@ def plan_path(
         "all": path
         }
 
-def remap_trajectory(trj: JointTrajectory, joint_name_map, dt):
+def remap_trajectory(trj: JointTrajectory, joint_name_map, dt, scale=1):
     """
     Riordina q e interpola traj per avere un punto ogni dt secondi nello stesso tempo totale
     """
@@ -1082,9 +1082,10 @@ def remap_trajectory(trj: JointTrajectory, joint_name_map, dt):
         q = [p.positions[i] for i in order]
         time_from_start = p.time_from_start
         t = time_from_start.sec + time_from_start.nanosec * 1e-9
+        t_scaled = t * scale
 
         new.append(q)
-        time.append(t)
+        time.append(t_scaled)
     
     # Funziona anche così ma è meno ottimizzato
     # new=[]
@@ -1580,14 +1581,14 @@ def plan_path_full_moveit(
     q3=ik(pos3,quat3,q_guess3,n_ik,motion_client)
 
     #print(f"q2: {q2}")
-    v_scale = (1.2 - 0.8) / (400 - 300) * (num_waypoints - 300) + 0.8
 
-    result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2, velocity_scaling=v_scale)
+    result, trj3 = motion_client.plan_to_joint(joint_target=q3, joint_start=q2)
     
     #motion_client.execute_last_planned_trajectory()
     
     if getattr(result,"val")==1:
-        path3=remap_trajectory(trj3, joint_name_map, dt)
+        scale = (1.2 - 0.8) / (400 - 300) * (num_waypoints - 300) + 0.8
+        path3=remap_trajectory(trj3, joint_name_map, dt, scale=scale)
         q3=path3[-1]
         q3 = [float(x) for x in q3]
         # Interpolate with new duration
@@ -1815,7 +1816,7 @@ def compute_reward_models(parameters, theta_f, num_wp):
     err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
     err_max_num_wp=70
 
-    w_pour, w_sloshing = 5, 3
+    w_pour, w_sloshing = 5, 2
 
     reward_sloshing = w_sloshing * max (0,1-err_num_wp/err_max_num_wp) # da cambiare con modello
 
@@ -2240,7 +2241,7 @@ def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
     for w in ws:
         acc += expit(w[0] + w[1]*grid)
     return float(grid[np.argmax(acc / M)])
-
+    
 class PathPlannerService(Node):
     def __init__(self):
         super().__init__('path_planner_service')
@@ -2337,7 +2338,7 @@ class PathPlannerService(Node):
         liq=True
         record=False
         debug=False   
-        view=False
+        view=True
 
         if view:
             N = 1                    # Numero di modelli simulati (iniziale)
@@ -2563,7 +2564,7 @@ class PathPlannerService(Node):
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
                 score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]))
-                #score = 1
+                score = 1
                 scores[j]=score
                 if is_success(score,threshold):
                     success+=1

@@ -179,34 +179,7 @@ def load_path_csv(path, t_col="t", x_col="x", y_col="y", z_col="z"):
             raise ValueError(f"Colonna '{c}' mancante nel CSV.")
     return df[t_col].to_numpy(), df[x_col].to_numpy(), df[y_col].to_numpy(), df[z_col].to_numpy()
 
+def main():
+    pass
 if __name__ == "__main__":
-    import argparse
-    p = argparse.ArgumentParser(description="Stima spillato per sloshing in cilindro verticale da traiettoria traslazionale.")
-    p.add_argument("--csv", required=True, help="Percorso CSV con colonne t,x,y,z")
-    p.add_argument("--R", type=float, required=True, help="Raggio del cilindro [m]")
-    p.add_argument("--H", type=float, required=True, help="Altezza utile [m]")
-    p.add_argument("--V0", type=float, required=True, help="Volume iniziale [m^3]")
-    p.add_argument("--method", choices=["instant","weir"], default="weir", help="Modello di spill: instant oppure weir")
-    p.add_argument("--Cd", type=float, default=0.6, help="Coeff. di deflusso per 'weir'")
-    args = p.parse_args()
-
-    t,x,y,z = load_path_csv(args.csv)
-    res = simulate_sloshing(t,x,y,z, R=args.R, H=args.H, V0=args.V0, method=args.method, Cd=args.Cd)
-    # Stampa risultati sintetici
-    total_spilled = float(res["V_spilled"][-1])
-    print(f"Spillato totale [m^3]: {total_spilled:.6f}")
-    # Esporta time series
-    out = pd.DataFrame({
-        "t": res["t"],
-        "theta_rad": res["theta"],
-        "tan_theta": res["tan_theta"],
-        "V_remaining_m3": res["V"],
-        "V_spilled_m3": res["V_spilled"],
-        "a_h_mps2": res["ah"],
-        "ax": res["ax"],
-        "ay": res["ay"],
-        "az": res["az"],
-    })
-    out_path = "sloshing_results.csv"
-    out.to_csv(out_path, index=False)
-    print(f"Serie temporali salvate in {out_path}")
+    main()
