@@ -2448,7 +2448,7 @@ class PathPlannerService(Node):
                 "viscosità": (0.00025, 0.00025),  # ±25% intorno a 0.001 Pa·s
                 "densità": (3.0, 3.0),          # ±3 kg/m^3
                 "tens_sup": (0.002, 0.001),     # -0.002 / +0.001 N/m (gamme tipiche 0.070–0.073)
-                "vol_init": ( 0.15, 0.15),  # ±1e-5 m^3 (15ml)
+                "vol_init": ( 15, 15),  # ±1e-5 m^3 (15ml)
                 "vol_target": (0.0, 0.0),       # no tol, è scelta
                 "err_target": (0.0, 0.0),       # vincolo rigido
                 "theta_f": (10.0, 10.0),        # ±10°

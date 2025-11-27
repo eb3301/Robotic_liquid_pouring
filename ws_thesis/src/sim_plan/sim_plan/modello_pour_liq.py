@@ -157,6 +157,10 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
 
     V_init = parameters["vol_init"] * 1e-6 if parameters["vol_init"]>1 else parameters["vol_init"]
     V_target = vol_target * 1e-6 if vol_target>1 else vol_target #40 * 1e-6 #parameters["vol_target"]
+
+    if V_init < V_target:
+        return 0
+    
     tol_pour = 0.15 * V_target
     tol_spill = 0.1 * V_init
     
