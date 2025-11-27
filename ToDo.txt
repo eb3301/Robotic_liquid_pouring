@@ -3,12 +3,7 @@ ToDo:
 # VISION
 -fine tuning se non funziona --> aggiunta volume contenitore
 
-# SIMULAZIONE
-- (P) antisloshing (?)
-- aggiornare pos_cont_goal spawn (issue perché non c'è feedback corretto da realtà)
-
 # INTEGRAZIONE
-- crea launch file
 - testa update belief con doppio update
 
 ########################### OVERLEAF:

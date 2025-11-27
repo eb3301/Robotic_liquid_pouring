@@ -685,7 +685,7 @@ class ExecutePathPublisher(RosLeaf):
         "wrist_3_joint",
     ]
 
-    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0, motion_client=None):
+    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=10.0, motion_client=None):
         super().__init__(name, node)
         self.pub = self.node.create_publisher(
             JointTrajectory,
@@ -871,7 +871,7 @@ def create_tree(node: Node, tf_buffer, motion_client):
 
     pour = py_trees.composites.Sequence("FullCycle",memory=True)
     pour.add_children([WaitForBestPath(node), ExecutePathPublisher(node, motion_client=motion_client)])
-    return seq
+    return pour
 
 def main():
     rclpy.init()
