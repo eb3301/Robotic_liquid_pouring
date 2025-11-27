@@ -60,7 +60,7 @@ def area(d: float, R: float) -> float:
     #print(A_liq)
     return A_liq
 
-def volume(H: float, R: float, c: float, theta: float, n: int=1000)->float:
+def volume(H: float, R: float, c: float, theta: float, n: int=100)->float:
     """
     Ottieni il volume del liquido contenuto nel contenitore
     """
@@ -87,7 +87,7 @@ def volume(H: float, R: float, c: float, theta: float, n: int=1000)->float:
     return V
 
 def find_c(H: float, R: float, theta: float, V_target: float,
-           c_min: float=-1e7, c_max: float=1e7, n: int=500, tol: float=1e-10)-> float:
+           c_min: float=-1e7, c_max: float=1e7, n: int=100, tol: float=1e-5)-> float:
     """
     Trova il valore di c tale che il volume calcolato coincida con V_target.
     Bisezione, assumendo monotonicità di V(c) nell'intervallo.
