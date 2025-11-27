@@ -158,7 +158,7 @@ def simulate_linear_sloshing(
                         fill_value="extrapolate")
 
     # Preallocazione
-    t_eval = np.linspace(0, tf-t0, 1000)
+    t_eval = np.linspace(0, tf-t0, 100)
     x_modes = np.zeros((n_modes, len(t_eval)))
     y_modes = np.zeros((n_modes, len(t_eval)))
 
@@ -251,7 +251,7 @@ def main():
     
 
     Vol_init = 90
-    reward = reward_sloshing(trj, Vol_init, n_modes=5)
+    reward = reward_sloshing(trj, Vol_init, n_modes=1)
     print(reward)
 
 if __name__ == '__main__':
