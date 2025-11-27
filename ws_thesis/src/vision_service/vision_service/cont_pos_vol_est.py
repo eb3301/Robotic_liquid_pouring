@@ -23,6 +23,8 @@ def oak_capture():
     # Camera RGB:
     cam_rgb = pipeline.createColorCamera()
     cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+    cam_rgb.initialControl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
+    cam_rgb.initialControl.setAutoFocusTrigger()   
     cam_rgb.setPreviewSize(640, 480)
     cam_rgb.setInterleaved(False)
     cam_rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
