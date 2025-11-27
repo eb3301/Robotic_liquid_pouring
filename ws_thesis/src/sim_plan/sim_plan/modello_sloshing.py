@@ -228,7 +228,7 @@ def reward_sloshing(trj: dict, Vol_init: float, n_modes:int=5, view:bool=False):
     
     print(f"Simulation completed")
     print(f"[Vol_init: {V_init*1e6}]-[Vol_spilled: {V_spilled*1e6}]")
-    reward = 1 - V_spilled/V_init 
+    reward = np.clip(1 - V_spilled / V_init, 0, 1) 
     return reward
 
 def main():

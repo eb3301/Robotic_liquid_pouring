@@ -243,7 +243,9 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     #print(f"Volume poured: {V_poured}")
     #print(f"Volume spilled: {V_spilled}")
     if err_vol < tol_pour and V_spilled < tol_spill:
-        return 1-err_vol/tol_pour
+        # return np.clip(1 - err_vol / tol_pour, 0, 1)
+        # return np.clip(1 - V_spilled / tol_spill - 0.1 * err_vol / tol_pour, 0, 1)
+        return np.clip(1 - V_spilled / tol_spill, 0, 1)
     else:
         return 0
 

@@ -1822,16 +1822,17 @@ def compute_reward_models(parameters, theta_f, num_wp, path):
         "positions": transp_mot,
         "time": time_mot,
     }
-    reward_slosh = reward_sloshing(trj, parameters["vol_init"])
-
-    reward_pour = reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
     
-    w_pour, w_sloshing = 5, 1
+    w_pour, w_sloshing, w_speed = 5, 1, 1
 
-    # num_wp_opt=320
-    # err_num_wp=np.linalg.norm(num_wp-num_wp_opt)
-    # err_max_num_wp=70
-    # reward_slosh = w_sloshing * max (0,1-err_num_wp/err_max_num_wp) # da cambiare con modello
+    reward_slosh = w_pour * reward_sloshing(trj, parameters["vol_init"])
+
+    reward_pour = w_sloshing * reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
+    
+    num_wp_opt=300
+    err_speed=np.linalg.norm(num_wp-num_wp_opt)
+    err_max_speed=70
+    reward_speed = w_speed * max (0,1-err_speed/err_max_speed) # da cambiare con modello
 
 
     print(f"reward pour: {reward_pour}")
@@ -2354,7 +2355,7 @@ class PathPlannerService(Node):
         liq=True
         record=False
         debug=False   
-        view=True
+        view=False
 
         if view:
             N = 1                    # Numero di modelli simulati (iniziale)
@@ -2608,7 +2609,7 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         best_path["time"] = time
 
-        new_threshold = min(max(np.mean(best_scores)/2, threshold+0.0001),0.98)
+        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),0.98)
 
         # Converti in formato compatibile con .yaml e salva
         best_path=self.to_builtin(best_path)
