@@ -1712,36 +1712,39 @@ def plan_path_full_moveit(
     path = np.concatenate((path, path6))
     logger.info(f"Pianificazione pouring e unpouring eseguita")
 
-    pos6=p_tcp
+    #pos6=p_tcp
     #################################
     # q7
-    n_ik=50
-    pos7 = pos6.copy() 
-    pos7[2] =parameters['pos_init_cont'][2]+container_size[2]
-    pos7[2]=max(pos7[2],z_min)
-    quat7 = quat_orizz
+    # n_ik=50
+    # pos7 = pos6.copy() 
+    # pos7[2] =parameters['pos_init_cont'][2]+container_size[2]
+    # pos7[2]=max(pos7[2],z_min)
+    # quat7 = quat_orizz
     
-    q7=ik(pos7,quat7,q6,n_ik,motion_client) 
-    #print(f"q2: {q2}")
-    result, trj7 = motion_client.plan_to_joint(joint_target=q7, joint_start=q6)
+    # q7=ik(pos7,quat7,q6,n_ik,motion_client) 
+    # #print(f"q2: {q2}")
+    # result, trj7 = motion_client.plan_to_joint(joint_target=q7, joint_start=q6)
     
-    if getattr(result,"val")==1:
-        path7=remap_trajectory(trj7, joint_name_map, dt)
-        path = np.concatenate((path, path7))
-    else:
-        logger.error("failure")
-        quit()
+    # if getattr(result,"val")==1:
+    #     path7=remap_trajectory(trj7, joint_name_map, dt)
+    #     path = np.concatenate((path, path7))
+    # else:
+    #     logger.error("failure")
+    #     quit()
 
     # for p in [path, path2, path3, path4, path5, path6, path7]:
     #     for q in p:        
     #         q[0] += np.pi  # somma π alla prima colonna
     #         q = np.concatenate((q, np.array([0.0, 0.0])))
         
-    path, path2, path3, path4, path5, path6, path7 = [
+    # path, path2, path3, path4, path5, path6, path7 = [
+    # np.hstack((p + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros((p.shape[0], 2))))
+    # for p in [path, path2, path3, path4, path5, path6, path7]
+    # ]
+    path, path2, path3, path4, path5, path6 = [
     np.hstack((p + np.array([np.pi, 0, 0, 0, 0, 0]), np.zeros((p.shape[0], 2))))
-    for p in [path, path2, path3, path4, path5, path6, path7]
+    for p in [path, path2, path3, path4, path5, path6]
     ]
-
     if debug: print(path)
     print(f"Planning complete")
     
@@ -1751,7 +1754,7 @@ def plan_path_full_moveit(
     "pre_pour": path4,
     "pour": path5,
     "unpour": path6,
-    "release": path7,
+    #"release": path7,
     "all": path
     }
 
@@ -1825,21 +1828,22 @@ def compute_reward_models(parameters, theta_f, num_wp, path):
     
     w_pour, w_sloshing, w_speed = 5, 1, 1
 
-    reward_slosh = w_pour * reward_sloshing(trj, parameters["vol_init"])
-
-    reward_pour = w_sloshing * reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
+    reward_pour = w_pour * reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
     
+    reward_slosh = w_sloshing #* reward_sloshing(trj, parameters["vol_init"])
+
     num_wp_opt=300
     err_speed=np.linalg.norm(num_wp-num_wp_opt)
     err_max_speed=70
     reward_speed = w_speed * max (0,1-err_speed/err_max_speed) # da cambiare con modello
 
 
-    print(f"reward pour: {reward_pour}")
-    print(f"reward num_wp: {reward_slosh}")
+    print(f"reward pouring: {reward_pour}")
+    print(f"reward sloshing: {reward_slosh}")
+    print(f"reward speed: {reward_speed}")
 
-    reward = reward_pour + reward_slosh
-    w_tot = w_pour + w_sloshing
+    reward = reward_pour + reward_slosh + reward_speed
+    w_tot = w_pour + w_sloshing + w_speed
     reward/=w_tot
 
     print(f"final reward: {reward}")
@@ -2563,21 +2567,24 @@ class PathPlannerService(Node):
 
         # Trova best path e salva params
         best_path = None
-        best_success_rate=0
+        best_success_rate = 0
+        best_sum = 0
 
         if not os.path.exists("/tmp/threshold.yaml"):
-            threshold=0.1
+            threshold=0.15
         else:
             with open("/tmp/threshold.yaml", "r") as f:
                 threshold = yaml.safe_load(f)
                 if threshold is None:
-                    threshold=0.1
-
+                    threshold=0.15
+        c=0
         for i,path in enumerate(candidate_paths):
             success=0
             successes = np.zeros(len(parameters_set))
             scores = np.zeros(len(parameters_set))
             for j,parameters in enumerate(parameters_set):
+                c+=1
+                print(f"iter: {c}")
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
                 #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
                 score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]), path)
@@ -2588,7 +2595,7 @@ class PathPlannerService(Node):
                     successes[j]=1
             success_rate=success/len(parameters_set)
             # def di miglior path
-            if success_rate >= best_success_rate:
+            if success_rate >= best_success_rate and sum(scores) > best_sum:
                 best_path = path
                 best_successes = successes.copy()
                 best_scores=scores.copy()
