@@ -17,7 +17,7 @@ FILE_TS = "/tmp/TS.yaml"
 FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
 
 MAX_MODELS = 30
-MIN_MODELS = 15
+MIN_MODELS = 3
 PATH_NUM = 3
 
 def is_success(score, threshold=0.5):

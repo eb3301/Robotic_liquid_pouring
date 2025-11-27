@@ -236,9 +236,9 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
             V = np.clip(V - V_i, 0, V_init)
             V_poured += V_i
     print("Simulation completed")
+    print(f"[Wp {num_waypoints} theta {np.rad2deg(theta_f)}]-[Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")
     if not np.isclose(V+V_poured+V_spilled, V_init):
         raise Warning("oidocrop")
-    print(f"[Wp {num_waypoints} theta {np.rad2deg(theta_f)}]-[Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")
     err_vol = np.abs(V_poured-V_target)
     #print(f"Volume poured: {V_poured}")
     #print(f"Volume spilled: {V_spilled}")
@@ -341,13 +341,13 @@ def main():
                 "densità": 998.0,
                 "viscosità": 0.001,
                 "tens_sup": 0.072,
-                "vol_target": 50.484, #0.75e-5,
+                "vol_target": 38.64147394715765, #0.75e-5,
                 "err_target": 5e-6,
                 "theta_f": 87, #+-15°
                 "num_wp": 320,
             }
-    theta_f=90
-    num_waypoints=320  
+    theta_f=100
+    num_waypoints=400  
     vol_target=40
     debug=False
 

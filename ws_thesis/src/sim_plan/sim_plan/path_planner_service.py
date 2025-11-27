@@ -1826,7 +1826,7 @@ def compute_reward_models(parameters, theta_f, num_wp, path):
         "time": time_mot,
     }
     
-    w_pour, w_sloshing, w_speed = 5, 1, 1
+    w_pour, w_sloshing, w_speed = 5, 1, 2
 
     reward_pour = w_pour * reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
     
@@ -2413,8 +2413,8 @@ class PathPlannerService(Node):
                     (0.0, 0.0),    # z: ±0.0 cm
                 ],
                 "pos_cont_goal": [
-                    (0.015, 0.015),  # x: ±1.5 cm
-                    (0.015, 0.015),  # y: ±1.5 cm
+                    (0.02, 0.02),  # x: ±1.5 cm
+                    (0.02, 0.02),  # y: ±1.5 cm
                     (0.0, 0.0),      # z: ±0.0 cm
                 ],
                 "pos_init_ee": [
@@ -2448,7 +2448,7 @@ class PathPlannerService(Node):
                 "viscosità": (0.00025, 0.00025),  # ±25% intorno a 0.001 Pa·s
                 "densità": (3.0, 3.0),          # ±3 kg/m^3
                 "tens_sup": (0.002, 0.001),     # -0.002 / +0.001 N/m (gamme tipiche 0.070–0.073)
-                "vol_init": ( 1.5e-5, 1.5e-5),  # ±1e-5 m^3 (15ml)
+                "vol_init": ( 0.15, 0.15),  # ±1e-5 m^3 (15ml)
                 "vol_target": (0.0, 0.0),       # no tol, è scelta
                 "err_target": (0.0, 0.0),       # vincolo rigido
                 "theta_f": (10.0, 10.0),        # ±10°
