@@ -2413,7 +2413,7 @@ class PathPlannerService(Node):
                     (0.0, 0.0),    # z: ±0.0 cm
                 ],
                 "pos_cont_goal": [
-                    (0.02, 0.02),  # x: ±1.5 cm
+                    (0.05, 0.05),  # x: ±1.5 cm
                     (0.02, 0.02),  # y: ±1.5 cm
                     (0.0, 0.0),      # z: ±0.0 cm
                 ],
@@ -2571,12 +2571,12 @@ class PathPlannerService(Node):
         best_sum = 0
 
         if not os.path.exists("/tmp/threshold.yaml"):
-            threshold=0.15
+            threshold=0.4
         else:
             with open("/tmp/threshold.yaml", "r") as f:
                 threshold = yaml.safe_load(f)
                 if threshold is None:
-                    threshold=0.15
+                    threshold=0.4
         c=0
         for i,path in enumerate(candidate_paths):
             success=0
@@ -2600,8 +2600,8 @@ class PathPlannerService(Node):
                 best_successes = successes.copy()
                 best_scores=scores.copy()
                 best_success_rate = success_rate
-                success_path=1 if success_rate > 0.7 else 0
-                state_current_plan_params = {"current_theta": self.to_builtin(theta_f), "current_num_wp": self.to_builtin(num_wp), "success_path": success_path}
+                success_path=1 if success_rate > 0.6 else 0
+                state_current_plan_params = {"current_theta": self.to_builtin(theta_f), "current_num_wp": self.to_builtin(num_wp), "success_path": self.to_builtin(success_path)}
                         
         
         if best_success_rate < delta:
@@ -2616,7 +2616,7 @@ class PathPlannerService(Node):
         time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
         best_path["time"] = time
 
-        new_threshold = min(max(np.mean(best_scores), threshold+0.0001),0.98)
+        new_threshold = min(max(np.mean(best_scores)/2, threshold+0.0001),0.98)
 
         # Converti in formato compatibile con .yaml e salva
         best_path=self.to_builtin(best_path)
