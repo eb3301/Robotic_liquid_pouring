@@ -125,8 +125,10 @@ class MoveToPose(RosLeaf):
         self.motion_client = motion_client or MotionClient()
         if self.pose_list == "pos_init_cont":
             self.cartesian=True
+            self.scale=0.5
         else:
             self.cartesian=False
+            self.scale = 1
 
     def initialise(self):
         self.node.get_logger().info(f"MoveToPose started {self.pose_bb}")
@@ -156,7 +158,7 @@ class MoveToPose(RosLeaf):
             pose_msg.pose.orientation.x, pose_msg.pose.orientation.y, pose_msg.pose.orientation.z, pose_msg.pose.orientation.w = map(float,self.pose_list[3:])
 
             try:
-                result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=self.cartesian) 
+                result = self.motion_client.move_to_pose(pose_msg, cartesian_motion=self.cartesian, )#velocity_scaling=self.scale) 
                 if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
                         bb_grip=self.pose_bb + "_tip"
@@ -206,7 +208,7 @@ class MoveToPose(RosLeaf):
                 return py_trees.common.Status.FAILURE
         else:
             try:
-                result = self.motion_client.move_to_joint(self.pose_list) 
+                result = self.motion_client.move_to_joint(self.pose_list, ) # velocity_scaling=self.scale) 
                 if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
                         target_frame="base_link"
@@ -738,7 +740,7 @@ class ExecutePathPublisher(RosLeaf):
             if not self._check_initial_joints_close(init_q):
                 self.feedback_message = "Posizione iniziale non coerente con la traiettoria"
                 self.node.get_logger().warn(self.feedback_message)
-                self.motion_client.move_to_joint(init_q)
+                self.motion_client.move_to_joint(init_q, velocity_scaling=0.7)
                 return py_trees.common.Status.RUNNING
 
             traj = JointTrajectory()
