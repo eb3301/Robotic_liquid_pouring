@@ -16,7 +16,7 @@ SUCCESS_PATH_FILE = "/tmp/success_path.yaml"
 FILE_TS = "/tmp/TS.yaml"
 FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
 
-MAX_MODELS = 30
+MAX_MODELS = 5
 MIN_MODELS = 3
 PATH_NUM = 3
 
@@ -296,6 +296,12 @@ def sample_x_TS(w_mean, w_cov, x_min, x_max, M, n_grid=50, infl=0.05):
     scores = [expit(ws[0] + ws[1]*thetas) for ws in w_samples]
     return np.array([thetas[np.argmax(s)] for s in scores])
 
+def load_parameters():
+        with open(PARAMS_FILE, "r") as f:
+            data = yaml.safe_load(f)
+        if "parameters" not in data:
+            raise RuntimeError("File init_parameters.yaml non contiene chiave 'parameters'")
+        return data["parameters"]
 # ------------------------------------------------------
 
 class BeliefUpdater(Node):
@@ -380,18 +386,25 @@ class BeliefUpdater(Node):
 
         # Filtra i parametri coerenti col risultato reale
         param_new = [p for i, p in enumerate(parameters_set[:n]) if is_success(scores[i]) == real_result]
+        
         if len(param_new) == 0:
-            self.get_logger().warn("Tutte le ipotesi eliminate.")
-            response.success = False
-            return response
+            self.get_logger().warn("Tutte le ipotesi eliminate! Ricampiono da parametri iniziali...")
+            init_param = load_parameters()
+            updated = list(init_param)
+            while len(updated) < MIN_MODELS:
+                for p in param_new:
+                    updated.append(update_parameters(p,tolerances_scaled))
+                    if len(updated) >= MIN_MODELS:
+                        break            
+        else:
+            # Resampling
+            updated = list(param_new)
+            while len(updated) < MIN_MODELS:
+                for p in param_new:
+                    updated.append(update_parameters(p,tolerances_scaled))
+                    if len(updated) >= MIN_MODELS:
+                        break
 
-        # Resampling
-        updated = list(param_new)
-        while len(updated) < MIN_MODELS:
-            for p in param_new:
-                updated.append(update_parameters(p,tolerances_scaled))
-                if len(updated) >= MIN_MODELS:
-                    break
         if len(updated) > MAX_MODELS:
             updated = random.sample(updated, MAX_MODELS)
 
@@ -422,6 +435,7 @@ class BeliefUpdater(Node):
             return response
         
         # Se il successo del path coincide con quello reale --> aggiorna theta/num_wp
+        state_TS = None
         if success_path == real_result:
             # Carica file necessari per update
             try:
@@ -607,7 +621,7 @@ class BeliefUpdater(Node):
 
         try:
             save_experiment_data(
-                experiment_name="robot_experiment",
+                experiment_name="robot_experiment1",
 
                 init_params=data_params if k == 0 else None,
                 init_tolerances=data_tolerances if k == 0 else None,
