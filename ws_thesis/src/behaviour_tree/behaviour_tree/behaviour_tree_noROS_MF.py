@@ -208,7 +208,7 @@ class MoveToPose(RosLeaf):
                 return py_trees.common.Status.FAILURE
         else:
             try:
-                result = self.motion_client.move_to_joint(self.pose_list, ) # velocity_scaling=self.scale) 
+                result = self.motion_client.move_to_joint(self.pose_list, )     # velocity_scaling=self.scale) 
                 if getattr(result, "val", 0) == 1:
                     if self.pose_bb is not None:
                         target_frame="base_link"
@@ -299,8 +299,8 @@ class CallVisionService(RosLeaf):
                 return py_trees.common.Status.FAILURE
 
             centroid=resp.centroid 
-            centroid[1]+=0.03
-            centroid[2]=max(0.04,centroid[2])
+            centroid[1]+=0.01 # offset del cont
+            centroid[2]=max(0.04,centroid[2]) # non compenetrare il tavolo
 
             pre_centroid=centroid.copy()
             pre_centroid[1]-=0.15 # nel frame base_link la y è la direzione x in world

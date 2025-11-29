@@ -5,6 +5,8 @@ ToDo:
 
 # INTEGRAZIONE
 - testa update belief con doppio update
+- verifica pipeline update e grafici necessari
+- test in sim per convergenza
 
 ########################### OVERLEAF:
 1) 3 pagine intro ()

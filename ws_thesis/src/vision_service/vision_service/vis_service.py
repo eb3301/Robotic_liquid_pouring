@@ -70,7 +70,7 @@ class PerceptionService(Node):
             # Trasformazione da camera_frame a base_link:
             to_frame_rel = 'base_link'
             from_frame_rel = 'oak_rgb_camera_optical_frame'
-            time=rclpy.time.Time() 
+            time=rclpy.time.Time()
             # Wait for the transform asynchronously
             tf_future = self.tf_buffer.wait_for_transform_async(
             target_frame=to_frame_rel,
