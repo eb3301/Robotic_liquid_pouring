@@ -42,13 +42,13 @@ def build_linear_interpolator(tests):
     k_vals = np.array([t["k"] for t in tests])
     return LinearNDInterpolator(X, k_vals)
 
-def build_rbf_model(tests, function="multiquadric"):
+def build_rbf_model(tests, function="multiquadric", smooth=0.0):
     X = np.array([(t["theta_f"], t["v_init"]) for t in tests])
     xv = X[:, 0]
     yv = X[:, 1]
     kv = np.array([t["k"] for t in tests])
 
-    rbf = Rbf(xv, yv, kv, function=function)
+    rbf = Rbf(xv, yv, kv, function=function, smooth=smooth)
     return rbf
 
 def get_k(theta_f, v_init, model="linear"):
@@ -59,6 +59,9 @@ def get_k(theta_f, v_init, model="linear"):
     if model=="linear":
         f_lin = build_linear_interpolator(tests)
         k = f_lin(theta_f, v_init)
+        if np.isnan(k):
+            f_rbf = build_rbf_model(tests)
+            k = f_rbf(theta_f, v_init)
     else:
         f_rbf = build_rbf_model(tests)
         k = f_rbf(theta_f, v_init)

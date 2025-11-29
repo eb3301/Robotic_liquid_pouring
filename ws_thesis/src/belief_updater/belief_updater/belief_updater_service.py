@@ -15,6 +15,7 @@ TOLERANCES_FILE = "/tmp/tolerances.yaml"
 SUCCESS_PATH_FILE = "/tmp/success_path.yaml"
 FILE_TS = "/tmp/TS.yaml"
 FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
+FILE_NEW_PLAN_PARAMS = "/tmp/new_plan_params.yaml"
 
 MAX_MODELS = 5
 MIN_MODELS = 3
@@ -588,7 +589,7 @@ class BeliefUpdater(Node):
                 "current_theta": self.to_builtin(x_next_theta),
                 "current_num_wp": self.to_builtin(x_next_num_wp),
             }
-            with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
+            with open(FILE_NEW_PLAN_PARAMS, "w") as f:
                 yaml.safe_dump(state_current_plan_params, f, sort_keys=False) 
 
         else: # Successo del path non coincide con il successo reale --> non aggiornare
@@ -608,7 +609,7 @@ class BeliefUpdater(Node):
                     "current_theta": self.to_builtin(x_next_theta),
                     "current_num_wp": self.to_builtin(x_next_num_wp),
                     }
-                    with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
+                    with open(FILE_NEW_PLAN_PARAMS, "w") as f:
                         yaml.safe_dump(state_current_plan_params, f, sort_keys=False) 
 
             except Exception as e:
