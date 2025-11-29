@@ -10,7 +10,7 @@ def get_d(y: float, c: float, theta: float,R: float)->float:
     misurata su un piano parallelo al fondo data
     la distanza dal fondo, l'angolo d'inclinazione e il raggio
     """
-    if np.isclose(np.tan(theta), 0.0): # Pelo libero quasi orizzontale
+    if abs(theta) < 1e-3: #np.isclose(np.tan(theta), 0.0): # Pelo libero quasi orizzontale
         if y < c:
             return -R  # d <= -R → A = pi*R^2 (pieno)
         else:
@@ -56,7 +56,7 @@ def area(d: float, R: float) -> float:
     elif h >= 2*R:
         A_liq = np.pi * R * R
     else:
-        A_liq = (R*R) * np.arccos((R - h) / R) - (R - h) * np.sqrt(2*R*h - h*h)
+        A_liq = (R*R) * np.arccos(np.clip( ((R - h) / R), -1, 1)) - (R - h) * np.sqrt( max((2*R*h - h*h), 0.0) )
     #print(A_liq)
     return A_liq
 
@@ -159,15 +159,15 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     V_target = vol_target * 1e-6 if vol_target>1 else vol_target #40 * 1e-6 #parameters["vol_target"]
 
     if V_init < V_target:
-        return 0
+        V_target=V_init
     
     tol_pour = 0.15 * V_target
     tol_spill = 0.1 * V_init
-    
+        
     theta_f = np.deg2rad(theta_f) if theta_f>2*np.pi else theta_f
     theta_arr = np.concatenate((np.linspace(0, theta_f, n_steps), np.linspace(theta_f, 0.0, n_steps)))
 
-    k=get_k(np.rad2deg(theta_f), V_init*1e6)
+    k=get_k(np.rad2deg(theta_f), V_init*1e6, model = "linear")
     pos_cont= np.array([parameters['pos_cont_goal'][0],parameters['pos_cont_goal'][1],parameters['pos_cont_goal'][2]])
     
     x_shift=0.15
@@ -197,22 +197,47 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     V_spilled = 0
     c=0
     for i,theta in enumerate(theta_arr):
+
+        if np.isnan(c) or np.isnan(theta):
+            print(f"NaN BEFORE find_c → iter={i}, theta={theta}, c={c}")
+            break
+
         if V*1e6 > 0.5 and np.abs(c)<1 and theta<np.pi/2:
             c = find_c(H, R, theta, V)
+            if np.isnan(c):
+                print(f"NaN in find_c → iter={i}, theta={theta}, V={V}, c={c}")
+                break
             if debug:
                 plotter.update(theta, c)
 
         h_spill = get_h_spill(c, theta, H, R)
-        L = 2 * np.arccos((R-h_spill)/R) * R
+        L = 2 * np.arccos(np.clip( ((R - h_spill) / R), -1, 1)) * R
         
         # Update volumes:
         Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * k # 1.25 to account for not rect sect (exp param)
+
+        h_spill = get_h_spill(c, theta, H, R)
+        if np.isnan(h_spill):
+            print(f"NaN in h_spill → iter={i}, theta={theta}, c={c}")
+            break
+
+        L = 2 * np.arccos(np.clip(((R - h_spill) / R), -1, 1)) * R
+        if np.isnan(L):
+            print(f"NaN in L → iter={i}, theta={theta}, h_spill={h_spill}")
+            break
+
+        Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * k
+        if np.isnan(Q):
+            print(f"NaN in Q → iter={i}, theta={theta}, h_spill={h_spill}, L={L}, k={k}")
+            break
+
+
         V_i = min(Q * dt, V)
         if debug:
             print(f"")
             print(f"[iter {i} - theta: {np.rad2deg(theta)}] - [Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")
         # Evaluate positions:                   # TODO aggiungere v_trascinamento e calc_v_trasc
-        v = np.sqrt(2*g*h_spill)
+        v = np.sqrt( max((2*g*h_spill), 0.0) )
         
         R_theta = Rot.from_rotvec(theta * axis_world) * R0 # matrice rotazione lungo x
         delta_pos=R_theta.apply(l)
@@ -226,12 +251,23 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
         z=p_lip[2]
 
         z_f = z_min+0.003
-        y_f = y + v * np.sqrt(2*(z-z_f)/g)
+        y_f = y + v * np.sqrt( max( (2*(z-z_f)/g), 0.0 ) )
         x_f = x + 0.055
         p_liq = np.array([x_f, y_f, z_f])
         
-        err_pos=np.linalg.norm(p_liq[:-1]-pos_cont[:-1])
         #print(f"p_liq: {p_liq}, p_cont: {pos_cont}")
+        
+        # err_pos_x = p_liq[0]-pos_cont[0]
+        # err_pos_y = p_liq[1]-pos_cont[1]
+        # #print(err_pos_x, err_pos_y)
+        # if (err_pos_x<0 or err_pos_x>2*R) and (err_pos_y<-R or err_pos_y>R):
+        #     V = np.clip(V - V_i, 0, V_init)
+        #     V_spilled += V_i
+        # else:
+        #     V = np.clip(V - V_i, 0, V_init)
+        #     V_poured += V_i
+
+        err_pos=np.linalg.norm(p_liq[:-1]-pos_cont[:-1])
         #print(err_pos)
         if err_pos >= 2*R:
             V = np.clip(V - V_i, 0, V_init)
@@ -239,10 +275,15 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
         else:
             V = np.clip(V - V_i, 0, V_init)
             V_poured += V_i
+
+        if np.isnan(V):
+            print(f"NaN in V → iter={i}, V_i={V_i}, V_spilled={V_spilled}, V_poured={V_poured}")
+            break
+
     print("Simulation completed")
     print(f"[Wp {num_waypoints} theta {np.rad2deg(theta_f)}]-[Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")
     if not np.isclose(V+V_poured+V_spilled, V_init):
-        raise Warning("oidocrop")
+        raise Warning("Sum of volumes is not equal to the initial volume")
     err_vol = np.abs(V_poured-V_target)
     #print(f"Volume poured: {V_poured}")
     #print(f"Volume spilled: {V_spilled}")
@@ -350,8 +391,8 @@ def main():
                 "theta_f": 87, #+-15°
                 "num_wp": 320,
             }
-    theta_f=100
-    num_waypoints=400  
+    theta_f=90
+    num_waypoints=300  
     vol_target=40
     debug=False
 

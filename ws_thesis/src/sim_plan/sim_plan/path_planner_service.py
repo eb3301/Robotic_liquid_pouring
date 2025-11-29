@@ -2470,11 +2470,13 @@ class PathPlannerService(Node):
                 return response
         # Carica parametri planning:
         FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
-        if not os.path.exists(FILE_CURRENT_PLAN_PARAMS):
+        FILE_NEW_PLAN_PARAMS="/tmp/new_plan_params.yaml"
+        
+        if not os.path.exists(FILE_NEW_PLAN_PARAMS):
                 theta_f_arr = np.array([80,90,100])
                 num_wp_arr = np.array([300, 350, 400])
         else:
-            with open(FILE_CURRENT_PLAN_PARAMS, "r") as f:
+            with open(FILE_NEW_PLAN_PARAMS, "r") as f:
                     data_plan = yaml.safe_load(f)
             theta_f_arr = data_plan["current_theta"]
             num_wp_arr = data_plan["current_num_wp"]

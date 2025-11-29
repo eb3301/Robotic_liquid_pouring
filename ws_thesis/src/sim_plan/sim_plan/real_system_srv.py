@@ -566,7 +566,7 @@ class RealSystemService(Node):
         else:
             with open("/tmp/best_path.yaml", "r") as f:
                 path=yaml.safe_load(f)
-                
+        
         #################################################################################à
         # Simulazione
 

@@ -139,7 +139,6 @@ def simulate_linear_sloshing(
     data = mujoco.MjData(model)
     tool_body_id  = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "tool_frame")
 
-
     mf = V_init * rho
     h = V_init / (np.pi * R**2)
     
