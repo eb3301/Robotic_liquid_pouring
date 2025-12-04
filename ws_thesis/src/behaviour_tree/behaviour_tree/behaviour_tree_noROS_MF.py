@@ -563,10 +563,9 @@ class SetPlanParams(RosLeaf):
         pos_init_ee = self.transform_to_world(pos_init_ee)
         pos_grip_ee = self.transform_to_world(pos_grip_ee)
 
-        0.746, 0.961, 0.960
 
-        pos_cont_goal[0]=np.clip(pos_cont_goal[0],0.726,0.766)
-        pos_cont_goal[1]=np.clip(pos_cont_goal[1],0.941,0.981)
+        pos_cont_goal[0]=np.clip(pos_cont_goal[0],0.726 - 1e-4 * np.random.randn(),0.766 + 1e-4 * np.random.randn())
+        pos_cont_goal[1]=np.clip(pos_cont_goal[1],0.941 - 1e-4 * np.random.randn(),0.981 + 1e-4 * np.random.randn())
         
         #self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
         self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
@@ -767,6 +766,7 @@ class ExecutePathPublisher(RosLeaf):
         elapsed = ((self.node.get_clock().now().nanoseconds / 1e9) - self.bb.get("traj_start_time"))*speed_scaling
         if elapsed >= self._traj_duration + self.grace_t:
             if self._check_final_joints_close():
+                input("Premi invio per ripetere")
                 return py_trees.common.Status.SUCCESS
             else:
                 self.feedback_message = "Joint finali fuori tolleranza"
