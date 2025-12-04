@@ -49,6 +49,17 @@ class CallPlannerSrv(Node):
         # Chiama servizio
         self.future = self.client_upd.call_async(request)
 
+    def call_update(self):
+        #self.get_logger().info(f"Ricevuto reward: {0}")
+        user_input = int(input("Pianificazione fallita, esplora mettendo opposto di reward precedente: "))
+
+        # Prepara richiesta
+        request = UpdateBelief.Request()
+        request.real_score = float(user_input)
+
+        # Chiama servizio
+        self.future = self.client_upd.call_async(request)
+
     def spin_until_result(self):
         while rclpy.ok():
             rclpy.spin_once(self)
@@ -71,6 +82,12 @@ def main():
             while resp is None or not resp.success:
                 resp = node.call_service()
 
+            # if not resp.success:
+            #     resp = None
+            #     node.call_update()
+            #     node.spin_until_result()
+            #     resp = node.call_service()
+
             node.spin_until_result()
             
             time.sleep(0.1)  # opzionale, evita martellamento
@@ -82,3 +99,71 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# import rclpy
+# from rclpy.node import Node
+# from interfaces.srv import Simplan, UpdateBelief
+
+# class CallPlannerSrv(Node):
+#     def __init__(self):
+#         super().__init__("call_planner_client")
+
+#         self.client_plan = self.create_client(Simplan, "plan_path")
+#         while not self.client_plan.wait_for_service(timeout_sec=2.0):
+#             self.get_logger().info("Attesa servizio plan_path...")
+
+#         self.client_upd = self.create_client(UpdateBelief, "update_belief")
+#         while not self.client_upd.wait_for_service(timeout_sec=2.0):
+#             self.get_logger().info("Attesa servizio update_belief...")
+
+#     def call_planner_blocking(self):
+#         req = Simplan.Request()
+#         req.no_params = True
+
+#         future = self.client_plan.call_async(req)
+#         rclpy.spin_until_future_complete(self, future)
+
+#         if future.result() is None:
+#             raise RuntimeError("Errore planner")
+
+#         return future.result()
+
+#     def update_belief_blocking(self, score):
+#         req = UpdateBelief.Request()
+#         req.real_score = float(score)
+
+#         future = self.client_upd.call_async(req)
+#         rclpy.spin_until_future_complete(self, future)
+
+#         return future.result()
+
+# def main():
+#     rclpy.init()
+#     node = CallPlannerSrv()
+
+#     try:
+#         for i in range(10000):
+#             print(f"\nIterazione {i}")
+
+#             # 1. Chiamo il planner
+#             resp = node.call_planner_blocking()
+
+#             # 2. Se success → chiedo reward positivo
+#             if resp.success:
+#                 reward = float(input("Planner SUCCESS. Inserisci reward: "))
+
+#             # 3. Se non success → chiedo reward alternativo
+#             else:
+#                 reward = float(input("Planner FAIL. Inserisci reward opposto: "))
+
+#             # 4. Aggiorno belief
+#             upd = node.update_belief_blocking(reward)
+
+#             print(f"Aggiornamento belief: success={upd.success}")
+
+#     finally:
+#         node.destroy_node()
+#         rclpy.shutdown()
+
+# if __name__ == "__main__":
+#     main()
