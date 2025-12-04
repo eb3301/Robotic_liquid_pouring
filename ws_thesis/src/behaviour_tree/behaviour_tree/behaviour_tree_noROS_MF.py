@@ -563,6 +563,11 @@ class SetPlanParams(RosLeaf):
         pos_init_ee = self.transform_to_world(pos_init_ee)
         pos_grip_ee = self.transform_to_world(pos_grip_ee)
 
+        0.746, 0.961, 0.960
+
+        pos_cont_goal[0]=np.clip(pos_cont_goal[0],0.726,0.766)
+        pos_cont_goal[1]=np.clip(pos_cont_goal[1],0.941,0.981)
+        
         #self.node.get_logger().info(f"pos_init_cont {pos_init_cont}")
         self.node.get_logger().info(f"pos_init_ee {pos_init_ee}")
         #self.node.get_logger().info(f"pos_cont_goal {pos_cont_goal}")
