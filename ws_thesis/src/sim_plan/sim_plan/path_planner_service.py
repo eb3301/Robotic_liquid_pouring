@@ -1816,15 +1816,15 @@ def compute_reward_models(parameters, theta_f, num_wp, path):
     
     print(f"Evaluating rewards")
     
-    dt = 0.01
-    transp_mot = path["transport"]
-    N = len(transp_mot)
-    time_mot = np.linspace(0.0, (N-1)*dt, N)
+    # dt = 0.01
+    # transp_mot = path["transport"]
+    # N = len(transp_mot)
+    # time_mot = np.linspace(0.0, (N-1)*dt, N)
     
-    trj = {
-        "positions": transp_mot,
-        "time": time_mot,
-    }
+    # trj = {
+    #     "positions": transp_mot,
+    #     "time": time_mot,
+    # }
     
     w_pour, w_sloshing, w_speed = 5, 1, 2
 
@@ -2413,7 +2413,7 @@ class PathPlannerService(Node):
                     (0.0, 0.0),    # z: ±0.0 cm
                 ],
                 "pos_cont_goal": [
-                    (0.05, 0.05),  # x: ±1.5 cm
+                    (0.02, 0.02),  # x: ±1.5 cm
                     (0.02, 0.02),  # y: ±1.5 cm
                     (0.0, 0.0),      # z: ±0.0 cm
                 ],
@@ -2598,6 +2598,7 @@ class PathPlannerService(Node):
             success_rate=success/len(parameters_set)
             # def di miglior path
             if success_rate >= best_success_rate and sum(scores) > best_sum:
+                #gen_params=parameters_set[i%M] // da correggere volendolo stampare
                 best_path = path
                 best_successes = successes.copy()
                 best_scores=scores.copy()
@@ -2611,6 +2612,7 @@ class PathPlannerService(Node):
             response.success=False
             return response
         print("Esiste traj che soddisfa req succ")
+        # print(f"best params: {0}")
                                         
 
         exec_path=best_path["all"]

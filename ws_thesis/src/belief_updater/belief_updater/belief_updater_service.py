@@ -17,8 +17,6 @@ FILE_TS = "/tmp/TS.yaml"
 FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
 FILE_NEW_PLAN_PARAMS = "/tmp/new_plan_params.yaml"
 
-MAX_MODELS = 5
-MIN_MODELS = 3
 PATH_NUM = 3
 
 def is_success(score, threshold=0.5):
@@ -254,6 +252,11 @@ def update_w(theta, y, w_mean, w_cov,
     # Design matrix per logit lineare: [bias, theta]
     X = np.vstack([np.ones(len(theta)), theta]).T
 
+    n = len(theta)
+    lmbda = 0.9  # 0.6 (aggressivo) –> 0.99 (leggera)
+    wts = lmbda ** (np.arange(n)[::-1])
+    wts /= wts.sum()
+
     # Copie locali
     w = np.array(w_mean, dtype=float).copy()
     P = np.linalg.inv(w_cov)
@@ -265,7 +268,7 @@ def update_w(theta, y, w_mean, w_cov,
         p = np.clip(p, pclip, 1.0 - pclip)
 
         # peso della verosimiglianza ridotto (tempering)
-        W = np.diag(p * (1.0 - p))
+        W = np.diag(wts * p * (1.0 - p))  #W = np.diag(p * (1.0 - p))
         H = tau * (X.T @ W @ X) + P + eps * np.eye(len(w))
         g = tau * (X.T @ (y - p)) - P @ (w - w_mean)
 
@@ -358,18 +361,18 @@ class BeliefUpdater(Node):
             parameters_set = data_params["parameters"]
             scores = data_scores["scores"] # CONTIENE IN REALTÀ SUCCESS (BINARIO 0/1)
             tolerances = data_tolerances["tolerances"]
-            k = data_tolerances.get("iteration", 0)
+            k_tol = data_tolerances.get("iteration", 0)
            
             # Fattore shrinking
-            # k = iterazione corrente, H = orizzonte previsto
+            # k_tol = iterazione corrente, H = orizzonte previsto
             # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
             H=2000
             f0, f_min = 1.0, 0.0001
             tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
-            factor = max(f_min, f0 * np.exp(-k / tau))
+            factor = max(f_min, f0 * np.exp(-k_tol / tau))
             # Re-heating per avere + esploraz 
             #boost_every, boost = 500, 1.4
-            #factor = min(1.0, factor * boost) if k % boost_every == 0 else factor
+            #factor = min(1.0, factor * boost) if k_tol % boost_every == 0 else factor
 
 
             # Applica scaling
@@ -388,6 +391,9 @@ class BeliefUpdater(Node):
         # Filtra i parametri coerenti col risultato reale
         param_new = [p for i, p in enumerate(parameters_set[:n]) if is_success(scores[i]) == real_result]
         
+        MAX_MODELS = 3
+        MIN_MODELS = 3
+
         if len(param_new) == 0:
             self.get_logger().warn("Tutte le ipotesi eliminate! Ricampiono da parametri iniziali...")
             init_param = load_parameters()
@@ -398,10 +404,10 @@ class BeliefUpdater(Node):
                     if len(updated) >= MIN_MODELS:
                         break            
         else:
-            # Resampling
+            # Resampling   
             updated = list(param_new)
             while len(updated) < MIN_MODELS:
-                for p in param_new:
+                for p in param_new:    
                     updated.append(update_parameters(p,tolerances_scaled))
                     if len(updated) >= MIN_MODELS:
                         break
@@ -413,7 +419,7 @@ class BeliefUpdater(Node):
         try:
             with open(PARAMS_FILE, 'w') as f:
                 yaml.safe_dump({"parameters": updated}, f, sort_keys=False)
-                data_tolerances["iteration"] = k + 1
+                data_tolerances["iteration"] = k_tol + 1
             with open(TOLERANCES_FILE, 'w') as f:
                 yaml.safe_dump(data_tolerances, f, sort_keys=False)
 
@@ -441,7 +447,7 @@ class BeliefUpdater(Node):
             # Carica file necessari per update
             try:
                 if not os.path.exists(FILE_TS):
-                    k=0
+                    k_TS = 0
 
                     x_hist_theta = [80,84,88,92,96,100] # seed per evitare collasso immediato distribuzione
                     y_hist_theta = [0,1,0,1,0,1] # seed per evitare collasso immediato distribuzione
@@ -457,7 +463,7 @@ class BeliefUpdater(Node):
                     with open(FILE_TS, "r") as f:
                         data_TS = yaml.safe_load(f)
 
-                    k = data_TS["k"]
+                    k_TS = data_TS["k"]
 
                     x_hist_theta = data_TS["x_hist_theta"] 
                     y_hist_theta = data_TS["y_hist_theta"] # lista di 1=success,0=failure
@@ -494,7 +500,7 @@ class BeliefUpdater(Node):
                 return response
             
             # # Aggiornamento TS 
-            # if k % 2 == 0: # aggiorna theta
+            # if k_TS % 2 == 0: # aggiorna theta
             #     # Append liste
             #     y_hist_theta.append(success_path) 
             #     x_hist_theta.append(current_theta)
@@ -556,11 +562,11 @@ class BeliefUpdater(Node):
                 w_mean_num_wp, w_cov_num_wp = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp) # update posterior
                 x_next_num_wp = sample_x_TS(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400, M=PATH_NUM) # new sample
 
-            k+=1
+            k_TS += 1
             
             # Salva nuovi valori
             state_TS = {
-                    "k": self.to_builtin(k),
+                    "k": self.to_builtin(k_TS),
 
                     "x_hist_theta": self.to_builtin(x_hist_theta),
                     "y_hist_theta": self.to_builtin(y_hist_theta),
@@ -579,8 +585,8 @@ class BeliefUpdater(Node):
             theta_new=[]
             num_wp_new=[]
             for i in range(PATH_NUM):
-                theta_new.append(np.clip(float(x_next_theta[i]) + np.random.uniform(-1.0, 1.0)/k, 80, 100))
-                num_wp_new.append(np.clip(int(x_next_num_wp[i]) + np.random.uniform(-10, 10)/k, 300, 400))
+                theta_new.append(np.clip(float(x_next_theta[i]) + np.random.uniform(-1.0, 1.0)/k_TS, 80, 100))
+                num_wp_new.append(np.clip(int(x_next_num_wp[i]) + np.random.uniform(-10, 10)/k_TS, 300, 400))
             x_next_theta=theta_new
             x_next_num_wp=num_wp_new
 
@@ -624,10 +630,10 @@ class BeliefUpdater(Node):
             save_experiment_data(
                 experiment_name="robot_experiment1",
 
-                init_params=data_params if k == 0 else None,
-                init_tolerances=data_tolerances if k == 0 else None,
+                init_params=data_params if k_tol == 0 else None,
+                init_tolerances=data_tolerances if k_tol == 0 else None,
 
-                iteration_id=k,
+                iteration_id=k_tol,
                 iteration_parameters=updated,          # set parametri correnti
                 iteration_scores=scores,               # scores correnti
                 threshold=0.5,                         # threshold usato da is_success
