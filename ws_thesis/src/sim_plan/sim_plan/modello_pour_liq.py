@@ -198,6 +198,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     V_poured=0
     V=V_init
     V_spilled = 0
+    V_i=0
     c=0
     for i,theta in enumerate(theta_arr):
 
@@ -213,11 +214,10 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
             if debug:
                 plotter.update(theta, c)
 
-        h_spill = get_h_spill(c, theta, H, R)
-        L = 2 * np.arccos(np.clip( ((R - h_spill) / R), -1, 1)) * R
-        
-        # Update volumes:
-        Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * k # 1.25 to account for not rect sect (exp param)
+        # h_spill = get_h_spill(c, theta, H, R)
+        # L = 2 * np.arccos(np.clip( ((R - h_spill) / R), -1, 1)) * R
+        # # Update volumes:
+        # Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * k # 1.25 to account for not rect sect (exp param)
 
         h_spill = get_h_spill(c, theta, H, R)
         if np.isnan(h_spill):
@@ -236,6 +236,9 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
 
 
         V_i = min(Q * dt, V)
+        
+        if V_i is not 0:
+            print("porcodio")
         if debug:
             print(f"")
             print(f"[iter {i} - theta: {np.rad2deg(theta)}] - [Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")
@@ -546,12 +549,12 @@ class FreeSurfacePlotter:
 def main():
     parameters = {
                 "pos_init_cont": [0.8021465039268282, 0.2847160024669491, 0.9564999991059303],
-                "pos_cont_goal": [0.746, 0.961, 0.960],
+                "pos_cont_goal": [np.float64(0.7634127769372455), np.float64(0.9574129148942656), np.float64(0.9564999991059303)], #[0.746, 0.961, 0.960], 
                 "pos_init_ee":  (0.12394027698787038, 0.2665910764094347, 1.1638763741892955, -0.5837257860699608, 0.5925713099055904, -0.388471134978874, 0.3965017359886389),
                 "pos_grip_ee": (0.6509734785173125, 0.2847438888358813, 0.9764986855761588, -0.5000033337808922, 0.49998929956451965, -0.4999940109139501, 0.5000133554007884),
                 "offset": (0, 0.15, -0.02),
-                "dCoR": [0.0, 0.06, -0.004], 
-                "vol_init": 60.0, #2e-5, +-MAE
+                "dCoR": [0.0008448990706376748, -0.015548033993107288, 0.03097353915145231], #[0.0, 0.06, -0.004], 
+                "vol_init": 57.36, #2e-5, +-MAE
                 "densità": 998.0,
                 "viscosità": 0.001,
                 "tens_sup": 0.072,
@@ -569,7 +572,7 @@ def main():
     #reward=reward_pouring(num_waypoints, theta_f, vol_target, parameters, debug)
     #print(reward)
 
-    reward = reward_pouring_rs(num_waypoints, theta_f, vol_target, parameters, debug)
+    reward = reward_pouring(num_waypoints, theta_f, vol_target, parameters, debug)
     print(reward)
 
 if __name__ == '__main__':

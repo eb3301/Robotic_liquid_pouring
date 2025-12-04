@@ -1826,8 +1826,11 @@ def compute_reward_models(parameters, theta_f, num_wp, path):
     #     "time": time_mot,
     # }
     
-    w_pour, w_sloshing, w_speed = 5, 1, 2
+    w_pour, w_sloshing, w_speed = 5, 1, 2    
 
+    print(num_wp)
+    print(theta_f)
+    print(parameters)
     reward_pour = w_pour * reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
     
     reward_slosh = w_sloshing #* reward_sloshing(trj, parameters["vol_init"])
