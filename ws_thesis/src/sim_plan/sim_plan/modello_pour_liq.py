@@ -161,6 +161,10 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
     V_init = parameters["vol_init"] * 1e-6 if parameters["vol_init"]>1 else parameters["vol_init"]
     V_target = vol_target * 1e-6 if vol_target>1 else vol_target #40 * 1e-6 #parameters["vol_target"]
 
+    print(theta_f)
+    print(num_waypoints)
+    print(f"V_init: {V_init} - V_target: {V_target}")
+    
     if V_init < V_target:
         V_target=V_init
     
@@ -228,17 +232,17 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
         if np.isnan(L):
             print(f"NaN in L → iter={i}, theta={theta}, h_spill={h_spill}")
             break
+        
 
         Q = 2/3 * Cd * np.sqrt(2*g) * L * h_spill**1.5 * k
         if np.isnan(Q):
             print(f"NaN in Q → iter={i}, theta={theta}, h_spill={h_spill}, L={L}, k={k}")
             break
 
+        # print(f"{h_spill} - {L} - {Q} - {k}")
 
         V_i = min(Q * dt, V)
         
-        if V_i is not 0:
-            print("porcodio")
         if debug:
             print(f"")
             print(f"[iter {i} - theta: {np.rad2deg(theta)}] - [Vol: {(V*1e6):.3f} Vol_poured: {(V_poured*1e6):.3f} Vol_spilled: {(V_spilled*1e6):.3f}]")

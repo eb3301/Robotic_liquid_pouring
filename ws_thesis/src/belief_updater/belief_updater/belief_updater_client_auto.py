@@ -7,7 +7,10 @@ import rclpy
 from rclpy.node import Node
 from interfaces.srv import Simplan, UpdateBelief
 from std_msgs.msg import Float32
+import yaml
+import paramiko
 
+OUTPUT_FILE = "/tmp/best_path.yaml"
 class CallPlannerSrv(Node):
     def __init__(self):
         super().__init__("call_planner_client")
@@ -38,6 +41,33 @@ class CallPlannerSrv(Node):
         if future.result() is None:
             raise RuntimeError("Chiamata al planner fallita")
         return future.result()
+        
+    def send_path(self):
+        local_path = "/tmp/best_path.yaml"
+        remote_path = "/tmp/best_path.yaml"
+
+        host = "100.110.226.44"
+        user = "edo"
+        key_file = "/home/barutta/.ssh/id_edo"
+
+        # Controllo chiave
+        if not os.path.exists(key_file):
+            self.get_logger().error(f"Chiave SSH non trovata: {key_file}")
+            
+        try:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect(host, username=user, key_filename=key_file)
+
+            sftp = client.open_sftp()
+            sftp.put(local_path, remote_path)
+            sftp.close()
+            client.close()
+
+            self.get_logger().info("File inviato con successo")
+
+        except Exception as e:
+            self.get_logger().error(f"File transfer failed: {str(e)}")
 
     def reward_callback(self, msg):
         self.get_logger().info(f"Ricevuto reward: {msg.data}")
@@ -45,17 +75,6 @@ class CallPlannerSrv(Node):
         # Prepara richiesta
         request = UpdateBelief.Request()
         request.real_score = float(msg.data)
-
-        # Chiama servizio
-        self.future = self.client_upd.call_async(request)
-
-    def call_update(self):
-        #self.get_logger().info(f"Ricevuto reward: {0}")
-        user_input = int(input("Pianificazione fallita, esplora mettendo opposto di reward precedente: "))
-
-        # Prepara richiesta
-        request = UpdateBelief.Request()
-        request.real_score = float(user_input)
 
         # Chiama servizio
         self.future = self.client_upd.call_async(request)
@@ -75,18 +94,22 @@ def main():
     rclpy.init()
     node = CallPlannerSrv()
     try:
+        c=0
         for i in range(10000):        # 100 iterazioni
             print(f"iter {i}")
 
             resp = None
-            while resp is None or not resp.success:
+            while resp is None:
                 resp = node.call_service()
-
-            # if not resp.success:
-            #     resp = None
-            #     node.call_update()
-            #     node.spin_until_result()
-            #     resp = node.call_service()
+            
+            if not resp.success:
+                c+=1
+                if c>1:
+                    print("Planning fallito")
+                    break
+                continue
+            else:
+                node.send_path()
 
             node.spin_until_result()
             

@@ -2396,18 +2396,18 @@ class PathPlannerService(Node):
             req_parameters = {
                 "pos_init_cont": list(request.pos_init_cont),
                 "pos_cont_goal": list(request.pos_cont_goal),
-                "pos_init_ee": list(request.pos_init_ee),
+                #"pos_init_ee": list(request.pos_init_ee),
                 "pos_grip_ee":list(request.pos_grip_ee),
                 "offset": list(request.offset),
                 "dCoR": [0.0, -0.015, 0.04],
+                #"densità": 998.0,
+                #"viscosità": 0.001,
+                #"tens_sup": 0.072,
                 "vol_init": request.init_vol, #2e-5, +-MAE
-                "densità": 998.0,
-                "viscosità": 0.001,
-                "tens_sup": 0.072,
                 "vol_target": request.target_vol, #0.75e-5,
                 "err_target": 5e-6,
-                "theta_f": request.theta_f, #+-15°
-                "num_wp": int(request.num_wp),
+                #"theta_f": request.theta_f, #+-15°
+                #"num_wp": int(request.num_wp),
             }
             tolerances = {
                 "pos_init_cont": [
@@ -2420,15 +2420,15 @@ class PathPlannerService(Node):
                     (0.02, 0.02),  # y: ±1.5 cm
                     (0.0, 0.0),      # z: ±0.0 cm
                 ],
-                "pos_init_ee": [
-                    (0.00, 0.00),    # x: fisso
-                    (0.00, 0.00),    # y: fisso
-                    (0.00, 0.00),    # z: fisso
-                    (0.00, 0.00),    # w: fisso
-                    (0.00, 0.00),    # x: fisso
-                    (0.00, 0.00),    # y: fisso
-                    (0.00, 0.00),    # z: fisso
-                ],
+                # "pos_init_ee": [
+                #     (0.00, 0.00),    # x: fisso
+                #     (0.00, 0.00),    # y: fisso
+                #     (0.00, 0.00),    # z: fisso
+                #     (0.00, 0.00),    # w: fisso
+                #     (0.00, 0.00),    # x: fisso
+                #     (0.00, 0.00),    # y: fisso
+                #     (0.00, 0.00),    # z: fisso
+                # ],
                 "pos_grip_ee": [
                     (0.00, 0.00),    # x: fisso
                     (0.00, 0.00),    # y: fisso
@@ -2448,14 +2448,14 @@ class PathPlannerService(Node):
                     (0.01, 0.01),    # componente 2: ±1 cm
                     (0.01, 0.01),    # componente 3: ±1 cm
                 ],
-                "viscosità": (0.00025, 0.00025),  # ±25% intorno a 0.001 Pa·s
-                "densità": (3.0, 3.0),          # ±3 kg/m^3
-                "tens_sup": (0.002, 0.001),     # -0.002 / +0.001 N/m (gamme tipiche 0.070–0.073)
+                # "viscosità": (0.00025, 0.00025),  # ±25% intorno a 0.001 Pa·s
+                # "densità": (3.0, 3.0),          # ±3 kg/m^3
+                # "tens_sup": (0.002, 0.001),     # -0.002 / +0.001 N/m (gamme tipiche 0.070–0.073)
                 "vol_init": ( 15, 15),  # ±1e-5 m^3 (15ml)
                 "vol_target": (0.0, 0.0),       # no tol, è scelta
                 "err_target": (0.0, 0.0),       # vincolo rigido
-                "theta_f": (10.0, 10.0),        # ±10°
-                "num_wp": ("rel", 0.2, 0.2),    # ±20%
+                # "theta_f": (10.0, 10.0),        # ±10°
+                # "num_wp": ("rel", 0.2, 0.2),    # ±20%
             }
             
             parameters_range=self._make_parameters_range(req_parameters,tolerances)
@@ -2607,7 +2607,7 @@ class PathPlannerService(Node):
                 best_scores=scores.copy()
                 best_success_rate = success_rate
                 success_path=1 if success_rate > 0.6 else 0
-                state_current_plan_params = {"current_theta": self.to_builtin(theta_f), "current_num_wp": self.to_builtin(num_wp), "success_path": self.to_builtin(success_path)}
+                state_current_plan_params = {"current_theta": self.to_builtin(np.rad2deg(theta_f)), "current_num_wp": self.to_builtin(num_wp), "success_path": self.to_builtin(success_path)}
                         
         
         if best_success_rate < delta:
