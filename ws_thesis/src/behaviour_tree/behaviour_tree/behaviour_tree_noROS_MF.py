@@ -25,7 +25,6 @@ import tf2_geometry_msgs
 import threading
 from rclpy.executors import MultiThreadedExecutor
 
-
 class Timeout(py_trees.decorators.Decorator):
     def __init__(self, child, seconds: float, name="Timeout"):
         super().__init__(name=name, child=child)
@@ -612,11 +611,13 @@ class SetPlanParams(RosLeaf):
         
 class SendYamlToVM(RosLeaf):
     def __init__(self, node, name="SendYamlToVM"):
+        self.FIRST_ITER=True
         super().__init__(name, node)
 
     def update(self):
+        
         local_path = "/tmp/init_parameters.yaml"
-        remote_path = "/tmp/init_parameters.yaml"
+        remote_path = "/tmp/init_parameters.yaml" if self.FIRST_ITER else "/tmp/init_parameters_new.yaml" 
 
         host = "100.93.166.22"
         user = "barutta"
@@ -638,6 +639,7 @@ class SendYamlToVM(RosLeaf):
             client.close()
 
             self.node.get_logger().info("File inviato con successo")
+            self.FIRST_ITER=False
             return py_trees.common.Status.SUCCESS
 
         except Exception as e:
