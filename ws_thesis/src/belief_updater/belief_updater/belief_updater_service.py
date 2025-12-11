@@ -344,8 +344,11 @@ class BeliefUpdater(Node):
         return obj
 
     def updater_callback(self, request, response):
-        real_result = is_success(request.real_score)
-        self.get_logger().info(f"Real score={request.real_score:.3f} -> real_result={real_result}")
+        real_score=float(request.real_score)
+        real_result = is_success(real_score)
+        no_plan_update = True if real_score<-0.5 else False
+        
+        self.get_logger().info(f"Real score={real_score:.3f} -> real_result={real_result}")
 
         ##################################################################################
         ##################################################################################
@@ -388,19 +391,22 @@ class BeliefUpdater(Node):
             self.get_logger().warn(f"Dimensioni diverse: scores={len(scores)} vs params={len(parameters_set)}; uso min(n).")
         n = min(len(scores), len(parameters_set))
 
-        # Filtra i parametri coerenti col risultato reale
-        param_new = [p for i, p in enumerate(parameters_set[:n]) if is_success(scores[i]) == real_result]
-        
         MAX_MODELS = 3
         MIN_MODELS = 3
+        # Filtra i parametri coerenti col risultato reale
+        if no_plan_update:
+            param_new=random.sample(parameters_set,MAX_MODELS-1)
+        else:
+            param_new = [p for i, p in enumerate(parameters_set[:n]) if is_success(scores[i]) == real_result]
 
         if len(param_new) == 0:
+            # Resampling around initial params
             self.get_logger().warn("Tutte le ipotesi eliminate! Ricampiono da parametri iniziali...")
             init_param = load_parameters()
             updated = list(init_param)
             while len(updated) < MIN_MODELS:
-                for p in param_new:
-                    updated.append(update_parameters(p,tolerances_scaled))
+                for p in init_param:
+                    updated.append(update_parameters(p,tolerances))
                     if len(updated) >= MIN_MODELS:
                         break            
         else:
@@ -443,7 +449,8 @@ class BeliefUpdater(Node):
         
         # Se il successo del path coincide con quello reale --> aggiorna theta/num_wp
         state_TS = None
-        if success_path == real_result:
+        success_path_bool=True if success_path>0.5 else False
+        if success_path_bool == real_result:
             # Carica file necessari per update
             try:
                 if not os.path.exists(FILE_TS):
@@ -597,7 +604,18 @@ class BeliefUpdater(Node):
             }
             with open(FILE_NEW_PLAN_PARAMS, "w") as f:
                 yaml.safe_dump(state_current_plan_params, f, sort_keys=False) 
-
+        
+        elif no_plan_update:
+            # Aggiorna randomicamente parametri nel caso in cui sia fallito il planner
+            x_next_theta = np.random.uniform(80,100,PATH_NUM)
+            x_next_num_wp = np.random.uniform(300,400,PATH_NUM)
+            state_current_plan_params = {
+                "current_theta": self.to_builtin(x_next_theta),
+                "current_num_wp": self.to_builtin(x_next_num_wp),
+            }
+            with open(FILE_NEW_PLAN_PARAMS, "w") as f:
+                yaml.safe_dump(state_current_plan_params, f, sort_keys=False)
+      
         else: # Successo del path non coincide con il successo reale --> non aggiornare
             try:
                 if not os.path.exists(FILE_CURRENT_PLAN_PARAMS):
@@ -608,9 +626,11 @@ class BeliefUpdater(Node):
                     with open(FILE_CURRENT_PLAN_PARAMS, "r") as f:
                         data_current_plan_params = yaml.safe_load(f) 
                     current_theta = data_current_plan_params["current_theta"]
+                    current_theta = float(current_theta[0]) if isinstance(current_theta, list) else float(current_theta)
                     current_num_wp = data_current_plan_params["current_num_wp"]
-                    x_next_theta = current_theta*np.ones(PATH_NUM)
-                    x_next_num_wp = current_num_wp  *np.ones(PATH_NUM)
+                    current_num_wp = int(current_num_wp[0]) if isinstance(current_num_wp, list) else int(current_num_wp)
+                    x_next_theta = float(current_theta) * np.ones(PATH_NUM)
+                    x_next_num_wp = int(current_num_wp) * np.ones(PATH_NUM)
                     state_current_plan_params = {
                     "current_theta": self.to_builtin(x_next_theta),
                     "current_num_wp": self.to_builtin(x_next_num_wp),

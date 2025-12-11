@@ -31,6 +31,7 @@ class CallPlannerSrv(Node):
         )
 
         self.future = None
+        self.received_reward = None
 
     def call_service(self):
         req = Simplan.Request()
@@ -70,55 +71,89 @@ class CallPlannerSrv(Node):
             self.get_logger().error(f"File transfer failed: {str(e)}")
 
     def reward_callback(self, msg):
-        self.get_logger().info(f"Ricevuto reward: {msg.data}")
+        self.get_logger().info(f"Reward ricevuto: {msg.data}")
+        self.received_reward = msg.data  # sblocca il ciclo principale
 
-        # Prepara richiesta
-        request = UpdateBelief.Request()
-        request.real_score = float(msg.data)
+    def wait_for_reward(self):
+        self.received_reward = None  # reset
+        while rclpy.ok() and self.received_reward is None:
+            rclpy.spin_once(self, timeout_sec=0.1)
+        return float(self.received_reward)
+    
+    def update_belief_with_reward(self, reward):
+        req = UpdateBelief.Request()
+        req.real_score = float(reward)
 
-        # Chiama servizio
-        self.future = self.client_upd.call_async(request)
+        future = self.client_upd.call_async(req)
+        rclpy.spin_until_future_complete(self, future)
 
-    def spin_until_result(self):
-        while rclpy.ok():
-            rclpy.spin_once(self)
-            if self.future and self.future.done():
-                result = self.future.result()
-                if result is None:
-                    self.get_logger().error("Chiamata fallita")
-                else:
-                    self.get_logger().info(f"Service call success={result.success}")
-                break
+        result = future.result()
+        if result is None:
+            self.get_logger().error("Update belief fallito")
+        else:
+            self.get_logger().info(f"Update belief success={result.success}")   
 
 def main():
     rclpy.init()
     node = CallPlannerSrv()
-    try:
-        c=0
-        for i in range(10000):        # 100 iterazioni
-            print(f"iter {i}")
 
-            resp = None
-            while resp is None:
-                resp = node.call_service()
-            
+    try:
+        old_reward=-1
+        c=0
+        for i in range(100):
+            print(f"ITER {i}")
+
+            resp = node.call_service()
             if not resp.success:
                 c+=1
                 if c>1:
-                    print("Planning fallito")
                     break
-                continue
-            else:
+                reward = -1
+                print("Planning fallito")
+            else:        
                 node.send_path()
+                reward = node.wait_for_reward()
+                old_reward=reward
+                print(f"Reward ottenuto = {reward}")
 
-            node.spin_until_result()
-            
-            time.sleep(0.1)  # opzionale, evita martellamento
-        
+            node.update_belief_with_reward(reward)
+
+            time.sleep(0.1)
+
         print("done")
+
     finally:
         node.destroy_node()
         rclpy.shutdown()
+
+# def main():
+#     rclpy.init()
+#     node = CallPlannerSrv()
+#     try:
+#         c=0
+#         resp = None
+#         for i in range(100):        # 100 iterazioni
+#             print(f"iter {i}")
+            
+#             while resp is None:
+#                 resp = node.call_service()
+            
+#             if not resp.success:
+#                 c+=1
+#                 if c>1:
+#                     break
+#                 print("Planning fallito")
+#             else:
+#                 node.send_path()
+
+#             node.spin_until_result()
+#             resp = None
+#             time.sleep(0.1)  # opzionale, evita martellamento
+            
+#         print("done")
+#     finally:
+#         node.destroy_node()
+#         rclpy.shutdown()
 
 if __name__ == "__main__":
     main()
