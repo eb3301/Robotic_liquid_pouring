@@ -1106,7 +1106,7 @@ def remap_trajectory(trj: JointTrajectory, joint_name_map, dt, scale=1):
     Q = np.asarray(new, dtype=float)  # shape: (N, n_joints)
 
     # Interpolazione lineare per ogni giunto
-    t_new = np.arange(0.0, t[-1] + dt, dt)
+    t_new = np.arange(0.0, t[-1], dt)
     q_new = np.zeros((len(t_new), Q.shape[1]))
 
     for j in range(Q.shape[1]):
@@ -1828,9 +1828,9 @@ def compute_reward_models(parameters, theta_f, num_wp, path):
     
     w_pour, w_sloshing, w_speed = 5, 1, 2    
 
-    print(num_wp)
-    print(theta_f)
-    print(parameters)
+    # print(num_wp)
+    # print(theta_f)
+    # print(parameters)
     reward_pour = w_pour * reward_pouring(num_waypoints=num_wp, theta_f=theta_f, vol_target=parameters["vol_target"],parameters=parameters)
     
     reward_slosh = w_sloshing #* reward_sloshing(trj, parameters["vol_init"])
@@ -2600,14 +2600,15 @@ class PathPlannerService(Node):
                     successes[j]=1
             success_rate=success/len(parameters_set)
             # def di miglior path
-            if success_rate >= best_success_rate and sum(scores) > best_sum:
-                #gen_params=parameters_set[i%M] // da correggere volendolo stampare
-                best_path = path
-                best_successes = successes.copy()
-                best_scores=scores.copy()
-                best_success_rate = success_rate
-                success_path=1 if success_rate > 0.6 else 0
-                state_current_plan_params = {"current_theta": self.to_builtin(np.rad2deg(theta_f)), "current_num_wp": self.to_builtin(num_wp), "success_path": self.to_builtin(success_path)}
+            if success_rate > best_success_rate or ( success_rate == best_success_rate and sum(scores) > best_sum):
+                    print(f"new best: {theta_f_a[i%M]} - {int(num_wp_a[i%M])} - {parameters_set[i%N]['pos_cont_goal']}")
+                    best_sum = sum(scores) 
+                    best_path = path
+                    best_successes = successes.copy()
+                    best_scores=scores.copy()
+                    best_success_rate = success_rate
+                    success_path=1 if success_rate > 0.6 else 0
+                    state_current_plan_params = {"current_theta": self.to_builtin(theta_f_a[i%M]), "current_num_wp": self.to_builtin(int(num_wp_a[i%M])), "success_path": self.to_builtin(success_path)}
                         
         
         if best_success_rate < delta:
