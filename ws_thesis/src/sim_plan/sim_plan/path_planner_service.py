@@ -1589,7 +1589,7 @@ def plan_path_full_moveit(
     
     if getattr(result,"val")==1:
         scale = (1.4 - 0.6) / (400 - 300) * (num_waypoints - 300) + 0.6
-        path3=remap_trajectory(trj3, joint_name_map, dt, scale=scale)
+        path3=remap_trajectory(trj3, joint_name_map, dt, scale=1)
         q3=path3[-1]
         q3 = [float(x) for x in q3]
         # Interpolate with new duration
@@ -2265,7 +2265,7 @@ def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
     for w in ws:
         acc += expit(w[0] + w[1]*grid)
     return float(grid[np.argmax(acc / M)])
-    
+
 class PathPlannerService(Node):
     def __init__(self):
         super().__init__('path_planner_service')

@@ -106,7 +106,7 @@ def main():
             resp = node.call_service()
             if not resp.success:
                 c+=1
-                if c>1:
+                if c>5:
                     break
                 reward = -1
                 print("Planning fallito")

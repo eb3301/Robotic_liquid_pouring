@@ -7,6 +7,7 @@ import numpy as np
 import copy
 import os
 from scipy.special import expit
+from scipy.linalg import cho_factor, cho_solve
 from belief_updater.save_file_for_valid import save_experiment_data
 
 PARAMS_FILE = "/tmp/parameters.yaml"
@@ -300,6 +301,83 @@ def sample_x_TS(w_mean, w_cov, x_min, x_max, M, n_grid=50, infl=0.05):
     scores = [expit(ws[0] + ws[1]*thetas) for ws in w_samples]
     return np.array([thetas[np.argmax(s)] for s in scores])
 
+def softplus(a):
+    return np.log1p(np.exp(-np.abs(a))) + np.maximum(a, 0)
+
+def update_w_quadratic_concave(theta, y, u_mean, u_cov, mu=None, s=None, iters=10):
+    """
+    u = [w0, w1, a]  where w2 = -softplus(a) < 0
+    Laplace approx around MAP.
+    """
+    theta = np.asarray(theta, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    if mu is None:
+        mu = float(np.mean(theta))
+    if s is None:
+        s = float(np.std(theta) + 1e-8)
+
+    z = (theta - mu) / s
+    X0 = np.ones_like(z)
+    X1 = z
+    X2 = z**2
+
+    u = u_mean.copy()
+    inv_u_cov = np.linalg.inv(u_cov)
+
+    for _ in range(iters):
+        w0, w1, a = u
+        sp = softplus(a)
+        w2 = -sp
+
+        # logit and prob
+        eta = w0*X0 + w1*X1 + w2*X2
+        p = expit(eta)
+
+        # derivatives wrt u = [w0, w1, a]
+        # d eta / d w0 = 1, d eta / d w1 = z
+        # d eta / d a = d w2/da * z^2, with w2 = -softplus(a)
+        # d softplus/da = sigmoid(a)
+        da = expit(a)
+        deta_da = (-da) * X2
+
+        # Jacobian columns
+        J = np.vstack([X0, X1, deta_da]).T  # (n,3)
+
+        # Newton for MAP with Gaussian prior N(u_mean, u_cov)
+        W = p*(1-p)
+        H = J.T @ (W[:, None] * J) + inv_u_cov
+        g = J.T @ (y - p) - inv_u_cov @ (u - u_mean)
+
+        try:
+            du = np.linalg.solve(H, g)
+        except np.linalg.LinAlgError:
+            break
+        u = u + du
+
+        # optional early stop
+        if np.linalg.norm(du) < 1e-6:
+            break
+
+    u_cov_post = np.linalg.inv(H)
+    return u, u_cov_post, mu, s
+
+def sample_x_TS_quadratic(u_mean, u_cov, x_min, x_max, M, mu, s, n_grid=200):
+    thetas = np.linspace(x_min, x_max, n_grid)
+    z = (thetas - mu) / s
+
+    u_samples = np.random.multivariate_normal(u_mean, u_cov, size=M)
+    x_nexts = []
+
+    for (w0, w1, a) in u_samples:
+        w2 = -softplus(a)  # concave
+        eta = w0 + w1*z + w2*(z**2)
+        p = expit(eta)
+        x_nexts.append(thetas[np.argmax(p)])
+
+    return np.array(x_nexts)
+
+
 def load_parameters():
         with open(PARAMS_FILE, "r") as f:
             data = yaml.safe_load(f)
@@ -347,7 +425,8 @@ class BeliefUpdater(Node):
         real_score=float(request.real_score)
         real_result = is_success(real_score)
         no_plan_update = True if real_score<-0.5 else False
-        
+        print(f"real res bool: {real_result}")
+        print(f"no plan update: {no_plan_update}")
         self.get_logger().info(f"Real score={real_score:.3f} -> real_result={real_result}")
 
         ##################################################################################
@@ -450,19 +529,25 @@ class BeliefUpdater(Node):
         # Se il successo del path coincide con quello reale --> aggiorna theta/num_wp
         state_TS = None
         success_path_bool=True if success_path>0.5 else False
-        if success_path_bool == real_result:
+        if success_path_bool == real_result and not no_plan_update:
+            print("update planning parameters con TS")
             # Carica file necessari per update
             try:
                 if not os.path.exists(FILE_TS):
                     k_TS = 0
 
                     x_hist_theta = [80,84,88,92,96,100] # seed per evitare collasso immediato distribuzione
-                    y_hist_theta = [0,1,0,1,0,1] # seed per evitare collasso immediato distribuzione
-                    w_mean_theta = np.zeros(2)
-                    w_cov_theta = np.eye(2)*10.0 
+                    y_hist_theta = [0,0,0,1,1,1] # seed per evitare collasso immediato distribuzione
+                    # w_mean_theta = np.zeros(2)
+                    # w_cov_theta = np.eye(2)*10.0 
+                    u_mean_theta = np.array([0.0, 0.0, 0.0])
+                    u_cov_theta  = np.diag([10.0, 10.0, 2.0])
+                    mu_theta = np.mean(x_hist_theta)
+                    s_theta  = np.std(x_hist_theta) + 1e-8
+
 
                     x_hist_num_wp = [300,320,340,360,380,400] # seed per evitare collasso immediato distribuzione
-                    y_hist_num_wp = [0,1,0,1,0,1] # seed per evitare collasso immediato distribuzione
+                    y_hist_num_wp = [1,1,1,0,0,0] # seed per evitare collasso immediato distribuzione
                     w_mean_num_wp = np.zeros(2)
                     w_cov_num_wp = np.eye(2)*50.0 
 
@@ -474,17 +559,18 @@ class BeliefUpdater(Node):
 
                     x_hist_theta = data_TS["x_hist_theta"] 
                     y_hist_theta = data_TS["y_hist_theta"] # lista di 1=success,0=failure
-                    w_mean_theta = data_TS["w_mean_theta"] # Prior inizializzato come N(0,metà intervallo)
-                    w_cov_theta = data_TS["w_cov_theta"]   # Prior inizializzato come N(0,metà intervallo)
-                    w_mean_theta = np.array(w_mean_theta)
-                    w_cov_theta  = np.array(w_cov_theta)
+                    u_mean_theta = np.array(data_TS["u_mean_theta"])
+                    u_cov_theta  = np.array(data_TS["u_cov_theta"])
+                    mu_theta     = data_TS["mu_theta"]
+                    s_theta      = data_TS["s_theta"]       
+
+                    w_mean_theta = np.array(data_TS["w_mean_theta"]) # Prior inizializzato come N(0,metà intervallo)
+                    w_cov_theta = np.array(data_TS["w_cov_theta"])   # Prior inizializzato come N(0,metà intervallo)
 
                     x_hist_num_wp = data_TS["x_hist_num_wp"] 
                     y_hist_num_wp = data_TS["y_hist_num_wp"] # lista di 1=success,0=failure
-                    w_mean_num_wp = data_TS["w_mean_num_wp"] # Prior inizializzato come N(0,metà intervallo)
-                    w_cov_num_wp = data_TS["w_cov_num_wp"]   # Prior inizializzato come N(0,metà intervallo)
-                    w_mean_num_wp = np.array(w_mean_num_wp)
-                    w_cov_num_wp  = np.array(w_cov_num_wp)
+                    w_mean_num_wp = np.array(data_TS["w_mean_num_wp"]) # Prior inizializzato come N(0,metà intervallo)
+                    w_cov_num_wp = np.array(data_TS["w_cov_num_wp"])   # Prior inizializzato come N(0,metà intervallo)
 
             except Exception as e:
                 self.get_logger().error(f"Errore caricamento YAML: {e}")
@@ -506,46 +592,6 @@ class BeliefUpdater(Node):
                 response.success = False
                 return response
             
-            # # Aggiornamento TS 
-            # if k_TS % 2 == 0: # aggiorna theta
-            #     # Append liste
-            #     y_hist_theta.append(success_path) 
-            #     x_hist_theta.append(current_theta)
-
-            #     ys = np.array(y_hist_theta)
-            #     if ys.sum() == 0 or ys.sum() == len(ys):
-            #         # COLLASSO → NON aggiornare posteriore
-            #         # esplora uniformemente
-            #         x_next_theta = np.random.uniform(80,100,PATH_NUM)
-            #         num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, 300,400))
-            #         x_next_num_wp = np.ones(PATH_NUM)*num_wp
-            #     else:
-            #         # update posterior
-            #         w_mean_theta, w_cov_theta = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
-            #         # new sample
-            #         num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400))
-            #         x_next_num_wp = np.ones(PATH_NUM)*num_wp
-                    
-            #         x_next_theta = sample_x_TS(w_mean_theta, w_cov_theta, x_min=80, x_max=100, M=PATH_NUM)
-                    
-            # else: # aggiorna num wp
-            #     # Append liste
-            #     y_hist_num_wp.append(success_path) 
-            #     x_hist_num_wp.append(current_num_wp)
-
-            #     ys = np.array(y_hist_num_wp)
-            #     if ys.sum() == 0 or ys.sum() == len(ys):
-            #         x_next_num_wp = np.random.uniform(300,400,PATH_NUM)
-            #         theta = best_theta_bayes(w_mean_theta, w_cov_theta, 80,100)
-            #         x_next_theta = np.ones(PATH_NUM)*theta
-            #     else:
-            #         # update posterior
-            #         w_mean_num_wp, w_cov_num_wp = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
-            #         # new sample
-            #         x_next_num_wp = sample_x_TS(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400, M=PATH_NUM)
-            #         theta = best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100)
-            #         x_next_theta = np.ones(PATH_NUM)*theta
-
             # Aggiornamento TS 
             # Append liste
             y_hist_theta.append(success_path) 
@@ -558,8 +604,27 @@ class BeliefUpdater(Node):
             if ys_t.sum() == 0 or ys_t.sum() == len(ys_t):
                 x_next_theta = np.random.uniform(80,100,PATH_NUM) # COLLASSO → NON aggiornare posteriore ma esplora uniformemente
             else:
-                w_mean_theta, w_cov_theta = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta) # update posterior            
-                x_next_theta = sample_x_TS(w_mean_theta, w_cov_theta, x_min=80, x_max=100, M=PATH_NUM) # new sample
+                u_mean_theta, u_cov_theta, mu_theta, s_theta = update_w_quadratic_concave(
+                    np.array(x_hist_theta),
+                    np.array(y_hist_theta),
+                    u_mean_theta,
+                    u_cov_theta,
+                    mu=mu_theta,
+                    s=s_theta
+                )
+
+                x_next_theta = sample_x_TS_quadratic(
+                    u_mean_theta,
+                    u_cov_theta,
+                    x_min=80,
+                    x_max=100,
+                    M=PATH_NUM,
+                    mu=mu_theta,
+                    s=s_theta
+                )
+
+                # w_mean_theta, w_cov_theta = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta) # update posterior            
+                # x_next_theta = sample_x_TS(w_mean_theta, w_cov_theta, x_min=80, x_max=100, M=PATH_NUM) # new sample
 
             # Update wp
             ys_wp = np.array(y_hist_num_wp)
@@ -577,8 +642,12 @@ class BeliefUpdater(Node):
 
                     "x_hist_theta": self.to_builtin(x_hist_theta),
                     "y_hist_theta": self.to_builtin(y_hist_theta),
-                    "w_mean_theta": self.to_builtin(w_mean_theta),
-                    "w_cov_theta":  self.to_builtin(w_cov_theta),
+                    "u_mean_theta": self.to_builtin(u_mean_theta),
+                    "u_cov_theta":  self.to_builtin(u_cov_theta),
+                    "mu_theta": float(mu_theta),
+                    "s_theta":  float(s_theta),
+                    # "w_mean_theta": self.to_builtin(w_mean_theta),
+                    # "w_cov_theta":  self.to_builtin(w_cov_theta),
 
                     "x_hist_num_wp": self.to_builtin(x_hist_num_wp),
                     "y_hist_num_wp": self.to_builtin(y_hist_num_wp),
@@ -592,7 +661,7 @@ class BeliefUpdater(Node):
             theta_new=[]
             num_wp_new=[]
             for i in range(PATH_NUM):
-                theta_new.append(np.clip(float(x_next_theta[i]) + np.random.uniform(-1.0, 1.0)/k_TS, 80, 100))
+                theta_new.append(np.clip(float(x_next_theta[i]) + np.random.uniform(-0.5, 0.5)/k_TS, 80, 100))
                 num_wp_new.append(np.clip(int(x_next_num_wp[i]) + np.random.uniform(-10, 10)/k_TS, 300, 400))
             x_next_theta=theta_new
             x_next_num_wp=num_wp_new
@@ -606,6 +675,7 @@ class BeliefUpdater(Node):
                 yaml.safe_dump(state_current_plan_params, f, sort_keys=False) 
         
         elif no_plan_update:
+            print("update planning parameters randomicamente")
             # Aggiorna randomicamente parametri nel caso in cui sia fallito il planner
             x_next_theta = np.random.uniform(80,100,PATH_NUM)
             x_next_num_wp = np.random.uniform(300,400,PATH_NUM)
@@ -617,6 +687,7 @@ class BeliefUpdater(Node):
                 yaml.safe_dump(state_current_plan_params, f, sort_keys=False)
       
         else: # Successo del path non coincide con il successo reale --> non aggiornare
+            print("no update planning parameters")
             try:
                 if not os.path.exists(FILE_CURRENT_PLAN_PARAMS):
                     self.get_logger().error("no file planning parameters")
@@ -648,7 +719,7 @@ class BeliefUpdater(Node):
 
         try:
             save_experiment_data(
-                experiment_name="robot_experiment1",
+                experiment_name="robot_experiment_12122025_3",
 
                 init_params=data_params if k_tol == 0 else None,
                 init_tolerances=data_tolerances if k_tol == 0 else None,
