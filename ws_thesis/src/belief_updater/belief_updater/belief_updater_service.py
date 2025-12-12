@@ -564,8 +564,8 @@ class BeliefUpdater(Node):
                     mu_theta     = data_TS["mu_theta"]
                     s_theta      = data_TS["s_theta"]       
 
-                    w_mean_theta = np.array(data_TS["w_mean_theta"]) # Prior inizializzato come N(0,metà intervallo)
-                    w_cov_theta = np.array(data_TS["w_cov_theta"])   # Prior inizializzato come N(0,metà intervallo)
+                    # w_mean_theta = np.array(data_TS["w_mean_theta"]) # Prior inizializzato come N(0,metà intervallo)
+                    # w_cov_theta = np.array(data_TS["w_cov_theta"])   # Prior inizializzato come N(0,metà intervallo)
 
                     x_hist_num_wp = data_TS["x_hist_num_wp"] 
                     y_hist_num_wp = data_TS["y_hist_num_wp"] # lista di 1=success,0=failure
