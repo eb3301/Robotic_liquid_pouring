@@ -391,6 +391,7 @@ class BeliefUpdater(Node):
         super().__init__('belief_updater')
         self.srv = self.create_service(UpdateBelief, 'update_belief', self.updater_callback)
         self.get_logger().info("Belief updater service ready")
+        self.num_consec_fail=0
 
     def _load_yaml(self, path):
         with open(path, 'r') as f:
@@ -474,7 +475,7 @@ class BeliefUpdater(Node):
         MIN_MODELS = 3
         # Filtra i parametri coerenti col risultato reale
         if no_plan_update:
-            param_new=random.sample(parameters_set,MAX_MODELS-1)
+            param_new=[] #random.sample(parameters_set,MAX_MODELS-1)
         else:
             param_new = [p for i, p in enumerate(parameters_set[:n]) if is_success(scores[i]) == real_result]
 
@@ -482,13 +483,17 @@ class BeliefUpdater(Node):
             # Resampling around initial params
             self.get_logger().warn("Tutte le ipotesi eliminate! Ricampiono da parametri iniziali...")
             init_param = load_parameters()
-            updated = list(init_param)
+            updated = list(init_param)  
+            extra_increase=self.num_consec_fail*0.5
+            tolerances_increased = scale_tol(tolerances, 1.0 + extra_increase)
+            self.num_consec_fail+=1
             while len(updated) < MIN_MODELS:
                 for p in init_param:
-                    updated.append(update_parameters(p,tolerances))
+                    updated.append(update_parameters(p,tolerances_increased))
                     if len(updated) >= MIN_MODELS:
                         break            
         else:
+            self.num_consec_fail=0
             # Resampling   
             updated = list(param_new)
             while len(updated) < MIN_MODELS:
@@ -564,8 +569,8 @@ class BeliefUpdater(Node):
                     mu_theta     = data_TS["mu_theta"]
                     s_theta      = data_TS["s_theta"]       
 
-                    w_mean_theta = np.array(data_TS["w_mean_theta"]) # Prior inizializzato come N(0,metà intervallo)
-                    w_cov_theta = np.array(data_TS["w_cov_theta"])   # Prior inizializzato come N(0,metà intervallo)
+                    # w_mean_theta = np.array(data_TS["w_mean_theta"]) # Prior inizializzato come N(0,metà intervallo)
+                    # w_cov_theta = np.array(data_TS["w_cov_theta"])   # Prior inizializzato come N(0,metà intervallo)
 
                     x_hist_num_wp = data_TS["x_hist_num_wp"] 
                     y_hist_num_wp = data_TS["y_hist_num_wp"] # lista di 1=success,0=failure
@@ -719,7 +724,7 @@ class BeliefUpdater(Node):
 
         try:
             save_experiment_data(
-                experiment_name="robot_experiment_12122025_4",
+                experiment_name="robot_experiment_12122025_8",
 
                 init_params=data_params if k_tol == 0 else None,
                 init_tolerances=data_tolerances if k_tol == 0 else None,
