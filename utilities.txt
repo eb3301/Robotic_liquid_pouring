@@ -45,3 +45,6 @@ segui processo calib
  
  ros2 topic pub -r 500 /forward_veposition_controller/commands std_msgs/msg/Float64MultiArray \'layout:\^J\ \ dim:\ []\^J\ \ data_offset:\ 0\^Jdata:\ [0,1,0,0,0,0]\^J\'
 
+
+rm -rf best_path.yaml parameters.yaml scores_history.yaml scores.yaml threshold.yaml tolerances.yaml TStheta.yaml TSnum_wp.yaml iter.yaml TS.yaml current_plan_params.yaml init_parameters_new.yaml new_plan_params.yaml 
+

@@ -563,7 +563,7 @@ class SetPlanParams(RosLeaf):
         pos_grip_ee = self.transform_to_world(pos_grip_ee)
 
         pos_cont_goal[0] += 0.02
-        pos_cont_goal[1] -= 0.02
+        pos_cont_goal[1] -= 0.01
         pos_cont_goal[0]=np.clip(pos_cont_goal[0],0.726 - 1e-4 * np.random.randn(),0.766 + 1e-4 * np.random.randn())
         pos_cont_goal[1]=np.clip(pos_cont_goal[1],0.941 - 1e-4 * np.random.randn(),0.981 + 1e-4 * np.random.randn())
         
