@@ -392,6 +392,7 @@ class BeliefUpdater(Node):
         self.srv = self.create_service(UpdateBelief, 'update_belief', self.updater_callback)
         self.get_logger().info("Belief updater service ready")
         self.num_consec_fail=0
+        self.k0=0
 
     def _load_yaml(self, path):
         with open(path, 'r') as f:
@@ -449,10 +450,10 @@ class BeliefUpdater(Node):
             # Fattore shrinking
             # k_tol = iterazione corrente, H = orizzonte previsto
             # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
-            H=2000
+            H=10
             f0, f_min = 1.0, 0.0001
             tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
-            factor = max(f_min, f0 * np.exp(-k_tol / tau))
+            factor = max(f_min, f0 * np.exp(-(k_tol-self.k0) / tau))
             # Re-heating per avere + esploraz 
             #boost_every, boost = 500, 1.4
             #factor = min(1.0, factor * boost) if k_tol % boost_every == 0 else factor
@@ -472,7 +473,7 @@ class BeliefUpdater(Node):
         n = min(len(scores), len(parameters_set))
 
         MAX_MODELS = 3
-        MIN_MODELS = 3
+        MIN_MODELS = 5
         # Filtra i parametri coerenti col risultato reale
         if no_plan_update:
             param_new=[] #random.sample(parameters_set,MAX_MODELS-1)
@@ -481,6 +482,7 @@ class BeliefUpdater(Node):
 
         if len(param_new) == 0:
             # Resampling around initial params
+            self.k0=k_tol
             self.get_logger().warn("Tutte le ipotesi eliminate! Ricampiono da parametri iniziali...")
             init_param = load_parameters()
             updated = list(init_param)  
@@ -491,11 +493,23 @@ class BeliefUpdater(Node):
                 for p in init_param:
                     updated.append(update_parameters(p,tolerances_increased))
                     if len(updated) >= MIN_MODELS:
-                        break            
+                        break   
+        # elif len(param_new) == len(parameters_set):
+        #     # tutti i modelli corrispondono al risultato reale --> eliminane uno random
+        #     param_new=random.sample(param_new,MAX_MODELS-1)       
+        #     self.num_consec_fail=0
+        #     # Resampling   
+        #     updated = list(param_new)
+        #     while len(updated) < MIN_MODELS:
+        #         for p in param_new:    
+        #             updated.append(update_parameters(p,tolerances_scaled))
+        #             if len(updated) >= MIN_MODELS:
+        #                 break
         else:
             self.num_consec_fail=0
             # Resampling   
             updated = list(param_new)
+            updated = sorted(updated, key=lambda p: random.random())  # shuffle
             while len(updated) < MIN_MODELS:
                 for p in param_new:    
                     updated.append(update_parameters(p,tolerances_scaled))
@@ -724,7 +738,7 @@ class BeliefUpdater(Node):
 
         try:
             save_experiment_data(
-                experiment_name="robot_experiment_12122025_8",
+                experiment_name="robot_experiment_15122025_3",
 
                 init_params=data_params if k_tol == 0 else None,
                 init_tolerances=data_tolerances if k_tol == 0 else None,
@@ -733,6 +747,7 @@ class BeliefUpdater(Node):
                 iteration_parameters=updated,          # set parametri correnti
                 iteration_scores=scores,               # scores correnti
                 threshold=0.5,                         # threshold usato da is_success
+                iteration_real_score=real_score,                     # score reale ottenuto
 
                 ts_file_data=state_TS                  # copia completa file TS
             )

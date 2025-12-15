@@ -24,8 +24,9 @@ def save_experiment_data(
     iteration_id=None,
     iteration_parameters=None,
     iteration_scores=None,
+    iteration_real_score=None,
     threshold=None,
-    ts_file_data=None
+    ts_file_data=None,
 ):
     """
     Salva i dati sperimentali in modo persistente.
@@ -71,6 +72,7 @@ def save_experiment_data(
         "iteration_id": iteration_id,
         "parameters": iteration_parameters,
         "scores": iteration_scores,
+        "real result": iteration_real_score,
         "threshold": threshold
     }
 
