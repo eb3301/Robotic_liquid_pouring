@@ -1,12 +1,14 @@
 ToDo:
 
 # VISION
--fine tuning se non funziona --> aggiunta volume contenitore
+- re-train CNN 1
+- re-train CNN 2
+- validazione con base line (no modello trainato, resnet alla prima iteraz)
 
-# INTEGRAZIONE
-- testa update belief con doppio update
-- verifica pipeline update e grafici necessari
-- test in sim per convergenza
+# EXP
+- baseline (pouring con prima iterazione)
+- test con genesis
+- test con ridotta illuminazione
 
 ########################### OVERLEAF:
 1) 3 pagine intro ()

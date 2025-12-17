@@ -694,7 +694,7 @@ class ExecutePathPublisher(RosLeaf):
         "wrist_3_joint",
     ]
 
-    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=10.0, motion_client=None):
+    def __init__(self, node, name="ExecutePathPublisher", tol=0.01, grace_t=1.0, motion_client=None):
         super().__init__(name, node)
         self.pub = self.node.create_publisher(
             JointTrajectory,
