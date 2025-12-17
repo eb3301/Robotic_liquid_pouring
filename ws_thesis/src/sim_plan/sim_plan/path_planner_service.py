@@ -2420,8 +2420,8 @@ class PathPlannerService(Node):
                     (0.0, 0.0),    # z: ±0.0 cm
                 ],
                 "pos_cont_goal": [
-                    (0.02, 0.02),  # x: ±1.5 cm
-                    (0.02, 0.02),  # y: ±1.5 cm
+                    (0.03, 0.03),  # x: ±1.5 cm
+                    (0.03, 0.03),  # y: ±1.5 cm
                     (0.0, 0.0),      # z: ±0.0 cm
                 ],
                 # "pos_init_ee": [
