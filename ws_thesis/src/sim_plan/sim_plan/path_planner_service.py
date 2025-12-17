@@ -1472,7 +1472,7 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
         q_best = None
         for i in range(n_ik):
             # if i%40==0: print("Almost there or maybe not")
-            result, tmp = motion_client.solve_ik(pose=pose_msg, seed=seed)
+            result, tmp = motion_client.get_ik(pose=pose_msg, seed=seed)
             if tmp is None:
                 continue
             tmp=np.asarray(tmp,dtype=float)
@@ -1499,7 +1499,9 @@ def ik(pos, quat, q_guess, n_ik, motion_client):
             q=q_best
             q_guess = q_best.copy()
     else:
-        result, q = motion_client.solve_ik(pose=pose_msg)
+        q=None
+        while q is None:
+            result, q = motion_client.get_ik(pose=pose_msg)
     q = [float(x) for x in q]
     return q
 
@@ -1526,7 +1528,9 @@ def plan_path_full_moveit(
     #################################
     x_shift=0.15
     z_min=0.967
+
     n_ik=10
+    
     lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
     
@@ -2416,8 +2420,8 @@ class PathPlannerService(Node):
                     (0.0, 0.0),    # z: ±0.0 cm
                 ],
                 "pos_cont_goal": [
-                    (0.02, 0.02),  # x: ±1.5 cm
-                    (0.02, 0.02),  # y: ±1.5 cm
+                    (0.03, 0.03),  # x: ±1.5 cm
+                    (0.03, 0.03),  # y: ±1.5 cm
                     (0.0, 0.0),      # z: ±0.0 cm
                 ],
                 # "pos_init_ee": [
@@ -2601,15 +2605,18 @@ class PathPlannerService(Node):
             success_rate=success/len(parameters_set)
             # def di miglior path
             if success_rate > best_success_rate or ( success_rate == best_success_rate and sum(scores) > best_sum):
-                    print(f"new best: {theta_f_a[i%M]} - {int(num_wp_a[i%M])} - {parameters_set[i%N]['pos_cont_goal']}")
+                    print(f"new best: {theta_f_a[i%M]} - {int(num_wp_a[i%M])} - {parameters_set[i//M]['pos_cont_goal']}")
                     best_sum = sum(scores) 
                     best_path = path
+                    best_model_idx = i // M
                     best_successes = successes.copy()
                     best_scores=scores.copy()
                     best_success_rate = success_rate
                     success_path=1 if success_rate > 0.6 else 0
-                    state_current_plan_params = {"current_theta": self.to_builtin(theta_f_a[i%M]), "current_num_wp": self.to_builtin(int(num_wp_a[i%M])), "success_path": self.to_builtin(success_path)}
-                        
+                    state_current_plan_params = {"current_theta": self.to_builtin(theta_f_a[i%M]),
+                                                 "current_num_wp": self.to_builtin(int(num_wp_a[i%M])),
+                                                 "success_path": self.to_builtin(success_path), 
+                                                 "best_model_idx": self.to_builtin(best_model_idx)}
         
         if best_success_rate < delta:
             self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")

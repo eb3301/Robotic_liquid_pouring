@@ -17,8 +17,15 @@ SUCCESS_PATH_FILE = "/tmp/success_path.yaml"
 FILE_TS = "/tmp/TS.yaml"
 FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
 FILE_NEW_PLAN_PARAMS = "/tmp/new_plan_params.yaml"
+MEMORY_FILE = "/tmp/sim_memory.yaml"
 
 PATH_NUM = 3
+MAX_MODELS = 3          # quanti modelli tieni davvero “attivi”
+POOL_SIZE = 12          # quanti modelli tieni in memoria (>= MAX_MODELS)
+PARENT_SAMPLES = 24     # quanti figli generi ogni iterazione (>= MAX_MODELS)
+ALPHA_BETA_PRIOR = 1.0  # smoothing Beta
+WEIGHT_BETA = 2.0       # >1 exploitation, <1 exploration
+
 
 def is_success(score, threshold=0.5):
     return score > threshold
@@ -377,6 +384,22 @@ def sample_x_TS_quadratic(u_mean, u_cov, x_min, x_max, M, mu, s, n_grid=200):
 
     return np.array(x_nexts)
 
+def init_memory(n):
+    return [{"success": 0, "fail": 0} for _ in range(n)]
+
+def align_memory(mem, n):
+    if not isinstance(mem, list):
+        mem = []
+    if len(mem) < n:
+        mem.extend(init_memory(n - len(mem)))
+    elif len(mem) > n:
+        mem = mem[:n]
+    return mem
+
+def p_success(mem_i, alpha=1.0):
+    s = int(mem_i.get("success", 0))
+    f = int(mem_i.get("fail", 0))
+    return (s + alpha) / (s + f + 2.0 * alpha)
 
 def load_parameters():
         with open(PARAMS_FILE, "r") as f:
@@ -427,105 +450,148 @@ class BeliefUpdater(Node):
         real_score=float(request.real_score)
         real_result = is_success(real_score)
         no_plan_update = True if real_score<-0.5 else False
+
         print(f"real res bool: {real_result}")
         print(f"no plan update: {no_plan_update}")
         self.get_logger().info(f"Real score={real_score:.3f} -> real_result={real_result}")
 
         ##################################################################################
         ##################################################################################
-        ##################################################################################
+        ################################################################################## 
 
-        # Simulation Parameters Update:
-        
-        # Carica set di parametri e score
         try:
             data_params = self._load_yaml(PARAMS_FILE)
             data_scores = self._load_yaml(SCORES_FILE)
             data_tolerances = self._load_yaml(TOLERANCES_FILE)
+
             parameters_set = data_params["parameters"]
             scores = data_scores["scores"] # CONTIENE IN REALTÀ SUCCESS (BINARIO 0/1)
             tolerances = data_tolerances["tolerances"]
             k_tol = data_tolerances.get("iteration", 0)
-           
-            # Fattore shrinking
-            # k_tol = iterazione corrente, H = orizzonte previsto
-            # f0 = valore iniziale, f_min = minimo da raggiungere dopo H iteraz
-            H=10
+
+            parameters_set = data_params.get("parameters", [])
+            scores = data_scores.get("scores", [])   # binario 0/1
+            tolerances = data_tolerances.get("tolerances", {})
+            k_tol = int(data_tolerances.get("iteration", 0))
+
+            # Se il pool non esiste, inizializzalo da file (o da quello che già hai)
+            if not parameters_set:
+                parameters_set = load_parameters()
+
+            # --- mantieni un pool minimo stabile (non collassare a 3 elementi) ---
+            # se ora hai pochi parametri, rigenera attorno ai disponibili fino a POOL_SIZE
+            if len(parameters_set) < POOL_SIZE:
+                base = list(parameters_set)
+                while len(parameters_set) < POOL_SIZE:
+                    for p in base:
+                        parameters_set.append(copy.deepcopy(p))
+                        if len(parameters_set) >= POOL_SIZE:
+                            break
+
+            # shrinking base
+            H = 10
             f0, f_min = 1.0, 0.0001
-            tau = H / np.log(f0 / f_min)   # es: H=1000 => tau≈334
-            factor = max(f_min, f0 * np.exp(-(k_tol-self.k0) / tau))
-            # Re-heating per avere + esploraz 
-            #boost_every, boost = 500, 1.4
-            #factor = min(1.0, factor * boost) if k_tol % boost_every == 0 else factor
-
-
-            # Applica scaling
+            tau = H / np.log(f0 / f_min)
+            factor = max(f_min, f0 * np.exp(-(k_tol - self.k0) / tau))
             tolerances_scaled = scale_tol(tolerances, factor)
-            #print(tolerances_scaled)
 
         except Exception as e:
             self.get_logger().error(f"Errore caricamento YAML: {e}")
             response.success = False
             return response
 
-        if len(scores) != len(parameters_set):
-            self.get_logger().warn(f"Dimensioni diverse: scores={len(scores)} vs params={len(parameters_set)}; uso min(n).")
-        n = min(len(scores), len(parameters_set))
+        # allinea n su pool e (se presente) scores
+        n = len(parameters_set)
+        if scores and len(scores) != n:
+            self.get_logger().warn(f"Dimensioni diverse: scores={len(scores)} vs params={n}. Allineo usando min().")
+            n = min(len(scores), n)
+            parameters_set = parameters_set[:n]
+            scores = scores[:n]
 
-        MAX_MODELS = 3
-        MIN_MODELS = 5
-        # Filtra i parametri coerenti col risultato reale
+        # TODO tutta la parte precedente deve essere sostituita dal filtro del codice prima + estensione con parametri gaussiani
+
+        # --- carica e allinea memoria ---
+        mem_data = self._load_yaml(MEMORY_FILE, default={"memory": []})
+        memory = align_memory(mem_data.get("memory", []), n)
+
+        # --- aggiorna memoria usando gli score simulati (reward binario storico) ---
+        # Questo è ciò che ti mancava: ora ogni iterazione accumula success/fail per ciascun set.
+        if scores:
+            for i in range(n):
+                if is_success(scores[i], threshold=0.5):
+                    memory[i]["success"] += 1
+                else:
+                    memory[i]["fail"] += 1
+
+        # (opzionale) se nel request hai un indice del modello realmente eseguito, aggiorna anche quello
+        model_index = getattr(request, "model_index", None)
+        if model_index is not None and 0 <= int(model_index) < n:
+            if real_result:
+                memory[int(model_index)]["success"] += 1
+            else:
+                memory[int(model_index)]["fail"] += 1
+
+        # --- se no_plan_update: esplorazione ampia attorno ai migliori (ma senza usare il filtro duro) ---
+        p_succ = np.array([p_success(memory[i], alpha=ALPHA_BETA_PRIOR) for i in range(n)], dtype=float)
+
         if no_plan_update:
-            param_new=[] #random.sample(parameters_set,MAX_MODELS-1)
-        else:
-            param_new = [p for i, p in enumerate(parameters_set[:n]) if is_success(scores[i]) == real_result]
+            # aumenta esplorazione se planner fallisce consecutivamente
+            extra_increase = self.num_consec_fail * 0.5
+            self.num_consec_fail += 1
+            wide_factor = max(1.0, 1.0 + extra_increase)
+            tol_wide = scale_tol(tolerances, wide_factor)  # NON usare shrinking qui: vogliamo uscire da regioni cattive
 
-        if len(param_new) == 0:
-            # Resampling around initial params
-            self.k0=k_tol
-            self.get_logger().warn("Tutte le ipotesi eliminate! Ricampiono da parametri iniziali...")
-            init_param = load_parameters()
-            updated = list(init_param)  
-            extra_increase=self.num_consec_fail*0.5
-            tolerances_increased = scale_tol(tolerances, 1.0 + extra_increase)
-            self.num_consec_fail+=1
-            while len(updated) < MIN_MODELS:
-                for p in init_param:
-                    updated.append(update_parameters(p,tolerances_increased))
-                    if len(updated) >= MIN_MODELS:
-                        break   
-        # elif len(param_new) == len(parameters_set):
-        #     # tutti i modelli corrispondono al risultato reale --> eliminane uno random
-        #     param_new=random.sample(param_new,MAX_MODELS-1)       
-        #     self.num_consec_fail=0
-        #     # Resampling   
-        #     updated = list(param_new)
-        #     while len(updated) < MIN_MODELS:
-        #         for p in param_new:    
-        #             updated.append(update_parameters(p,tolerances_scaled))
-        #             if len(updated) >= MIN_MODELS:
-        #                 break
+            # campiona genitori privilegiando p_succ alto, ma con rumore
+            weights = np.clip(p_succ ** (WEIGHT_BETA * 0.7), 1e-12, None)
+            weights /= weights.sum()
+
+            parent_idx = np.random.choice(np.arange(n), size=min(PARENT_SAMPLES, n), replace=True, p=weights)
+            updated_pool = [update_parameters(parameters_set[i], tol_wide) for i in parent_idx]
+
         else:
-            self.num_consec_fail=0
-            # Resampling   
-            updated = list(param_new)
-            updated = sorted(updated, key=lambda p: random.random())  # shuffle
-            while len(updated) < MIN_MODELS:
-                for p in param_new:    
-                    updated.append(update_parameters(p,tolerances_scaled))
-                    if len(updated) >= MIN_MODELS:
+            self.num_consec_fail = 0
+
+            # pesi guidati dal risultato reale (se real_result True -> preferisci regioni con p_succ alto)
+            if real_result:
+                weights = np.clip(p_succ ** WEIGHT_BETA, 1e-12, None)
+            else:
+                # se real_result False, “spingi via” da regioni con alta p_succ simulata
+                weights = np.clip((1.0 - p_succ) ** WEIGHT_BETA, 1e-12, None)
+            weights /= weights.sum()
+
+            parent_idx = np.random.choice(np.arange(n), size=min(PARENT_SAMPLES, n), replace=True, p=weights)
+
+            # esplorazione direzionata: più stretta se p_succ alta, più ampia se bassa
+            updated_pool = []
+            for i in parent_idx:
+                local_factor = max(f_min, factor * (1.0 - p_succ[i]))
+                local_tol = scale_tol(tolerances, local_factor)
+                updated_pool.append(update_parameters(parameters_set[i], local_tol))
+
+        # --- mantieni un pool e scegli i modelli “attivi” ---
+        # pool per la prossima simulazione: POOL_SIZE elementi
+        if len(updated_pool) < POOL_SIZE:
+            base = list(updated_pool)
+            while len(updated_pool) < POOL_SIZE:
+                for p in base:
+                    updated_pool.append(copy.deepcopy(p))
+                    if len(updated_pool) >= POOL_SIZE:
                         break
+        elif len(updated_pool) > POOL_SIZE:
+            updated_pool = random.sample(updated_pool, POOL_SIZE)
 
-        if len(updated) > MAX_MODELS:
-            updated = random.sample(updated, MAX_MODELS)
+        # modelli attivi da usare immediatamente (quelli che il tuo planner/simulatore userà)
+        updated = random.sample(updated_pool, min(MAX_MODELS, len(updated_pool)))
 
-        # Salva su file
+        # salva: pool completo in PARAMS_FILE (così non collassi), memoria in MEMORY_FILE, iterazione in tolerances
         try:
             with open(PARAMS_FILE, 'w') as f:
-                yaml.safe_dump({"parameters": updated}, f, sort_keys=False)
-                data_tolerances["iteration"] = k_tol + 1
+                yaml.safe_dump({"parameters": self.to_builtin(updated_pool)}, f, sort_keys=False)
+            data_tolerances["iteration"] = k_tol + 1
             with open(TOLERANCES_FILE, 'w') as f:
                 yaml.safe_dump(data_tolerances, f, sort_keys=False)
+            with open(MEMORY_FILE, 'w') as f:
+                yaml.safe_dump({"memory": self.to_builtin(memory)}, f, sort_keys=False)
 
         except Exception as e:
             self.get_logger().error(f"Errore salvataggio YAML: {e}")
@@ -738,7 +804,7 @@ class BeliefUpdater(Node):
 
         try:
             save_experiment_data(
-                experiment_name="robot_experiment_16122025_4",
+                experiment_name="robot_experiment_15122025_3",
 
                 init_params=data_params if k_tol == 0 else None,
                 init_tolerances=data_tolerances if k_tol == 0 else None,
