@@ -1,13 +1,14 @@
 ToDo:
 
 # VISION
-- re-train CNN 1
-- re-train CNN 2
+- re-train CNN 1 (1)
+- re-train CNN 2 
 - validazione con base line (no modello trainato, resnet alla prima iteraz)
 
 # EXP
+- ultimi 2 test normali
 - baseline (pouring con prima iterazione)
-- test con genesis
+- test con genesis (1)
 - test con ridotta illuminazione
 
 ########################### OVERLEAF:
@@ -16,26 +17,34 @@ thesis structure
 
 2) stato arte 10-15 pag (planning + ML )::
 Modellazione
-- Liquid modelling (diversi tipi di modello - perchè sim + spiegare sph pressure solver (+ condizioni per stabilità )) 
+- Liquid modelling (diversi tipi di modello [citando letteratura]- perchè sim + spiegare sph pressure solver (+ condizioni per stabilità )) 
+i liquidi possono essere modellati sia in modo geometrico che in modo fisico approssimato e in modo fisico simulato per avvicinarsi il più possibile al reale
 - Modellazione fisica robot (per poter manipolare liq: dinamica robot + liquido) --> tabella sim fisici (liquidi - deformable - rigid (sì-no)) --> giustifica scelta
+i robot invece sono sempre descritti attraverso una cinematica e dinamica continua o discreta che rappresenta però sempre una approssimazione molto fedele della realtà
+per poter modellare un sistema robot + liquido si hanno quindi diverse opzioni:
+-- liquido approssimato + robot simulato (fattibile con pressoché tutti i simulatori in commercio e.g. mujoco)
+-- liquido simulato + robot simulato (richiede un simulatore fisico in grado di gestire contemp le cose e.g. genesis (tabella simulatori))
 
 Planning/Reinf. learning
 planning approach (RRT + robusta incertezza)
-RL approach
+RL approach (chance constrained learning/optimization (cerca paper))
 
 Sim2Real
 
-Vision (ML per vision)
+Vision (ML per vision di liquidi)
 
 3) Preliminaries/ background:
 ML per vision (NN e CNN)
-Planning alg. (RRT + chanche constr.)
+Planning alg. (RRT + 
+chanche constrained
+Bayesian optim e TS
 
 Methodologies:
 planning+sim2real (action) --> astrarre ad uso generale plan con incertezza
 perception
 
 Experiments
+case study
 Simulazione e realtà
 
 Conclusions:

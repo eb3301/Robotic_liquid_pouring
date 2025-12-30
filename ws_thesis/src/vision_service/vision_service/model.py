@@ -14,17 +14,25 @@ class Net(nn.Module):
         # --------------Build layers for standart FCN with only image as input------------------------------------------------------
             super(Net, self).__init__()
             # ---------------Load pretrained  encoder---------------------------------------------------------
-            self.Encoder = models.resnet101()
+            self.Encoder = models.resnet101() # mettere pretrained=True per usare pesi imagenet
 
 #---------------------------------Dilated convolution ASPP layers (same as deep lab)------------------------------------------------------------------------------
-
-            self.ASPPScales = [1, 2, 4, 12, 16]
+            # Atrous Spatial Pyramid Pooling (ASPP) is a powerful multi-scale feature extraction module in deep learning,
+            #  especially for semantic segmentation, that uses parallel atrous (dilated) convolutions with different dilation rates
+            #  to capture context at multiple scales without losing resolution. By enlarging the receptive field through sparse sampling
+            #  (adding gaps in the convolution kernel), ASPP efficiently gathers rich local and global information, significantly improving
+            #  performance in tasks with objects of varying sizes by integrating features from various depths and context.
+            self.ASPPScales = [1, 2, 4, 12, 16] # Dilation rates for ASPP layers
+            # simile a DeepLabV3+
             self.ASPPLayers = nn.ModuleList()
             for scale in self.ASPPScales:
+                    # convuluzione 3x3 da 2048 a 512 canali con dilatazione variabile + concatenazione
                     self.ASPPLayers.append(nn.Sequential(
                     nn.Conv2d(2048, 512, stride=1, kernel_size=3,  padding = (scale, scale), dilation = (scale, scale), bias=False),nn.BatchNorm2d(512),nn.ReLU()))
 
 #-------------------------------------Squeeze ASPP Layer------------------------------------------------------------------------------
+            # ridurre costo computazionale e mescolare le feature estratte dalle varie dilatazioni per ottenere una rappresentazione 
+            # più compatta e generalizzata delle caratteristiche dell'immagine.
             self.SqueezeLayers = nn.Sequential(
                 nn.Conv2d(2560, 512, stride=1, kernel_size=3, padding=1, bias=False),
                 nn.BatchNorm2d(512),
@@ -34,6 +42,10 @@ class Net(nn.Module):
                 # nn.ReLU()
             )
             # ------------------Skip conncetion layers for upsampling-----------------------------------------------------------------------------
+            # l'upsampling serve a ripristinare la risoluzione spaziale delle mappe delle caratteristiche estratte durante il processo di convoluzione 
+            # (come, ad esempio, i dettagli spaziali persi a causa del pooling o delle precedenti convoluzioni). Le connessioni skip aiutano a
+            #  preservare le informazioni spaziali e i dettagli dell'immagine originale
+            # interpolazione bilineare + concatenazione con feature map del encoder + convoluzione per ridurre il numero di canali
             self.SkipConnections = nn.ModuleList()
             self.SkipConnections.append(nn.Sequential(
                 nn.Conv2d(1024, 512, stride=1, kernel_size=1, padding=0, bias=False),
