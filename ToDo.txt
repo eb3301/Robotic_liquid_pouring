@@ -19,22 +19,20 @@ thesis structure
 Modellazione
 
 
-Full physics sim (CFD + sim dinamica) --> coupling e gap Sim2Real
+a) 	Full physics sim (CFD + sim dinamica) --> coupling e gap Sim2Real
 
-- Modellazione fisica robot (per poter manipolare liq: dinamica robot + liquido) --> tabella sim fisici (liquidi - deformable - rigid (sì-no)) --> giustifica scelta
-i robot invece sono sempre descritti attraverso una cinematica e dinamica continua o discreta che rappresenta però sempre una approssimazione molto fedele della realtà
-per poter modellare un sistema robot + liquido si hanno quindi diverse opzioni:
--- liquido approssimato + robot simulato (fattibile con pressoché tutti i simulatori in commercio e.g. mujoco)
--- liquido simulato + robot simulato (richiede un simulatore fisico in grado di gestire contemp le cose e.g. genesis (tabella simulatori))
-
-
-Planning/Reinf. learning
-planning approach (RRT + robusta incertezza)
-RL approach (chance constrained learning/optimization (cerca paper))
+	- Modellazione fisica robot (per poter manipolare liq: dinamica robot + liquido) --> tabella sim fisici (liquidi - deformable - rigid (sì-no)) --> giustifica scelta
+	i robot invece sono sempre descritti attraverso una cinematica e dinamica continua o discreta che rappresenta però sempre una approssimazione molto fedele della realtà
+	per poter modellare un sistema robot + liquido si hanno quindi diverse opzioni:
+	-- liquido approssimato + robot simulato (fattibile con pressoché tutti i simulatori in commercio e.g. mujoco)
+	-- liquido simulato + robot simulato (richiede un simulatore fisico in grado di gestire contemp le cose e.g. genesis (tabella simulatori))
 
 
+b) 	Planning/Reinf. learning
+	planning approach (RRT + robusta incertezza)
+	RL approach (chance constrained learning/optimization (cerca paper))
 
-Vision (ML per vision di liquidi)
+c) 	Vision (ML per vision di liquidi)
 
 3) Preliminaries/ background:
 ML per vision (NN e CNN)
