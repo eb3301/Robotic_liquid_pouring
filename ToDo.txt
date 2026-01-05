@@ -19,6 +19,8 @@ thesis structure
 Modellazione
 - Liquid modelling (diversi tipi di modello [citando letteratura]- perchè sim + spiegare sph pressure solver (+ condizioni per stabilità )) 
 i liquidi possono essere modellati sia in modo geometrico che in modo fisico approssimato e in modo fisico simulato per avvicinarsi il più possibile al reale
+simulations: CFD + full physics sim 
+
 - Modellazione fisica robot (per poter manipolare liq: dinamica robot + liquido) --> tabella sim fisici (liquidi - deformable - rigid (sì-no)) --> giustifica scelta
 i robot invece sono sempre descritti attraverso una cinematica e dinamica continua o discreta che rappresenta però sempre una approssimazione molto fedele della realtà
 per poter modellare un sistema robot + liquido si hanno quindi diverse opzioni:

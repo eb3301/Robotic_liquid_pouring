@@ -1,0 +1,17 @@
+fluid sim
+Y. Chen, W. Chen, B. Li, G. Zhang, and W. Zhang. Paint thickness simulation for
+painting robot trajectory planning: a review. Industrial Robot: An International
+Journal, 44(5):629–638, 2017.
+
+
+Z. Pan and D. Manocha. Motion planning for fluid manipulation using simplified
+dynamics. In IEEE/RSJ International Conference on Intelligent Robots and Systems
+(IROS), pages 4224–4231, 2016.
+
+
+Z. Pan, C. Park, and D. Manocha. Robot motion planning for pouring liquids. In
+Proceedings of the international conference on automated planning and scheduling,
+volume 26, pages 518–526, 2016
+
+deep learning
+4, 53
