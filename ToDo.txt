@@ -18,6 +18,8 @@ thesis structure
 2) stato arte 10-15 pag (planning + ML )::
 Modellazione
 
+mancano foto learning
+manca schema sistema completo
 
 a) 	Full physics sim (CFD + sim dinamica) --> coupling e gap Sim2Real
 
