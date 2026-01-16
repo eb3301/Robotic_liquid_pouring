@@ -2361,7 +2361,7 @@ class PathPlannerService(Node):
 
     def plan_path_callback(self, request, response):
         
-        vol_target = 40
+        vol_target = 50
 
         liq=True
         record=False
@@ -2585,7 +2585,7 @@ class PathPlannerService(Node):
             with open("/tmp/threshold.yaml", "r") as f:
                 threshold = yaml.safe_load(f)
                 if threshold is None:
-                    threshold=0.4
+                    threshold=0.3
         c=0
         for i,path in enumerate(candidate_paths):
             success=0
@@ -2665,7 +2665,169 @@ class PathPlannerService(Node):
         response.best_path = flat_best_path
         response.time = time
         return response
-      
+
+    def plan_path_callback_baseline(self, request, response):
+        
+        vol_target = 50
+        N = 1                    # Numero di modelli simulati (iniziale)
+        M = 9                    # Numero di traiettorie
+        delta = 1/N              # Threshold di successo
+
+        # Carica parametri simulazione:
+
+        parameters = {
+            "pos_init_cont": list(request.pos_init_cont),
+            "pos_cont_goal": list(request.pos_cont_goal),
+            #"pos_init_ee": list(request.pos_init_ee),
+            "pos_grip_ee":list(request.pos_grip_ee),
+            "offset": list(request.offset),
+            "dCoR": [0.0, -0.015, 0.04],
+            #"densità": 998.0,
+            #"viscosità": 0.001,
+            #"tens_sup": 0.072,
+            "vol_init": request.init_vol, #2e-5, +-MAE
+            "vol_target": request.target_vol, #0.75e-5,
+            "err_target": 5e-6,
+            #"theta_f": request.theta_f, #+-15°
+            #"num_wp": int(request.num_wp),
+        }
+          
+        theta_f_arr = np.array([80,90,100])
+        num_wp_arr = np.array([300, 350, 400])
+
+        l_arr=9
+        theta_f_a = np.zeros(l_arr)
+        num_wp_a  = np.zeros(l_arr)
+        cont = 0
+        for i in range(int(np.sqrt(l_arr))):
+            for j in range(int(np.sqrt(l_arr))):
+                theta_f_a[cont] = theta_f_arr[i]
+                num_wp_a[cont] = num_wp_arr[j]
+                cont += 1
+
+        print(f"theta: {theta_f_a} - num wp: {num_wp_a}")
+        #################################################################################
+        DIR="/home/barutta/Robotic_liquid_pouring"
+
+        container_scale1 = 0.015
+        container_mesh_path1 = DIR + "/becher/becher1.obj"
+        container1_mesh = trimesh.load(container_mesh_path1)
+        container1_bounds = container1_mesh.bounds
+        global container_size
+        container_size = (container1_bounds[1] - container1_bounds[0])*container_scale1
+
+        container_scale2 = 0.013
+        container_mesh_path2 = DIR + "/becher/becher1.obj"
+        container2_mesh = trimesh.load(container_mesh_path2)
+        container2_bounds = container2_mesh.bounds
+        global container2_size
+        container2_size = (container2_bounds[1] - container2_bounds[0])*container_scale2
+        #################################################################################
+        # Simulazione
+        dt=0.01
+        #init_sim()
+        candidate_paths = []
+        #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione senza liquido (uso solo per planning)
+        
+        parameters["vol_target"]=vol_target
+        print(f"Parameters of iteration {i}: {parameters}")
+        #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
+        for j in range(M):   
+            theta_f = np.deg2rad(theta_f_a[j])
+            num_wp = int(num_wp_a[j])
+            print(f"plan {j+1} - [theta: {np.rad2deg(theta_f)} - num wp: {num_wp}]")
+            # paths = plan_path(
+            #     ur5e, 
+            #     theta_f,
+            #     parameters,
+            #     timeout=5.0, 
+            #     smooth_path=True, 
+            #     num_waypoints=num_wp, 
+            #     ignore_collision=False, 
+            #     planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
+            #     debug=debug,
+            # )
+            # paths = plan_path_moveit(
+            #     ur5e,
+            #     theta_f,
+            #     parameters,
+            #     self._last_joint_state,
+            #     motion_client=self.motion_client,
+            #     num_waypoints=num_wp,
+            #     debug=False,
+            #     approach=False,
+            #     dt=0.01,
+            # )
+            paths = plan_path_full_moveit(
+                theta_f,
+                parameters,
+                self.motion_client,
+                num_waypoints=1000,
+                debug=False,
+                dt=0.01,
+            )
+            # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+            # fake_sim(ur5e, paths, scene, path_debug)
+            candidate_paths.append(paths)
+
+        # Trova best path e salva params
+        best_path = None
+        best_score= 0
+    
+        threshold=0.4
+        
+        c=0
+        for i,path in enumerate(candidate_paths):
+            success=0
+          
+            c+=1
+            print(f"iter: {c}")
+            #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
+            #score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
+            score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]), path)
+            success = is_success(score,threshold)
+
+            # def di miglior path
+            if score > best_score:
+                    print(f"new best: {theta_f_a[i%M]} - {int(num_wp_a[i%M])}")
+                    best_score = score 
+                    best_path = path
+                    best_model_idx = i // M
+                    state_current_plan_params = {"current_theta": self.to_builtin(theta_f_a[i%M]),
+                                                 "current_num_wp": self.to_builtin(int(num_wp_a[i%M])),
+                                                #  "success_path": self.to_builtin(success_path), 
+                                                 "best_model_idx": self.to_builtin(best_model_idx)}
+        
+        print("Esiste traj che soddisfa req succ")
+        # print(f"best params: {0}")
+                                        
+
+        exec_path=best_path["all"]
+        n_points = len(exec_path)
+        time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
+        best_path["time"] = time
+
+        # Converti in formato compatibile con .yaml e salva
+        best_path=self.to_builtin(best_path)
+     
+        try:
+            with open("/tmp/best_path.yaml", "w") as f:
+                yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
+
+        except Exception as e:
+            self.get_logger().error(f"Errore salvataggio YAML: {e}")
+            response.success = False
+            return response
+        
+        #time.sleep(1)  # assicurarsi che il file sia scritto prima di leggerlo altrove
+
+        response.success = True
+        flat_best_path = [x for wp in exec_path for x in wp]
+        response.best_path = flat_best_path
+        response.time = time
+        return response
+
+
 def main(args=None):
     rclpy.init(args=args)
     node = PathPlannerService()
