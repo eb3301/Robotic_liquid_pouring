@@ -1,14 +1,20 @@
 ToDo:
 
 # VISION
-- re-train CNN 1
-- re-train CNN 2
 - validazione con base line (no modello trainato, resnet alla prima iteraz)
 
 # EXP
-- baseline (pouring con prima iterazione)
-- test con genesis
-- test con ridotta illuminazione
+- ultimi 2 test normali
+- test con genesis (1)
+delta rispetto a target di livello 
+
+numero di iterazioni a successo stabile
+
+test con altri 2 contenitori
+successo
+12122025 exp 6
+15120225 exp 1,2,3
+16122025 exp 1,2,3, 4
 
 ########################### OVERLEAF:
 1) 3 pagine intro ()
@@ -16,26 +22,55 @@ thesis structure
 
 2) stato arte 10-15 pag (planning + ML )::
 Modellazione
-- Liquid modelling (diversi tipi di modello - perchè sim + spiegare sph pressure solver (+ condizioni per stabilità )) 
-- Modellazione fisica robot (per poter manipolare liq: dinamica robot + liquido) --> tabella sim fisici (liquidi - deformable - rigid (sì-no)) --> giustifica scelta
 
-Planning/Reinf. learning
-planning approach (RRT + robusta incertezza)
-RL approach
+mancano foto learning
+manca schema sistema completo
 
-Sim2Real
 
-Vision (ML per vision)
+b) 	Planning/Reinf. learning
+	planning approach (RRT + robusta incertezza)
+	RL approach (chance constrained learning/optimization (cerca paper))
+
+c) 	Vision (ML per vision di liquidi)
+
++ recap, posizione e statement of contributions
 
 3) Preliminaries/ background:
 ML per vision (NN e CNN)
-Planning alg. (RRT + chanche constr.)
+- intro velocissima
+- esempi pratici (lavoro di rif DeeplabV3)  
+- resnet18
+
+Planning alg.
+(RRT + 
+chanche constrained
+Bayesian optim e TS
 
 Methodologies:
+- base deeplab+resnet mod.
+
+- modelli 
+	- analitica
+	- physics based (descrizione ambiente virtuale e genesis + movimentazione liquido + tante immagini) (equazioni e modelli WCSPH ) --introdotto come esempio	
+
+- posterior bayes (planning)
+
+
+
+
+
+
+modello del liquido analitico
+
+chance o bayesian opt con risultato booleano
+
 planning+sim2real (action) --> astrarre ad uso generale plan con incertezza
 perception
 
+
+
 Experiments
+case study
 Simulazione e realtà
 
 Conclusions:

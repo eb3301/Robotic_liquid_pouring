@@ -1,0 +1,9 @@
+fluid sim	
+Y. Chen, W. Chen, B. Li, G. Zhang, and W. Zhang. Paint thickness simulation for
+painting robot trajectory planning: a review. Industrial Robot: An International
+Journal, 44(5):629–638, 2017.
+
+
+
+deep learning
+4, 53
