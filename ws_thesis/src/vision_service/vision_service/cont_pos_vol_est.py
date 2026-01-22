@@ -24,7 +24,8 @@ def oak_capture():
     cam_rgb = pipeline.createColorCamera()
     cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
     cam_rgb.initialControl.setAutoFocusMode(dai.CameraControl.AutoFocusMode.CONTINUOUS_VIDEO)
-    cam_rgb.initialControl.setAutoFocusTrigger()   
+    cam_rgb.initialControl.setAutoFocusTrigger() 
+    cam_rgb.setImageOrientation(dai.CameraImageOrientation.ROTATE_180_DEG)  
     cam_rgb.setPreviewSize(640, 480)
     cam_rgb.setInterleaved(False)
     cam_rgb.setBoardSocket(dai.CameraBoardSocket.CAM_A)
@@ -412,10 +413,10 @@ def main():
     # Variabili
     salva=True
     show=False
-    idx="50"
+    idx="117"
     path="/home/edo/thesis/LiquidGenesis/cont_pos/data/"+idx
-    vol=80
-    vol_ves=100
+    vol=100
+    vol_ves=300
     DIR = "/home/edo/thesis/LiquidGenesis/vol_est"
     MODEL_PATH = DIR + "/checkpoints/best_model_ResNet_1.pth"
     ########################### Cont pos #######################################

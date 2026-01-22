@@ -4,34 +4,33 @@ ToDo:
 - validazione con base line (no modello trainato, resnet alla prima iteraz)
 
 # EXP
-- ultimi 2 test normali
+- test con bicchierone martini e bottiglia h2o
 - test con genesis (1)
-delta rispetto a target di livello 
 
-numero di iterazioni a successo stabile
+presentaz
+video test per stat
+video con contenitori diversi
+video genesis
 
 test con altri 2 contenitori
+
 successo
 12122025 exp 6
 15120225 exp 1,2,3
 16122025 exp 1,2,3, 4
+16012026 exp 1,2
 
 ########################### OVERLEAF:
+
 1) 3 pagine intro ()
 thesis structure
 
-2) stato arte 10-15 pag (planning + ML )::
-Modellazione
 
-mancano foto learning
+2) Related Works:
+modifica intro in base a metodologia effettivamente proposta quando delineata
+
+mancano foto vision
 manca schema sistema completo
-
-
-b) 	Planning/Reinf. learning
-	planning approach (RRT + robusta incertezza)
-	RL approach (chance constrained learning/optimization (cerca paper))
-
-c) 	Vision (ML per vision di liquidi)
 
 + recap, posizione e statement of contributions
 
@@ -46,30 +45,26 @@ Planning alg.
 chanche constrained
 Bayesian optim e TS
 
-Methodologies:
-- base deeplab+resnet mod.
+Methodology:
+- perception: base deeplab+resnet mod.
 
 - modelli 
-	- analitica
+	- analitici 
 	- physics based (descrizione ambiente virtuale e genesis + movimentazione liquido + tante immagini) (equazioni e modelli WCSPH ) --introdotto come esempio	
 
-- posterior bayes (planning)
-
-
-
-
-
-
-modello del liquido analitico
-
-chance o bayesian opt con risultato booleano
+- posterior bayes (planning) con reward boleana --> segui paper mandato dal prof
+- 
 
 planning+sim2real (action) --> astrarre ad uso generale plan con incertezza
-perception
-
 
 
 Experiments
+
+risultati
+delta rispetto a target di livello 
+numero di iterazioni a successo stabile
+risultati vision
+
 case study
 Simulazione e realtà
 
