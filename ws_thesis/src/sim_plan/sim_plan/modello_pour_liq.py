@@ -279,7 +279,7 @@ def reward_pouring(num_waypoints: int, theta_f: float, vol_target: float, parame
 
         err_pos=np.linalg.norm(p_liq[:-1]-pos_cont[:-1])
         #print(err_pos)
-        if err_pos >= 2*R:
+        if err_pos >= 2*R * 56/56: # 22, 33, 56 (bottiglia acqua, bottiglia succo, becker)
             V = np.clip(V - V_i, 0, V_init)
             V_spilled += V_i
         else:
