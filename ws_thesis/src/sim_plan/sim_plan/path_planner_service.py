@@ -1531,7 +1531,11 @@ def plan_path_full_moveit(
 
     n_ik=10
     
-    lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07
+    alto=False
+    alto_cont=0.06 if alto==True else 0.0 #0.01
+    alto_cont_pos=0.22 if alto==True else 0.10 #0.17
+
+    lip_height = parameters['pos_cont_goal'][2] + container2_size[2]+0.07 + alto_cont
     quat_orizz = np.array([0.5,-0.5,0.5,-0.5])
     
     pos1=np.array([parameters['pos_grip_ee'][0]+x_shift, parameters['pos_grip_ee'][1],parameters['pos_grip_ee'][2]])
@@ -1550,7 +1554,7 @@ def plan_path_full_moveit(
 
     # q2 (sollevam)
     pos2 = pos1.copy()
-    pos2[2]+=0.10
+    pos2[2]+= alto_cont_pos #0.10
     pos2[2]=max(pos2[2],z_min)
     quat2 = quat_orizz
     
@@ -2273,7 +2277,7 @@ def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
 class PathPlannerService(Node):
     def __init__(self):
         super().__init__('path_planner_service')
-        self.srv = self.create_service(Simplan, 'plan_path', self.plan_path_callback)
+        self.srv = self.create_service(Simplan, 'plan_path', self.plan_path_callback_baseline)
         self.get_logger().info("Path planner service ready")
         self.motion_client = MotionClient()
         self.sub = self.create_subscription(JointState,"/joint_states",self._joint_state_cb, 10)
