@@ -51,26 +51,22 @@ Methodology:
 - perception: base deeplab+resnet mod.
 
 - modelli 
-	- analitici 
+	- immagini schema pouring 
 	- physics based (descrizione ambiente virtuale e genesis + movimentazione liquido + tante immagini) (equazioni e modelli WCSPH ) --introdotto come esempio	
 
-
-- planning+sim2real (action) 
-	- aggiungere dichiarazione TS in metodo gen.
+- planning+sim2real (action)
 	- aggiungere in appendice MAP e proposiz/proof co-update
 	- schema metodo
 
-
-Experiments
-
-risultati
-delta rispetto a target di livello 
-numero di iterazioni a successo stabile
-risultati vision
-
-success rate baseline, dopo 5 iterazione, dopo 10, dopo 15 e a convergenza
-andamento success rate, numero di iterazioni
-andamento di alpha, num_wp
+Experimental Results
+- risultati vision
+	
+- delta rispetto a target di livello 
+- numero di iterazioni a successo stabile
+	
+- success rate baseline, dopo 5 iterazione, dopo 10, dopo 15 e a convergenza
+- andamento success rate, numero di iterazioni
+- andamento di alpha, num_wp
 
 
 
@@ -80,7 +76,7 @@ Simulazione e realtà
 
 Conclusions:
 
- parte iniziale in cui dovresti 
+
 Infine farei una sezione per ognuno. Nella sezione del planning puoi dire che è generale per qualsiasi processo con outcome binario, ma che è particolarmente rilevante per i liquidi perché appunto è un caso in cui l'outcome spesso è proprio binario.
 
 Per quanto riguarda la formulazione del metodo di planning, mi sembra vada bene, ma la devo leggere per bene. Sicuramente un'immagine per far capire la pipeline (sampling di modelli e traiettorie, valutazione degli outcome e resampling potrebbe aiutare, ma vedi se hai tempo di farla. Comunque ti viene utile per la presentazione).
