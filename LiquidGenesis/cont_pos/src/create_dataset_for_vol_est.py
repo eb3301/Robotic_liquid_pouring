@@ -8,8 +8,8 @@ import cv2
 from tqdm import tqdm 
 
 DIR = "/home/edo/thesis/LiquidGenesis/vol_est"
-ROOT_DIR = DIR + "/Video/frames/vid3"
-path="/home/edo/thesis/LiquidGenesis/vol_est/Video/dataset"
+ROOT_DIR = "/home/edo/thesis/LiquidGenesis/test"
+path="/home/edo/thesis/LiquidGenesis/test"
 
 def CNN_predict(rgb_frame):
 
@@ -129,7 +129,7 @@ def main():
         samples.append(sample_path)
 
     for idx, sample in enumerate(tqdm(samples, desc="Processing samples")):
-        f_idx=init_idx+idx+6000
+        f_idx=init_idx+idx+7000
         path_i = os.path.join(path, str(f_idx))
         if os.path.exists(path_i):
             print(f"Skipping sample {idx}, already processed.")
