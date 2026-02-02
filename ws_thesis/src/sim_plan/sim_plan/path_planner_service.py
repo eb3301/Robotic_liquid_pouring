@@ -2277,7 +2277,7 @@ def best_theta_bayes(w_mean, w_cov, x_min, x_max, M=200, n_grid=200):
 class PathPlannerService(Node):
     def __init__(self):
         super().__init__('path_planner_service')
-        self.srv = self.create_service(Simplan, 'plan_path', self.plan_path_callback_baseline)
+        self.srv = self.create_service(Simplan, 'plan_path', self.plan_path_callback_genesis)
         self.get_logger().info("Path planner service ready")
         self.motion_client = MotionClient()
         self.sub = self.create_subscription(JointState,"/joint_states",self._joint_state_cb, 10)
@@ -2831,6 +2831,313 @@ class PathPlannerService(Node):
         response.time = time
         return response
 
+    def plan_path_callback_genesis(self, request, response):
+        
+        vol_target = 50
+
+        liq=True
+        record=False
+        debug=False   
+        view=False
+
+        if view:
+            N = 1                    # Numero di modelli simulati (iniziale)
+            M = 1                    # Numero di traiettorie
+            delta = 1/N              # Threshold di successo
+        else:
+            N = 3                    # Numero di modelli simulati (iniziale)
+            M = 4                    # Numero di traiettorie
+            delta = 1/N              # Threshold di successo
+
+        # Carica parametri simulazione:
+        if request.no_params == True:
+            PARAMS_FILE = "/tmp/parameters.yaml"
+
+            if not os.path.exists(PARAMS_FILE):
+                response.success = False
+                return response
+            else:
+                with open(PARAMS_FILE, "r") as f:
+                    data = yaml.safe_load(f)
+                if "parameters" not in data:
+                    raise RuntimeError("File init_parameters.yaml non contiene chiave 'parameters'")
+                parameters_set=data["parameters"]
+                if request.target_vol is not None:
+                    for p in parameters_set:
+                        p["vol_target"]=request.target_vol
+                for p in parameters_set:
+                    p["err_target"]=5e-6
+                    # TODO sistemare aggiornamento params
+        else:
+            req_parameters = {
+                "pos_init_cont": list(request.pos_init_cont),
+                "pos_cont_goal": list(request.pos_cont_goal),
+                #"pos_init_ee": list(request.pos_init_ee),
+                "pos_grip_ee":list(request.pos_grip_ee),
+                "offset": list(request.offset),
+                "dCoR": [0.0, -0.015, 0.04],
+                #"densità": 998.0,
+                #"viscosità": 0.001,
+                #"tens_sup": 0.072,
+                "vol_init": request.init_vol, #2e-5, +-MAE
+                "vol_target": request.target_vol, #0.75e-5,
+                "err_target": 5e-6,
+                #"theta_f": request.theta_f, #+-15°
+                #"num_wp": int(request.num_wp),
+            }
+            tolerances = {
+                "pos_init_cont": [
+                    (0.01, 0.01),  # x: ±1.0 cm
+                    (0.0, 0.0),    # y: ±0.0 cm
+                    (0.0, 0.0),    # z: ±0.0 cm
+                ],
+                "pos_cont_goal": [
+                    (0.03, 0.03),  # x: ±1.5 cm
+                    (0.03, 0.03),  # y: ±1.5 cm
+                    (0.0, 0.0),      # z: ±0.0 cm
+                ],
+                # "pos_init_ee": [
+                #     (0.00, 0.00),    # x: fisso
+                #     (0.00, 0.00),    # y: fisso
+                #     (0.00, 0.00),    # z: fisso
+                #     (0.00, 0.00),    # w: fisso
+                #     (0.00, 0.00),    # x: fisso
+                #     (0.00, 0.00),    # y: fisso
+                #     (0.00, 0.00),    # z: fisso
+                # ],
+                "pos_grip_ee": [
+                    (0.00, 0.00),    # x: fisso
+                    (0.00, 0.00),    # y: fisso
+                    (0.00, 0.00),    # z: fisso
+                    (0.00, 0.00),    # w: fisso
+                    (0.00, 0.00),    # x: fisso
+                    (0.00, 0.00),    # y: fisso
+                    (0.00, 0.00),    # z: fisso
+                ],
+                "offset": [
+                    (0.01, 0.01),  # x: ±1 cm (0.15)
+                    (0.0, 0.0),    # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
+                    (0.0, 0.0),    #  ±0 cm (0.04) offset bloccato (le pinze riportano al centro quando chiuse)
+                ],
+                "dCoR": [
+                    (0.001, 0.001),  # componente 1: ±1 mm
+                    (0.01, 0.01),    # componente 2: ±1 cm
+                    (0.01, 0.01),    # componente 3: ±1 cm
+                ],
+                # "viscosità": (0.00025, 0.00025),  # ±25% intorno a 0.001 Pa·s
+                # "densità": (3.0, 3.0),          # ±3 kg/m^3
+                # "tens_sup": (0.002, 0.001),     # -0.002 / +0.001 N/m (gamme tipiche 0.070–0.073)
+                "vol_init": ( 15, 15),  # ±1e-5 m^3 (15ml)
+                "vol_target": (0.0, 0.0),       # no tol, è scelta
+                "err_target": (0.0, 0.0),       # vincolo rigido
+                # "theta_f": (10.0, 10.0),        # ±10°
+                # "num_wp": ("rel", 0.2, 0.2),    # ±20%
+            }
+            
+            parameters_range=self._make_parameters_range(req_parameters,tolerances)
+            parameters_set=[]
+            for _ in range(N):
+                parameters_set.append(generate_parameters(parameters_range)) 
+
+            tolerances_save=self.to_builtin(tolerances.copy())
+            try:
+                with open("/tmp/tolerances.yaml", "w") as f:
+                    yaml.safe_dump({"tolerances":tolerances_save}, f, sort_keys=False)
+            except Exception as e:
+                self.get_logger().error(f"Errore salvataggio YAML: {e}")
+                response.success = False
+                return response
+        # Carica parametri planning:
+        FILE_CURRENT_PLAN_PARAMS="/tmp/current_plan_params.yaml"
+        FILE_NEW_PLAN_PARAMS="/tmp/new_plan_params.yaml"
+        
+        if not os.path.exists(FILE_NEW_PLAN_PARAMS):
+                theta_f_arr = np.array([80,90,100])
+                num_wp_arr = np.array([300, 350, 400])
+        else:
+            with open(FILE_NEW_PLAN_PARAMS, "r") as f:
+                    data_plan = yaml.safe_load(f)
+            theta_f_arr = data_plan["current_theta"]
+            num_wp_arr = data_plan["current_num_wp"]
+
+        # Update sincrono
+        l_arr=9
+        theta_f_a = np.zeros(l_arr)
+        num_wp_a  = np.zeros(l_arr)
+        cont = 0
+        for i in range(int(np.sqrt(l_arr))):
+            for j in range(int(np.sqrt(l_arr))):
+                theta_f_a[cont] = theta_f_arr[i]
+                num_wp_a[cont] = num_wp_arr[j]
+                cont += 1
+        
+        idx = np.random.choice(l_arr, size=M, replace=False)
+
+        theta_f_a = theta_f_a[idx]
+        num_wp_a = num_wp_a[idx]
+        print(f"theta: {theta_f_a} - num wp: {num_wp_a}")
+        #################################################################################
+        DIR="/home/barutta/Robotic_liquid_pouring"
+
+        container_scale1 = 0.015
+        container_mesh_path1 = DIR + "/becher/becher1.obj"
+        container1_mesh = trimesh.load(container_mesh_path1)
+        container1_bounds = container1_mesh.bounds
+        global container_size
+        container_size = (container1_bounds[1] - container1_bounds[0])*container_scale1
+
+        container_scale2 = 0.013
+        container_mesh_path2 = DIR + "/becher/becher1.obj"
+        container2_mesh = trimesh.load(container_mesh_path2)
+        container2_bounds = container2_mesh.bounds
+        global container2_size
+        container2_size = (container2_bounds[1] - container2_bounds[0])*container_scale2
+        #################################################################################
+        # Simulazione
+        dt=0.01
+        init_sim()
+        candidate_paths = []
+        #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters_set[0],view,liq=False) # genera l'ambiente di simulazione senza liquido (uso solo per planning)
+        for i in range(len(parameters_set)):
+            parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
+            parameters["vol_target"]=vol_target
+            print(f"Parameters of iteration {i}: {parameters}")
+            scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
+            for j in range(M):   
+
+                # Update asincrono
+                # theta_f = np.deg2rad(theta_f_arr[j])
+                # num_wp = int(num_wp_arr[j])
+                # Update sincrono
+                theta_f = np.deg2rad(theta_f_a[j])
+                num_wp = int(num_wp_a[j])
+                print(f"plan {j+1} - [theta: {np.rad2deg(theta_f)} - num wp: {num_wp}]")
+                paths = plan_path(
+                    ur5e, 
+                    theta_f,
+                    parameters,
+                    timeout=5.0, 
+                    smooth_path=True, 
+                    num_waypoints=num_wp, 
+                    ignore_collision=False, 
+                    planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
+                    debug=debug,
+                )
+                # paths = plan_path_moveit(
+                #     ur5e,
+                #     theta_f,
+                #     parameters,
+                #     self._last_joint_state,
+                #     motion_client=self.motion_client,
+                #     num_waypoints=num_wp,
+                #     debug=False,
+                #     approach=False,
+                #     dt=0.01,
+                # )
+                # paths = plan_path_full_moveit(
+                #     theta_f,
+                #     parameters,
+                #     self.motion_client,
+                #     num_waypoints=1000,
+                #     debug=False,
+                #     dt=0.01,
+                # )
+                # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+                # fake_sim(ur5e, paths, scene, path_debug)
+                candidate_paths.append(paths)
+
+        # Trova best path e salva params
+        best_path = None
+        best_success_rate = 0
+        best_sum = 0
+
+        if not os.path.exists("/tmp/threshold.yaml"):
+            threshold=0.4
+        else:
+            with open("/tmp/threshold.yaml", "r") as f:
+                threshold = yaml.safe_load(f)
+                if threshold is None:
+                    threshold=0.3
+        c=0
+        for i,path in enumerate(candidate_paths):
+            success=0
+            successes = np.zeros(len(parameters_set))
+            scores = np.zeros(len(parameters_set))
+            for j,parameters in enumerate(parameters_set):
+                c+=1
+                print(f"iter: {c}")
+                #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
+                score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
+                #score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]), path)
+                #score = 1
+                scores[j]=score
+                if is_success(score,threshold):
+                    success+=1
+                    successes[j]=1
+            success_rate=success/len(parameters_set)
+            # def di miglior path
+            if success_rate > best_success_rate or ( success_rate == best_success_rate and sum(scores) > best_sum):
+                    print(f"new best: {theta_f_a[i%M]} - {int(num_wp_a[i%M])} - {parameters_set[i//M]['pos_cont_goal']}")
+                    best_sum = sum(scores) 
+                    best_path = path
+                    best_model_idx = i // M
+                    best_successes = successes.copy()
+                    best_scores=scores.copy()
+                    best_success_rate = success_rate
+                    success_path=1 if success_rate > 0.6 else 0
+                    state_current_plan_params = {"current_theta": self.to_builtin(theta_f_a[i%M]),
+                                                 "current_num_wp": self.to_builtin(int(num_wp_a[i%M])),
+                                                 "success_path": self.to_builtin(success_path), 
+                                                 "best_model_idx": self.to_builtin(best_model_idx)}
+        
+        if best_success_rate < delta:
+            self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
+            response.success=False
+            return response
+        print("Esiste traj che soddisfa req succ")
+        # print(f"best params: {0}")
+                                        
+
+        exec_path=best_path["all"]
+        n_points = len(exec_path)
+        time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
+        best_path["time"] = time
+
+        new_threshold = min(max(np.mean(best_scores)/2, threshold+0.0001),0.98)
+
+        # Converti in formato compatibile con .yaml e salva
+        best_path=self.to_builtin(best_path)
+        parameters=self.to_builtin(parameters_set)
+        successes=self.to_builtin(best_successes)
+        scores=self.to_builtin(best_scores)
+        new_threshold=self.to_builtin(new_threshold)
+        success_path=self.to_builtin(success_path)
+        
+        try:
+            with open("/tmp/best_path.yaml", "w") as f:
+                yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
+            with open("/tmp/parameters.yaml", "w") as f:
+                yaml.safe_dump({"parameters": parameters}, f, sort_keys=False)
+            with open("/tmp/scores.yaml", "w") as f:
+                yaml.safe_dump({"scores": successes}, f, sort_keys=False)
+            with open("/tmp/scores_history.yaml", "a") as f:
+                yaml.dump({"scores": scores}, f, explicit_start=True, sort_keys=False)
+            with open("/tmp/threshold.yaml", "w") as f:
+                yaml.safe_dump(new_threshold, f, sort_keys=False)     
+            with open(FILE_CURRENT_PLAN_PARAMS, "w") as f:
+                yaml.safe_dump(state_current_plan_params, f, sort_keys=False)  
+
+        except Exception as e:
+            self.get_logger().error(f"Errore salvataggio YAML: {e}")
+            response.success = False
+            return response
+        
+        response.success = True
+        flat_best_path = [x for wp in exec_path for x in wp]
+        response.best_path = flat_best_path
+        response.time = time
+        return response
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -2840,510 +3147,3 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
-
-
-# def plan_path_callback_old_old(self, request, response):
-
-#     N = 1                    # Numero di modelli simulati (iniziale)
-#     M = 1                    # Numero di traiettorie
-#     delta = 0.1             # Threshold di successo
-#     view=True
-#     liq=True
-#     record=False
-#     debug=False        
-
-#     if request.no_params == True:
-#         PARAMS_FILE = "/tmp/parameters.yaml"
-#         TOLS_FILE = "/tmp/tolerances.yaml"
-
-#         if not os.path.exists(PARAMS_FILE):
-#             response.success = False
-#             return response
-#         else:
-#             with open(PARAMS_FILE, "r") as f:
-#                 data = yaml.safe_load(f)
-#             if "parameters" not in data:
-#                 raise RuntimeError("File init_parameters.yaml non contiene chiave 'parameters'")
-#             parameters_set=data["parameters"]            
-#     else:
-#         req_parameters = {
-#             "pos_init_cont": list(request.pos_init_cont),
-#             "pos_cont_goal": list(request.pos_cont_goal),
-#             "pos_init_ee": list(request.pos_init_ee),
-#             "pos_grip_ee":list(request.pos_grip_ee),
-#             "offset": list(request.offset),
-#             "dCoR": [0.0, -0.015, 0.04],
-#             "vol_init": request.init_vol, #2e-5, +-MAE
-#             "densità": 998.0,
-#             "viscosità": 0.001,
-#             "tens_sup": 0.072,
-#             "vol_target": request.target_vol, #0.75e-5,
-#             "err_target": 5e-6,
-#             "theta_f": request.theta_f, #+-15°
-#             "num_wp": int(request.num_wp),
-#         }
-#         tolerances = {
-#             "pos_init_cont": [
-#                 (0.01, 0.01),  # x: ±1.0 cm
-#                 (0.0, 0.0),    # y: ±0.0 cm
-#                 (0.0, 0.0),    # z: ±0.0 cm
-#             ],
-#             "pos_cont_goal": [
-#                 (0.015, 0.015),  # x: ±1.5 cm
-#                 (0.015, 0.015),  # y: ±1.5 cm
-#                 (0.0, 0.0),      # z: ±0.0 cm
-#             ],
-#             "pos_init_ee": [
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#                 (0.00, 0.00),    # w: fisso
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#             ],
-#             "pos_grip_ee": [
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#                 (0.00, 0.00),    # w: fisso
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#             ],
-#             "offset": [
-#                 (0.01, 0.01),  # x: ±1 cm (0.15)
-#                 (0.0, 0.0),    # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
-#                 (0.0, 0.0),    #  ±0 cm (0.04) offset bloccato (le pinze riportano al centro quando chiuse)
-#             ],
-#             "dCoR": [
-#                 (0.001, 0.001),  # componente 1: ±1 mm
-#                 (0.01, 0.01),    # componente 2: ±1 cm
-#                 (0.01, 0.01),    # componente 3: ±1 cm
-#             ],
-#             "viscosità": (0.00025, 0.00025),  # ±25% intorno a 0.001 Pa·s
-#             "densità": (3.0, 3.0),          # ±3 kg/m^3
-#             "tens_sup": (0.002, 0.001),     # -0.002 / +0.001 N/m (gamme tipiche 0.070–0.073)
-#             "vol_init": ( 1.5e-5, 1.5e-5),  # ±1e-5 m^3 (15ml)
-#             "vol_target": (0.0, 0.0),       # no tol, è scelta
-#             "err_target": (0.0, 0.0),       # vincolo rigido
-#             "theta_f": (10.0, 10.0),        # ±10°
-#             "num_wp": ("rel", 0.2, 0.2),    # ±20%
-#         }
-#         parameters_range=self._make_parameters_range(req_parameters,tolerances)
-#         parameters_set=[]
-#         for _ in range(N):
-#             parameters_set.append(generate_parameters(parameters_range))
-
-#     init_sim()
-#     candidate_paths = []
-
-#     for i in range(len(parameters_set)):
-#         parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
-#         print(f"Parameters of iteration {i}: {parameters}")
-#         scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
-        
-#         for j in range(M):
-#             theta_f =  np.deg2rad(parameters["theta_f"]) #np.pi * 0.48
-#             num_wp = int(parameters["num_wp"]) #int(10/dt)
-#             paths = plan_path(
-#                 ur5e, 
-#                 theta_f,
-#                 parameters,
-#                 timeout=5.0, 
-#                 smooth_path=True, 
-#                 num_waypoints=num_wp, 
-#                 ignore_collision=False, 
-#                 planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
-#                 debug=debug,
-#             )
-#             # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
-#             # fake_sim(ur5e, paths, scene, path_debug)
-#             candidate_paths.append(paths)
-                
-
-#     # Valuta ogni traiettoria su ogni set di param
-#     best_path = None
-#     best_score = -1e30
-#     best_parameters = None
-#     score_best_path=[]
-    
-    
-#     for paths in candidate_paths:
-#         total_score = 0
-#         local_best_score = -1e30
-#         local_best_parameters = None
-#         local_scores = []
-        
-#         for parameters in parameters_set:
-#             score = simulate_action(ur5e, parameters, paths, scene, becher, becher2, liquid, liq)
-#             print(f"score: {score}")
-#             total_score += score
-#             local_scores.append((parameters, score))
-#             if score > local_best_score:
-#                 local_best_score = score
-#                 local_best_parameters = parameters
-
-#         if total_score > best_score:
-#             best_score = total_score
-#             best_path = paths
-#             best_parameters = local_best_parameters
-#             score_best_path = local_scores
-    
-
-#     best_score /= (3 + 3 + 0.5) # max reward
-
-#     if best_score < delta:
-#         self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
-#         response.success=False
-#         return response
-#     else:
-#         delta=best_score
-#         print("Esiste traj che soddisfa req succ")
-
-#     if best_parameters is None or best_path is None: 
-#         self.get_logger().info("Nessuna traiettoria o no best params")
-#         response.success=False
-#         return response
-
-#     exec_path=best_path["all"]
-#     n_points = len(exec_path)
-#     time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
-#     best_path["time"] = time
-
-#     best_path=self.to_builtin(best_path)
-#     best_parameters=self.to_builtin(best_parameters)
-#     tolerances=self.to_builtin(tolerances)
-#     score_best_path=self.to_builtin(score_best_path)
-
-#     try:
-#         with open("/tmp/best_path.yaml", "w") as f:
-#             yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
-#         with open("/tmp/parameters.yaml", "w") as f:
-#             yaml.safe_dump({"parameters": best_parameters}, f, sort_keys=False)
-#         with open("/tmp/tolerances.yaml", "w") as f:
-#             yaml.safe_dump({"tolerances": tolerances}, f, sort_keys=False)
-#         with open("/tmp/score_best_path.yaml", "w") as f:
-#             yaml.safe_dump({"score_best_path": score_best_path}, f, sort_keys=False)
-#     except Exception as e:
-#         self.get_logger().error(f"Errore salvataggio YAML: {e}")
-#         response.success = False
-#         return response
-    
-#     response.success = True
-#     flat_best_path = [x for wp in exec_path for x in wp]
-#     response.best_path = flat_best_path
-#     response.time = time
-#     return response
-
-# def plan_path_callback_old(self, request, response):
-
-#     liq=True
-#     record=False
-#     debug=False   
-#     view=False
-
-#     if view:
-#         N = 1                    # Numero di modelli simulati (iniziale)
-#         M = 1                    # Numero di traiettorie
-#         delta = 1/N              # Threshold di successo
-#     else:
-#         N = 4                    # Numero di modelli simulati (iniziale)
-#         M = 2                    # Numero di traiettorie
-#         delta = 1/N              # Threshold di successo
-
-#     if request.no_params == True:
-#         PARAMS_FILE = "/tmp/parameters.yaml"
-
-#         if not os.path.exists(PARAMS_FILE):
-#             response.success = False
-#             return response
-#         else:
-#             with open(PARAMS_FILE, "r") as f:
-#                 data = yaml.safe_load(f)
-#             if "parameters" not in data:
-#                 raise RuntimeError("File init_parameters.yaml non contiene chiave 'parameters'")
-#             parameters_set=data["parameters"]
-#             if request.target_vol is not None:
-#                 for p in parameters_set:
-#                     p["vol_target"]=request.target_vol
-#             for p in parameters_set:
-#                 p["err_target"]=5e-6
-#                 # TODO sistemare aggiornamento params
-#     else:
-#         req_parameters = {
-#             "pos_init_cont": list(request.pos_init_cont),
-#             "pos_cont_goal": list(request.pos_cont_goal),
-#             "pos_init_ee": list(request.pos_init_ee),
-#             "pos_grip_ee":list(request.pos_grip_ee),
-#             "offset": list(request.offset),
-#             "dCoR": [0.0, -0.015, 0.04],
-#             "vol_init": request.init_vol, #2e-5, +-MAE
-#             "densità": 998.0,
-#             "viscosità": 0.001,
-#             "tens_sup": 0.072,
-#             "vol_target": request.target_vol, #0.75e-5,
-#             "err_target": 5e-6,
-#             "theta_f": request.theta_f, #+-15°
-#             "num_wp": int(request.num_wp),
-#         }
-#         tolerances = {
-#             "pos_init_cont": [
-#                 (0.01, 0.01),  # x: ±1.0 cm
-#                 (0.0, 0.0),    # y: ±0.0 cm
-#                 (0.0, 0.0),    # z: ±0.0 cm
-#             ],
-#             "pos_cont_goal": [
-#                 (0.015, 0.015),  # x: ±1.5 cm
-#                 (0.015, 0.015),  # y: ±1.5 cm
-#                 (0.0, 0.0),      # z: ±0.0 cm
-#             ],
-#             "pos_init_ee": [
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#                 (0.00, 0.00),    # w: fisso
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#             ],
-#             "pos_grip_ee": [
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#                 (0.00, 0.00),    # w: fisso
-#                 (0.00, 0.00),    # x: fisso
-#                 (0.00, 0.00),    # y: fisso
-#                 (0.00, 0.00),    # z: fisso
-#             ],
-#             "offset": [
-#                 (0.01, 0.01),  # x: ±1 cm (0.15)
-#                 (0.0, 0.0),    # y: ±0 cm (0.0) offset bloccato (le pinze riportano al centro quando chiuse) 
-#                 (0.0, 0.0),    #  ±0 cm (0.04) offset bloccato (le pinze riportano al centro quando chiuse)
-#             ],
-#             "dCoR": [
-#                 (0.001, 0.001),  # componente 1: ±1 mm
-#                 (0.01, 0.01),    # componente 2: ±1 cm
-#                 (0.01, 0.01),    # componente 3: ±1 cm
-#             ],
-#             "viscosità": (0.00025, 0.00025),  # ±25% intorno a 0.001 Pa·s
-#             "densità": (3.0, 3.0),          # ±3 kg/m^3
-#             "tens_sup": (0.002, 0.001),     # -0.002 / +0.001 N/m (gamme tipiche 0.070–0.073)
-#             "vol_init": ( 1.5e-5, 1.5e-5),  # ±1e-5 m^3 (15ml)
-#             "vol_target": (0.0, 0.0),       # no tol, è scelta
-#             "err_target": (0.0, 0.0),       # vincolo rigido
-#             "theta_f": (10.0, 10.0),        # ±10°
-#             "num_wp": ("rel", 0.2, 0.2),    # ±20%
-#         }
-        
-#         parameters_range=self._make_parameters_range(req_parameters,tolerances)
-#         parameters_set=[]
-#         for _ in range(N):
-#             parameters_set.append(generate_parameters(parameters_range)) 
-
-#         tolerances_save=self.to_builtin(tolerances.copy())
-#         try:
-#             with open("/tmp/tolerances.yaml", "w") as f:
-#                 yaml.safe_dump({"tolerances":tolerances_save}, f, sort_keys=False)
-#         except Exception as e:
-#             self.get_logger().error(f"Errore salvataggio YAML: {e}")
-#             response.success = False
-#             return response
-
-#     iter_file = "/tmp/iter.yaml"
-#     if not os.path.exists(iter_file):
-#         k=0
-#     else:
-#         with open(iter_file, "r") as f:
-#             k = yaml.safe_load(f)
-
-#     file_theta = "/tmp/TStheta.yaml"
-#     if not os.path.exists(file_theta):
-#         x_hist_theta = []
-#         current_x_theta =  (80,90,100)
-#         y_hist_theta = []
-#         w_mean_theta = np.zeros(2)
-#         w_cov_theta = np.eye(2)*10.0 
-#     else:
-#         with open(file_theta, "r") as f:
-#             data = yaml.safe_load(f)
-#         x_hist_theta = data["x_hist"] or []
-#         current_x_theta = tuple(data["new_x"]) or (80,90,100)
-#         y_hist_theta = data["y_hist"] or [] # lista di 1=success,0=failure
-#         w_mean_theta = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
-#         w_cov_theta = data["w_cov"] or np.eye(2)*10.0 # Prior inizializzato come N(0,metà intervallo)
-#         w_mean_theta = np.array(w_mean_theta)
-#         w_cov_theta  = np.array(w_cov_theta)
-
-#     file_num_wp = "/tmp/TSnum_wp.yaml"
-#     if not os.path.exists(file_num_wp):
-#         x_hist_num_wp = []
-#         current_x_num_wp =  (300, 350, 400)
-#         y_hist_num_wp = []
-#         w_mean_num_wp = np.zeros(2)
-#         w_cov_num_wp = np.eye(2)*50.0 
-#     else:
-#         with open(file_num_wp, "r") as f:
-#             data = yaml.safe_load(f)
-#         x_hist_num_wp = data["x_hist"] or []
-#         current_x_num_wp = tuple(data["new_x"]) or (300, 350, 400)
-#         y_hist_num_wp = data["y_hist"] or [] # lista di 1=success,0=failure
-#         w_mean_num_wp = data["w_mean"] or np.zeros(2) # Prior inizializzato come N(0,metà intervallo)
-#         w_cov_num_wp = data["w_cov"] or np.eye(2)*50.0 # Prior inizializzato come N(0,metà intervallo)
-#         w_mean_num_wp = np.array(w_mean_num_wp)
-#         w_cov_num_wp  = np.array(w_cov_num_wp)
-
-
-#     init_sim()
-#     candidate_paths = []
-
-#     num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400))
-#     theta_f = np.deg2rad(best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100))
-
-#     for i in range(len(parameters_set)):
-#         parameters = parameters_set[i] # ottiene l'n-esimo dizionario di parametri
-#         print(f"Parameters of iteration {i}: {parameters}")
-#         scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record) # genera l'ambiente di simulazione
-#         for j in range(M):
-            
-#             if k % 2 == 0:
-#                 theta_f = np.deg2rad(current_x_theta[j]) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
-#                 #num_wp = int(best_theta_bayes(w_mean_num_wp, w_cov_num_wp, x_min=300, x_max=400)) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
-#             else:
-#                 #theta_f = np.deg2rad(best_theta_bayes(w_mean_theta, w_cov_theta, x_min=80, x_max=100)) #np.deg2rad(parameters["theta_f"]) # 80 - 100 passo 2 (10)
-#                 num_wp = int(current_x_num_wp[j]) #int(parameters["num_wp"]) # 300 - 400 passo 10 (20)
-
-#             paths = plan_path(
-#                 ur5e, 
-#                 theta_f,
-#                 parameters,
-#                 timeout=5.0, 
-#                 smooth_path=True, 
-#                 num_waypoints=num_wp, 
-#                 ignore_collision=False, 
-#                 planner= "RRTStar", # "RRT", "RRTConnect", "RRTstar", "InformedRRTStar"
-#                 debug=debug,
-#             )
-#             # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
-#             # fake_sim(ur5e, paths, scene, path_debug)
-#             candidate_paths.append(paths)
-
-#     # Trova best path e salva params
-#     best_path = None
-#     best_success_rate=0
-
-#     if not os.path.exists("/tmp/threshold.yaml"):
-#         threshold=0.1
-#     else:
-#         with open("/tmp/threshold.yaml", "r") as f:
-#             threshold = yaml.safe_load(f)
-#             if threshold is None:
-#                 threshold=0.1
-    
-#     for i,path in enumerate(candidate_paths):
-#         success=0
-#         successes = np.zeros(len(parameters_set))
-#         scores = np.zeros(len(parameters_set))
-#         for j,parameters in enumerate(parameters_set):
-#             scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
-#             score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
-#             scores[j]=score
-#             if is_success(score,threshold):
-#                 success+=1
-#                 successes[j]=1
-#         success_rate=success/len(parameters_set)
-#         # def di miglior path
-#         if success_rate >= best_success_rate:
-#             best_path = path
-#             best_successes = successes.copy()
-#             best_scores=scores.copy()
-#             best_success_rate = success_rate
-#         # simula con param reali la migliore traj
-#         #  
-#         # se il path è buono su threshold traj allora è buono davvero
-#         success_path=1 if success_rate > 0.7 else 0
-#         # if success_real== success_rate > 0.7
-#         #   success_path=1 if success_rate > 0.7 else 0
-#         # aggiornamento TS solo se c'è corrispondenza tra reale e virtuale
-#         # Aggiornamento TS 
-#         if k % 2 == 0:
-#             # Append liste
-#             y_hist_theta.append(success_path) 
-#             x_hist_theta.append(current_x_theta[i % M])
-#             # update posterior
-#             w_mean_theta_new, w_cov_theta_new = update_w(np.array(x_hist_theta), np.array(y_hist_theta), w_mean_theta, w_cov_theta)
-#             # new sample
-#             x_next_theta = sample_x_TS(w_mean_theta_new, w_cov_theta_new, x_min=80, x_max=100, M=M)
-#             state = {
-#                 "x_hist": self.to_builtin(x_hist_theta),
-#                 "y_hist": self.to_builtin(y_hist_theta),
-#                 "w_mean": self.to_builtin(w_mean_theta_new),
-#                 "w_cov":  self.to_builtin(w_cov_theta_new),
-#                 "new_x": self.to_builtin(x_next_theta),
-#             }
-#             with open(file_theta, "w") as f:
-#                 yaml.safe_dump(state, f, sort_keys=False)
-#         else:
-#             # Append liste
-#             y_hist_num_wp.append(success_path) 
-#             x_hist_num_wp.append(current_x_num_wp[i % M])
-#             # update posterior
-#             w_mean_num_wp_new, w_cov_num_wp_new = update_w(np.array(x_hist_num_wp), np.array(y_hist_num_wp), w_mean_num_wp, w_cov_num_wp)
-#             # new sample
-#             x_next_num_wp = sample_x_TS(w_mean_num_wp_new, w_cov_num_wp_new, x_min=300, x_max=400, M=M)
-#             state = {
-#                 "x_hist": self.to_builtin(x_hist_num_wp),
-#                 "y_hist": self.to_builtin(y_hist_num_wp),
-#                 "w_mean": self.to_builtin(w_mean_num_wp_new),
-#                 "w_cov":  self.to_builtin(w_cov_num_wp_new),
-#                 "new_x": self.to_builtin(x_next_num_wp),
-#             }
-#             with open(file_num_wp, "w") as f:
-#                 yaml.safe_dump(state, f, sort_keys=False)
-            
-#         k+=1
-#         with open("/tmp/iter.yaml", "w") as f:
-#             yaml.safe_dump(k, f)
-            
-#     if best_success_rate < delta:
-#         self.get_logger().info("Nessuna traiettoria soddisfa il delta succ")
-#         response.success=False
-#         return response
-#     print("Esiste traj che soddisfa req succ")
-
-#     exec_path=best_path ["all"]
-#     n_points = len(exec_path)
-#     time = np.linspace(0, (n_points - 1) * dt, n_points).tolist()
-#     best_path["time"] = time
-
-#     new_threshold = min(max(np.mean(best_scores), threshold+0.0001),3.98)
-
-#     # Converti in formato compatibile con .yaml e salva
-#     best_path=self.to_builtin(best_path)
-#     parameters=self.to_builtin(parameters_set)
-#     successes=self.to_builtin(best_successes)
-#     scores=self.to_builtin(best_scores)
-#     new_threshold=self.to_builtin(new_threshold)
-
-#     try:
-#         with open("/tmp/best_path.yaml", "w") as f:
-#             yaml.safe_dump({"best_path": best_path}, f, sort_keys=False)
-#         with open("/tmp/parameters.yaml", "w") as f:
-#             yaml.safe_dump({"parameters": parameters}, f, sort_keys=False)
-#         with open("/tmp/scores.yaml", "w") as f:
-#             yaml.safe_dump({"scores": successes}, f, sort_keys=False)
-#         with open("/tmp/scores_history.yaml", "a") as f:
-#             yaml.dump({"scores": scores}, f, explicit_start=True, sort_keys=False)
-#         with open("/tmp/threshold.yaml", "w") as f:
-#             yaml.safe_dump(new_threshold, f, sort_keys=False)   
-
-#     except Exception as e:
-#         self.get_logger().error(f"Errore salvataggio YAML: {e}")
-#         response.success = False
-#         return response
-    
-#     response.success = True
-#     flat_best_path = [x for wp in exec_path for x in wp]
-#     response.best_path = flat_best_path
-#     response.time = time
-#     return response
