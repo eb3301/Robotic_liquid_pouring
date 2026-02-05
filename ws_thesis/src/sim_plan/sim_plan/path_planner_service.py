@@ -131,7 +131,7 @@ def init_sim():
         performance_mode=True,
     )
 
-def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False):    
+def generate_sim(parameters, view=False, liq=True, debug=False, video=False, approach=False, record=True):    
     ########################## create a scene ##########################
     DIR="/home/barutta/Robotic_liquid_pouring"
     dt=1e-2
@@ -178,14 +178,16 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
         #renderer=gs.renderers.RayTracer()
     )
     # Camera & Headless Rendering:
-    if video==True:
+    if record==True or video==True:
+        global cam
         cam = scene.add_camera(
             res    = (1280, 960),
-            pos    = (3.5, 0.0, 2.5),
-            lookat = (0, 0, 0.5),
-            fov    = 30,
+            pos    = (2.5, 0.55, 1.5),
+            lookat = (0.8, 0.55, 1.0),
+            fov    = 40,
             GUI    = False
         )
+        print("Camera for recording initialized")
     ########################## entities ##########################
     # mat_rigid = gs.materials.Rigid(coup_friction=0.1,
     #                                coup_softness=0.0001,
@@ -435,8 +437,8 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     )
     # Set force limits:
     ur5e.set_dofs_force_range(
-        np.array([-100, -100, -100, -80, -80, -80, -100, -100]),
-        np.array([ 100,  100,  100,  80,  80,  80,  100,  100]),
+        np.array([-1000, -1000, -1000, -1000, -1000, -1000, -1000, -1000]),
+        np.array([ 1000,  1000,  1000,  1000,  1000,  1000,  1000,  1000]),
         dofs_idx_local = dofs_idx,
     )
     
@@ -448,7 +450,8 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
     ########################## main ##########################
 
     # start camera recording. Once this is started, all the rgb images rendered will be recorded internally
-    if video==True:
+    if record==True:
+        print("Recording started")
         cam.start_recording()
 
     # Set initial robot position
@@ -493,6 +496,8 @@ def generate_sim(parameters, view=False, liq=True, debug=False, video=False, app
                 position=init_qpos,
                 dofs_idx_local=dofs_idx,
             )
+            if record:
+                cam.render()
             scene.step()
             # percent = (i + 1) / n
             # bar = ('#' * int(percent * 20)).ljust(20)
@@ -875,7 +880,9 @@ def plan_path(
     if old:
         # Versamento (4->5) [Da paper: Vision-based robot manipulation of transparent liquid containers in a laboratory setting]
         # La rotazione avviene nel piano Y-Z
-        CoR3D = np.array([parameters['pos_cont_goal'][0]-x_shift,parameters['pos_cont_goal'][1]-container2_size[0]/4,parameters['pos_cont_goal'][2]+container2_size[2]/2])    
+        CoR3D = np.array([parameters['pos_cont_goal'][0]-x_shift,
+                          parameters['pos_cont_goal'][1]-container2_size[0]/4,
+                          parameters['pos_cont_goal'][2]+container2_size[2]/2])    
         _, y_c, z_c = CoR3D
         x0, y0, z0 = pos4
         yaw,pitch,roll=quaternion_to_euler(quat4)
@@ -943,7 +950,7 @@ def plan_path(
         # Versamento (4->5)
         CoR3D = np.array([
             parameters['pos_cont_goal'][0] + parameters['dCoR'][0], # 0.0
-            parameters['pos_cont_goal'][1] - 0.005 + parameters['dCoR'][1], # - 0.01 
+            parameters['pos_cont_goal'][1] + parameters['dCoR'][1], # - 0.01 
             parameters['pos_cont_goal'][2] + parameters['dCoR'][2], # + 0.04
         ])
         p_tcp0 = pos4.copy()
@@ -1798,8 +1805,8 @@ def compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene):
 
     # Tempo 
     #Dt = scene.get_state().scene.t - t0 
-    Dt = (100 + 100 + 30 + int(0.5*int(parameters["num_wp"]))*2 + int(parameters["num_wp"]))*dt
-
+    # Dt = (100 + 100 + 30 + int(0.5*int(parameters["num_wp"]))*2 + int(parameters["num_wp"]))*dt
+    Dt=0
     # Pesi
     w_vol, w_loss, w_time = 3.0, 3.0, 0.5
 
@@ -1860,7 +1867,7 @@ def compute_reward_models(parameters, theta_f, num_wp, path):
     print(f"final reward: {reward}")
     return reward
 
-def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, liq, dt, approach=False, antisloshing=False): 
+def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, liq, dt, approach=False, antisloshing=False, record=False): 
     # Reset env:
     # reset_sim(scene, ur5e, becher, becher2, liquid, parameters)
     scene.reset(init_scene)
@@ -1875,7 +1882,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
     motors_dof = dofs_idx[:-2]
     fingers_dof = dofs_idx[-2:]
     
-    path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+    #path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
     ################################################################################################################################### 
     # Esegui il path
     score=0
@@ -1895,6 +1902,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
             # ur5e.control_dofs_position(qpos, dofs_idx_local=dofs_idx)
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
             ur5e.control_dofs_force(opening_force, fingers_dof)
+            if record:
+                cam.render()
             scene.step()
         for _ in range(10): scene.step() # per raggiungere ultimo waypoint
 
@@ -1927,6 +1936,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
             ur5e.control_dofs_force(closing_force/2, fingers_dof)
             #active_sol_params = np.array([(100-i/5)*0.02+0.02, 1.0, 1e-4, 0.9999, 1.0, 0.1, 1.0], dtype=np.float32)
             #eq.set_sol_params(active_sol_params)
+            if record:
+                cam.render()
             scene.step()
 
     # Lift:
@@ -1946,6 +1957,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
                     if particle[2] < h_min and idx not in excluded: # da cambiare con un collision detection
                         score-=5/len(particles2) # to be tuned
                         excluded.append(idx)
+        if record:
+            cam.render()
         scene.step()
         # percent = (i + 1) / len(path2)
         # bar = ('#' * int(percent * 20)).ljust(20)
@@ -2001,6 +2014,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
                     if particle[2] < h_min and idx not in excluded: # da cambiare con un collision detection
                         score-=5/len(particles3) # to be tuned
                         excluded.append(idx)
+        if record:
+            cam.render()
         scene.step()
         # percent = (i + 1) / len(path3)
         # bar = ('#' * int(percent * 20)).ljust(20)
@@ -2023,6 +2038,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
                     if particle[2] < h_min: # da cambiare con un collision detection
                         score-=5/len(particles4) # to be tuned
                         excluded.append(idx)
+        if record:
+            cam.render()
         scene.step()
         # percent = (i + 1) / len(path4)
         # bar = ('#' * int(percent * 20)).ljust(20)
@@ -2033,6 +2050,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
         for _ in range(10):
             ur5e.control_dofs_position(qpos[:-2], motors_dof)
             ur5e.control_dofs_force(closing_force, fingers_dof)
+            if record:
+                cam.render()
             scene.step()
 
     # Pouring:
@@ -2051,6 +2070,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
                     if particle[2] < h_min and idx not in excluded: # da cambiare con un collision detection
                         score-=5/len(particles5) # to be tuned
                         excluded.append(idx)
+        if record:
+            cam.render()
         scene.step()
         # percent = (i + 1) / len(path5)
         # bar = ('#' * int(percent * 20)).ljust(20)
@@ -2073,6 +2094,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
                     if particle[2] < h_min and idx not in excluded: # da cambiare con un collision detection
                         score-=5/len(particles5) # to be tuned
                         excluded.append(idx)
+        if record:
+            cam.render()
         scene.step()
         # percent = (i + 1) / len(path6)
         # bar = ('#' * int(percent * 20)).ljust(20)
@@ -2095,6 +2118,8 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
                     if particle[2] < h_min and idx not in excluded: # da cambiare con un collision detection
                         score-=5/len(particles6) # to be tuned
                         excluded.append(idx)
+        if record:
+            cam.render()
         scene.step()
 
     # Valuta successo
@@ -2149,6 +2174,9 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
     print(f" ")
     print(f"Simulation completed")
 
+    if record:
+        cam.stop_recording(save_to_filename='/home/barutta/Robotic_liquid_pouring/video.mp4', fps=60)
+
     if liq:
         score = compute_reward(liquid, becher1, becher2, parameters, t0, dt, scene)
     else:
@@ -2157,6 +2185,7 @@ def simulate_action(ur5e, parameters, paths, scene, becher1, becher2, liquid, li
         t_ref = 10 # la sim dovrebbe durare circa 10s
         score+=1
         score-=1e-2*Dt/t_ref
+    
     
     
     return score
@@ -2836,9 +2865,9 @@ class PathPlannerService(Node):
         vol_target = 50
 
         liq=True
-        record=False
+        record=True
         debug=False   
-        view=False
+        view=True
 
         if view:
             N = 1                    # Numero di modelli simulati (iniziale)
@@ -2952,8 +2981,8 @@ class PathPlannerService(Node):
         FILE_NEW_PLAN_PARAMS="/tmp/new_plan_params.yaml"
         
         if not os.path.exists(FILE_NEW_PLAN_PARAMS):
-                theta_f_arr = np.array([80,90,100])
-                num_wp_arr = np.array([300, 350, 400])
+                theta_f_arr = np.array([100,100,100]) #np.array([80,90,100])
+                num_wp_arr = np.array([300, 300, 300])#np.array([300, 350, 400])
         else:
             with open(FILE_NEW_PLAN_PARAMS, "r") as f:
                     data_plan = yaml.safe_load(f)
@@ -3042,8 +3071,8 @@ class PathPlannerService(Node):
                 #     debug=False,
                 #     dt=0.01,
                 # )
-                # path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
-                # fake_sim(ur5e, paths, scene, path_debug)
+                path_debug = scene.draw_debug_path(torch.from_numpy(paths["all"]), ur5e)
+                fake_sim(ur5e, paths, scene, path_debug)
                 candidate_paths.append(paths)
 
         # Trova best path e salva params
@@ -3067,7 +3096,7 @@ class PathPlannerService(Node):
                 c+=1
                 print(f"iter: {c}")
                 #scene, ur5e, becher, becher2, liquid, dt = generate_sim(parameters,view,liq,debug,record)
-                score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt)
+                score = simulate_action(ur5e, parameters, path, scene, becher, becher2, liquid, liq, dt, record=record)
                 #score = compute_reward_models(parameters, np.deg2rad(theta_f_a[i%M]), int(num_wp_a[i%M]), path)
                 #score = 1
                 scores[j]=score
