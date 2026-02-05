@@ -43,18 +43,23 @@ Bayesian optim e TS
 Methodology:
 - intro (da fare)
 	descrivere in modo generale lo scenario di manipolazione liquidi. Non entrerei subito nel metodo, ma descriverei prima lo scenario e i problemi di ogni modulo 
-	(vision con una camera, possibilità di modellare o simulare il liquido, requisito dell'outcome binario ecc ecc).
+	(vision con una camera, possibilità di modellare o simulare il liquido, requisito dell'outcome binario tipico della manipolazione di liquidi ma non solo, ecc ecc).
 	A quel punto fai un problem statement, cioè dici: il nostro obiettivo è ottenere una strategia di planning la cui probabilità di successo converga a 1 all'aumentare 
 	delle iterazioni nonostante l'incertezza del modello, della perception e l'outcome binario. Lo puoi scrivere un po' in formule o a parole, vedi tu.
 	Una volta fatto il problem statement farei una sezione "Overview of the proposed approach" o qualcosa del genere, in cui spieghi in modo sommario cosa hai fatto 
 	suddividendo nei moduli vision, modelling, planning.
+	
 - perception: base deeplab+resnet mod.
+	- parte di stima pointcloud
+	- schema esplicativo della parte di visione (totale)
+	- schema CNN 1 e 2
+
 
 - modelli 
 	- immagini schema pouring 
-	- physics based (descrizione ambiente virtuale e genesis + movimentazione liquido + tante immagini) (equazioni e modelli WCSPH ) --introdotto come esempio	
+	- immagini ambiente virtuale immagini	
 
-- planning+sim2real (action)
+- planning
 	- aggiungere in appendice MAP e proposiz/proof co-update
 	- schema metodo
 
