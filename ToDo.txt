@@ -3,10 +3,8 @@ ToDo:
 # VISION
 - validazione con base line (no modello trainato, resnet alla prima iteraz)
 
-# EXP
-- test con genesis (1)
 
-presentaz
+video presentazione (ok):
 video test per stat
 video con contenitori diversi
 video genesis
@@ -26,47 +24,40 @@ thesis structure
 
 
 2) Related Work:
-modifica intro in base a metodologia effettivamente proposta quando delineata
 manca schema sistema completo
-
-+ recap, posizione e statement of contributions (Al termine del capitolo, come avevamo detto, aggiungerei una sottosezione in cui discuti come si posiziona la tesi rispetto allo stato dell'arte. Questo puoi ovviamente farlo alla fine, ma ricordati di aggiungerlo.)
 
 
 3) Preliminaries/ background:
 ML per vision (NN e CNN)
-- intro velocissima
-- esempi pratici (lavoro di rif DeeplabV3)  
-- resnet18
+- intro velocissima CNN (cos'è una rete convoluzionale, encoder e decoder)
+- tipi di layer, dropout (proprio al volo)
+- residual networks (18 e 101) 
+- upsampling e downsampling per CNN
+- skip connections
+- ASPP
 
 Bayesian optim e TS
 
 Methodology:
-- intro (da fare)
-	descrivere in modo generale lo scenario di manipolazione liquidi. Non entrerei subito nel metodo, ma descriverei prima lo scenario e i problemi di ogni modulo 
-	(vision con una camera, possibilità di modellare o simulare il liquido, requisito dell'outcome binario tipico della manipolazione di liquidi ma non solo, ecc ecc).
-	A quel punto fai un problem statement, cioè dici: il nostro obiettivo è ottenere una strategia di planning la cui probabilità di successo converga a 1 all'aumentare 
-	delle iterazioni nonostante l'incertezza del modello, della perception e l'outcome binario. Lo puoi scrivere un po' in formule o a parole, vedi tu.
-	Una volta fatto il problem statement farei una sezione "Overview of the proposed approach" o qualcosa del genere, in cui spieghi in modo sommario cosa hai fatto 
-	suddividendo nei moduli vision, modelling, planning.
-	
-- perception: base deeplab+resnet mod.
-	- parte di stima pointcloud
+
+- perception:
 	- schema esplicativo della parte di visione (totale)
 	- schema CNN 1 e 2
-
+	- immagini point cloud
 
 - modelli 
-	- immagini schema pouring 
-	- immagini ambiente virtuale immagini	
+	- immagini schema pouring (3d all'inizio e 2d con le variabili)
+	- immagini ambiente virtuale	
 
 - planning
 	- aggiungere in appendice MAP e proposiz/proof co-update
 	- schema metodo
 
+
 Experimental Results
 - risultati vision
 	
-- delta rispetto a target di livello 
+- delta rispetto a target di livello (60->40 100->50, 100->?, 20->20)
 - numero di iterazioni a successo stabile
 	
 - success rate baseline, dopo 5 iterazione, dopo 10, dopo 15 e a convergenza
@@ -82,6 +73,6 @@ Simulazione e realtà
 Conclusions:
 
 
-Infine farei una sezione per ognuno. Nella sezione del planning puoi dire che è generale per qualsiasi processo con outcome binario, ma che è particolarmente rilevante per i liquidi perché appunto è un caso in cui l'outcome spesso è proprio binario.
+Nella sezione del planning puoi dire che è generale per qualsiasi processo con outcome binario, ma che è particolarmente rilevante per i liquidi perché appunto è un caso in cui l'outcome spesso è proprio binario.
 
 Per quanto riguarda la formulazione del metodo di planning, mi sembra vada bene, ma la devo leggere per bene. Sicuramente un'immagine per far capire la pipeline (sampling di modelli e traiettorie, valutazione degli outcome e resampling potrebbe aiutare, ma vedi se hai tempo di farla. Comunque ti viene utile per la presentazione).
