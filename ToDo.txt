@@ -29,8 +29,7 @@ manca schema sistema completo
 
 3) Preliminaries/ background:
 ML per vision (NN e CNN)
-- intro velocissima CNN (cos'è una rete convoluzionale, encoder e decoder)
-- tipi di layer, dropout (proprio al volo)
+
 - residual networks (18 e 101) 
 - upsampling e downsampling per CNN
 - skip connections
@@ -51,7 +50,9 @@ Methodology:
 
 - planning
 	- aggiungere in appendice MAP e proposiz/proof co-update
-	- schema metodo
+	- schema metodo (un'immagine per far capire la pipeline (sampling di modelli e traiettorie, valutazione degli outcome e resampling).)
+	
+	
 
 
 Experimental Results
@@ -64,15 +65,7 @@ Experimental Results
 - andamento success rate, numero di iterazioni
 - andamento di alpha, num_wp
 
-
-
-
+Conclusions:
 case study
 Simulazione e realtà
 
-Conclusions:
-
-
-Nella sezione del planning puoi dire che è generale per qualsiasi processo con outcome binario, ma che è particolarmente rilevante per i liquidi perché appunto è un caso in cui l'outcome spesso è proprio binario.
-
-Per quanto riguarda la formulazione del metodo di planning, mi sembra vada bene, ma la devo leggere per bene. Sicuramente un'immagine per far capire la pipeline (sampling di modelli e traiettorie, valutazione degli outcome e resampling potrebbe aiutare, ma vedi se hai tempo di farla. Comunque ti viene utile per la presentazione).
